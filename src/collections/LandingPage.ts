@@ -1,0 +1,146 @@
+// collections/LandingPage.ts
+import type { CollectionConfig } from "payload";
+
+export const LandingPage: CollectionConfig = {
+  slug: "landingPage",
+  labels: {
+    singular: "Landing Page",
+    plural: "Landing Pages",
+  },
+  admin: {
+    useAsTitle: "title",
+  },
+  access: {
+  read: () => true,
+  create: ({ req }) => !!req.user,
+  update: ({ req }) => !!req.user,
+  delete: ({ req }) => !!req.user,
+},
+
+  fields: [
+    {
+      name: "title",
+      type: "text",
+      required: true,
+      admin: {
+        description: "Internal title for admin reference",
+      },
+    },
+
+    {
+      name: "hero",
+      type: "group",
+      fields: [
+        { name: "title", type: "text", required: true },
+        { name: "subtitle", type: "textarea", required: true },
+        { name: "description", type: "textarea", required: true },
+        { name: "image", type: "upload", relationTo: "media", required: true },
+         {
+          name: "primaryCTA",
+          type: "group",
+          fields: [
+            { name: "label", type: "text", required: true },
+            { name: "url", type: "text", required: true },
+          ],
+        },
+        {
+          name: "secondaryCTA",
+          type: "group",
+          fields: [
+            { name: "label", type: "text" },
+            { name: "url", type: "text" },
+          ],
+        },
+      ],
+    },
+
+    {
+      name: "about",
+      type: "group",
+      label: "What is Samsam",
+      fields: [
+        { name: "title", type: "text", required: true },
+        { name: "content", type: "textarea", required: true },
+        {
+          name: "principles",
+          type: "array",
+          label: "Key Principles",
+          fields: [
+            { name: "text", type: "text", required: true },
+          ],
+        },
+        {
+          name: "outcomes",
+          type: "array",
+          label: "Outcomes",
+          fields: [
+            { name: "text", type: "text", required: true },
+          ],
+        },
+      ],
+    },
+
+    {
+      name: "howItWorks",
+      type: "group",
+      label: "How It Works",
+      fields: [
+        { name: "title", type: "text", required: true },
+        {
+          name: "steps",
+          type: "array",
+          fields: [
+            { name: "title", type: "text", required: true },
+            { name: "description", type: "textarea", required: true },
+          ],
+        },
+      ],
+    },
+
+    {
+      name: "features",
+      type: "group",
+      label: "Features",
+      fields: [
+        { name: "title", type: "text", required: true },
+        {
+          name: "items",
+          type: "array",
+          fields: [
+            { name: "featureTitle", type: "text", required: true },
+            {
+              name: "points",
+              type: "array",
+              fields: [
+                { name: "text", type: "text", required: true },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+
+    {
+  name: "whySamsam",
+  type: "group",
+  label: "Why Samsam",
+  fields: [
+    { name: "title", type: "text", required: true },
+
+    { name: "image", type: "upload", relationTo: "media" }, // optional
+
+    {
+      name: "reasons",
+      type: "array",
+      fields: [
+        { name: "title", type: "text", required: true },
+        { name: "description", type: "textarea" },
+      ],
+    },
+
+  ],
+},
+  
+   
+  ],
+};

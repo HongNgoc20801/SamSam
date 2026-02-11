@@ -1,63 +1,58 @@
 'use client'
-
+ 
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import styles from './login.module.css'
 import Brand from '../../components/Brand'
-
-const AUTH_COLLECTION = 'users' 
-
+ 
+const AUTH_COLLECTION = 'customers'
+ 
+function cleanEmailInput(v: string) {
+  return v.trim().toLowerCase().replace(/\u200B|\u200C|\u200D|\uFEFF/g, '')
+}
 function isValidEmail(email: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
 }
-
+ 
 export default function LoginPage() {
   const router = useRouter()
-
+ 
   const API_BASE = useMemo(() => {
     const base = process.env.NEXT_PUBLIC_PAYLOAD_URL
-    return base ? `${base}/api/${AUTH_COLLECTION}` : `/api/${AUTH_COLLECTION}`
+    const clean = base ? base.replace(/\/$/, '') : ''
+    return clean ? `${clean}/api/${AUTH_COLLECTION}` : `/api/${AUTH_COLLECTION}`
   }, [])
-
+ 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [remember, setRemember] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-
+ 
   useEffect(() => {
     const remembered = localStorage.getItem('samsam_remember') === '1'
     if (!remembered) return
-
     setEmail(localStorage.getItem('samsam_email') ?? '')
-    setPassword(localStorage.getItem('samsam_password') ?? '')
     setRemember(true)
   }, [])
-
+ 
   useEffect(() => {
     ;(async () => {
       try {
-        const res = await fetch(`${API_BASE}/me`, {
-          method: 'GET',
-          credentials: 'include',
-        })
+        const res = await fetch(`${API_BASE}/me`, { credentials: 'include' })
         if (!res.ok) return
-
         const data = await res.json().catch(() => null)
-        if (data?.user) {
-          router.replace('/dashboard')
-        }
-      } catch {
-      }
+        if (data?.user) router.replace('/dashboard')
+      } catch {}
     })()
   }, [API_BASE, router])
-
+ 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (loading) return
     setError('')
-
-    const cleanEmail = email.trim()
-
+ 
+    const cleanEmail = cleanEmailInput(email)
     if (!cleanEmail || !password) {
       setError('Vennligst fyll inn e-post og passord.')
       return
@@ -66,7 +61,7 @@ export default function LoginPage() {
       setError('Ugyldig e-postadresse.')
       return
     }
-
+ 
     setLoading(true)
     try {
       const res = await fetch(`${API_BASE}/login`, {
@@ -75,26 +70,41 @@ export default function LoginPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: cleanEmail, password }),
       })
-
+ 
       const data = await res.json().catch(() => ({} as any))
       if (!res.ok) {
-        const msg =
-          data?.message ||
-          data?.errors?.[0]?.message ||
-          'Feil e-post eller passord.'
-        throw new Error(msg)
+        throw new Error(data?.message || data?.errors?.[0]?.message || 'Feil e-post eller passord.')
       }
-
+ 
       if (remember) {
         localStorage.setItem('samsam_remember', '1')
         localStorage.setItem('samsam_email', cleanEmail)
-        localStorage.setItem('samsam_password', password)
       } else {
         localStorage.removeItem('samsam_remember')
         localStorage.removeItem('samsam_email')
-        localStorage.removeItem('samsam_password')
       }
-
+ 
+      // ✅ join family nếu có invite code từ register
+      const savedInviteCode = (sessionStorage.getItem('samsam_invite_code') || '').trim()
+      if (savedInviteCode) {
+        const joinRes = await fetch(`/api/families/join`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code: savedInviteCode }),
+        })
+ 
+        const j = await joinRes.json().catch(() => null)
+        if (!joinRes.ok) {
+          console.warn('Join family failed:', joinRes.status, j?.message)
+        }
+ 
+        sessionStorage.removeItem('samsam_invite_code')
+ 
+        // refresh session info
+        await fetch(`/api/customers/me`, { credentials: 'include', cache: 'no-store' })
+      }
+ 
       router.push('/dashboard')
     } catch (err: any) {
       setError(err?.message || 'Noe gikk galt. Prøv igjen.')
@@ -102,19 +112,20 @@ export default function LoginPage() {
       setLoading(false)
     }
   }
-
+ 
   return (
     <main className={styles.bg}>
       <section className={styles.card} aria-label="Innlogging">
+        {/* ✅ dùng chung Brand */}
         <div className={styles.brand} aria-label="SamSam">
           <Brand />
         </div>
-
+ 
         <h1 className={styles.title}>Logg inn</h1>
         <p className={styles.subtitle}>
           Velkommen tilbake. Logg inn for å se kalender, avtaler og oppgaver.
         </p>
-
+ 
         <form className={styles.form} onSubmit={handleSubmit} noValidate>
           <label className={styles.label} htmlFor="email">
             E-post
@@ -143,7 +154,7 @@ export default function LoginPage() {
               required
             />
           </div>
-
+ 
           <label className={styles.label} htmlFor="password">
             Passord
           </label>
@@ -172,7 +183,7 @@ export default function LoginPage() {
               minLength={6}
             />
           </div>
-
+ 
           <div className={styles.row}>
             <label className={styles.remember}>
               <input
@@ -181,7 +192,8 @@ export default function LoginPage() {
                 onChange={(e) => {
                   const checked = e.target.checked
                   setRemember(checked)
-
+ 
+                  // ✅ bỏ tick thì xóa sạch, lần sau trống
                   if (!checked) {
                     localStorage.removeItem('samsam_remember')
                     localStorage.removeItem('samsam_email')
@@ -194,7 +206,7 @@ export default function LoginPage() {
               />
               <span>Huske meg</span>
             </label>
-
+ 
             <button
               type="button"
               className={styles.linkBtn}
@@ -206,15 +218,15 @@ export default function LoginPage() {
               Glemt passord?
             </button>
           </div>
-
+ 
           <button className={styles.primaryBtn} type="submit" disabled={loading}>
             {loading ? 'Logger inn…' : 'Logg inn'}
           </button>
-
+ 
           <div className={styles.divider} role="separator" aria-label="eller">
             <span>eller</span>
           </div>
-
+ 
           <button
             className={styles.secondaryBtn}
             type="button"
@@ -223,17 +235,19 @@ export default function LoginPage() {
           >
             Opprett konto
           </button>
-
+ 
           <p className={styles.note}>
             Har du fått en invitasjon? Lim inn koden for å bli med i familiegruppen.
           </p>
-
+ 
           <p className={styles.error} role="alert" aria-live="polite">
             {error}
-            
           </p>
         </form>
       </section>
     </main>
   )
 }
+ 
+ 
+ 

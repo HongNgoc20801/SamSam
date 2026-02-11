@@ -1,0 +1,35 @@
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.heart {
+  stroke: #d9b44a;
+}
+
+.text {
+  display: flex;
+  flex-direction: column;
+  line-height: 0.95;
+}
+
+.name {
+  font-weight: 900;
+  color: #d9b44a;
+  letter-spacing: 0.02em;
+}
+
+.lg .name {
+  font-size: 20px;
+}
+
+.sm .name {
+  font-size: 16px;
+}

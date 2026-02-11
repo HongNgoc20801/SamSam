@@ -70,6 +70,9 @@ export interface Config {
   collections: {
     users: User;
     media: Media;
+    landingPage: LandingPage;
+    customers: Customer;
+    families: Family;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
@@ -79,6 +82,9 @@ export interface Config {
   collectionsSelect: {
     users: UsersSelect<false> | UsersSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
+    landingPage: LandingPageSelect<false> | LandingPageSelect<true>;
+    customers: CustomersSelect<false> | CustomersSelect<true>;
+    families: FamiliesSelect<false> | FamiliesSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -179,6 +185,130 @@ export interface Media {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "landingPage".
+ */
+export interface LandingPage {
+  id: number;
+  /**
+   * Internal title for admin reference
+   */
+  title: string;
+  hero: {
+    title: string;
+    subtitle: string;
+    description: string;
+    image: number | Media;
+    primaryCTA: {
+      label: string;
+      url: string;
+    };
+    secondaryCTA?: {
+      label?: string | null;
+      url?: string | null;
+    };
+  };
+  about: {
+    title: string;
+    content: string;
+    principles?:
+      | {
+          text: string;
+          id?: string | null;
+        }[]
+      | null;
+    outcomes?:
+      | {
+          text: string;
+          id?: string | null;
+        }[]
+      | null;
+  };
+  howItWorks: {
+    title: string;
+    steps?:
+      | {
+          title: string;
+          description: string;
+          id?: string | null;
+        }[]
+      | null;
+  };
+  features: {
+    title: string;
+    items?:
+      | {
+          featureTitle: string;
+          points?:
+            | {
+                text: string;
+                id?: string | null;
+              }[]
+            | null;
+          id?: string | null;
+        }[]
+      | null;
+  };
+  whySamsam: {
+    title: string;
+    image?: (number | null) | Media;
+    reasons?:
+      | {
+          title: string;
+          description?: string | null;
+          id?: string | null;
+        }[]
+      | null;
+  };
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "customers".
+ */
+export interface Customer {
+  id: number;
+  firstName: string;
+  lastName: string;
+  birthDate: string;
+  phone: string;
+  address: string;
+  gender: 'male' | 'female' | 'other';
+  familyRole: 'father' | 'mother' | 'sibling' | 'other';
+  family?: (number | null) | Family;
+  updatedAt: string;
+  createdAt: string;
+  email: string;
+  resetPasswordToken?: string | null;
+  resetPasswordExpiration?: string | null;
+  salt?: string | null;
+  hash?: string | null;
+  loginAttempts?: number | null;
+  lockUntil?: string | null;
+  sessions?:
+    | {
+        id: string;
+        createdAt?: string | null;
+        expiresAt: string;
+      }[]
+    | null;
+  password?: string | null;
+  collection: 'customers';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "families".
+ */
+export interface Family {
+  id: number;
+  name?: string | null;
+  inviteCode: string;
+  members: (number | Customer)[];
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
 export interface PayloadKv {
@@ -207,7 +337,19 @@ export interface PayloadLockedDocument {
       } | null)
     | ({
         relationTo: 'media';
-        value: string | Media;
+        value: number | Media;
+      } | null)
+    | ({
+        relationTo: 'landingPage';
+        value: number | LandingPage;
+      } | null)
+    | ({
+        relationTo: 'customers';
+        value: number | Customer;
+      } | null)
+    | ({
+        relationTo: 'families';
+        value: number | Family;
       } | null);
   globalSlug?: string | null;
   user:
@@ -300,6 +442,136 @@ export interface MediaSelect<T extends boolean = true> {
   height?: T;
   focalX?: T;
   focalY?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "landingPage_select".
+ */
+export interface LandingPageSelect<T extends boolean = true> {
+  title?: T;
+  hero?:
+    | T
+    | {
+        title?: T;
+        subtitle?: T;
+        description?: T;
+        image?: T;
+        primaryCTA?:
+          | T
+          | {
+              label?: T;
+              url?: T;
+            };
+        secondaryCTA?:
+          | T
+          | {
+              label?: T;
+              url?: T;
+            };
+      };
+  about?:
+    | T
+    | {
+        title?: T;
+        content?: T;
+        principles?:
+          | T
+          | {
+              text?: T;
+              id?: T;
+            };
+        outcomes?:
+          | T
+          | {
+              text?: T;
+              id?: T;
+            };
+      };
+  howItWorks?:
+    | T
+    | {
+        title?: T;
+        steps?:
+          | T
+          | {
+              title?: T;
+              description?: T;
+              id?: T;
+            };
+      };
+  features?:
+    | T
+    | {
+        title?: T;
+        items?:
+          | T
+          | {
+              featureTitle?: T;
+              points?:
+                | T
+                | {
+                    text?: T;
+                    id?: T;
+                  };
+              id?: T;
+            };
+      };
+  whySamsam?:
+    | T
+    | {
+        title?: T;
+        image?: T;
+        reasons?:
+          | T
+          | {
+              title?: T;
+              description?: T;
+              id?: T;
+            };
+      };
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "customers_select".
+ */
+export interface CustomersSelect<T extends boolean = true> {
+  firstName?: T;
+  lastName?: T;
+  birthDate?: T;
+  phone?: T;
+  address?: T;
+  gender?: T;
+  familyRole?: T;
+  family?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  email?: T;
+  resetPasswordToken?: T;
+  resetPasswordExpiration?: T;
+  salt?: T;
+  hash?: T;
+  loginAttempts?: T;
+  lockUntil?: T;
+  sessions?:
+    | T
+    | {
+        id?: T;
+        createdAt?: T;
+        expiresAt?: T;
+      };
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "families_select".
+ */
+export interface FamiliesSelect<T extends boolean = true> {
+  name?: T;
+  inviteCode?: T;
+  members?: T;
+  updatedAt?: T;
+  createdAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

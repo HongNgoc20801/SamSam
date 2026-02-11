@@ -5,6 +5,16 @@ import { useRouter } from 'next/navigation'
 import styles from './register.module.css'
 import Brand from '../../components/Brand'
 
+function cleanEmailInput(v: string) {
+  return v.trim().toLowerCase().replace(/\u200B|\u200C|\u200D|\uFEFF/g, '')
+}
+function isValidEmail(email: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+}
+function isValidPhone(phone: string) {
+  return /^[+\d\s]{6,}$/.test(phone.trim())
+}
+
 export default function RegisterPage() {
   const router = useRouter()
 
@@ -20,11 +30,57 @@ export default function RegisterPage() {
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
 
-  const [loading] = useState(false) 
-  const [error] = useState('') 
+ const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (loading) return
+    setError('')
+
+    const cleanEmail = cleanEmailInput(email)
+
+    if (
+      !firstName.trim() ||
+      !lastName.trim() ||
+      !birthDate ||
+      !cleanEmail ||
+      !phone.trim() ||
+      !address.trim() ||
+      !gender ||
+      !familyRole ||
+      !password ||
+      !confirm
+    ) {
+      setError('Vennligst fyll inn alle feltene.')
+      return
+    }
+
+    if (!isValidEmail(cleanEmail)) {
+      setError('Ugyldig e-postadresse.')
+      return
+    }
+
+    if (!isValidPhone(phone)) {
+      setError('Ugyldig telefonnummer.')
+      return
+    }
+
+    if (password.length < 6) {
+      setError('Passord må være minst 6 tegn.')
+      return
+    }
+
+    if (password !== confirm) {
+      setError('Passordene matcher ikke.')
+      return
+    }
+    setLoading(true)
+    try {
+    
+    } finally {
+      setLoading(false)
+    }
    
   }
 

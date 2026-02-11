@@ -27,27 +27,26 @@
 }
 
 .left {
-  justify-content: unset; /* bỏ center */
+  justify-content: unset; 
   justify-self: start; 
 }
 
 .right {
-  justify-self: end;      /* đẩy text về phải */
+  justify-self: end;     
   text-align: left;
-  max-width: 520px;       /* giúp text không quá rộng */
+  max-width: 520px;      
 }
 
 
 .img {
-  width: min(640px, 100%); /* tăng từ 520 -> 640 */
-  height: auto;            /* bỏ height cứng để không méo */
-  aspect-ratio: 16 / 9;    /* giữ tỉ lệ đẹp */
+  width: min(640px, 100%); 
+  height: auto;            
+  aspect-ratio: 16 / 9;    
   object-fit: cover;
   border-radius: 22px;
   display: block;
 }
 
-/* fallback khi chưa có ảnh */
 .mockPlaceholder {
   width: 100%;
   height: 100%;
@@ -137,26 +136,3 @@
   color: rgba(13, 53, 79, 0.72);
 }
 
-
-/* responsive */
-@media (max-width: 900px) {
-  .layout {
-    grid-template-columns: 1fr 1fr;
-    gap: 28px;
-  }
-
-  .right {
-    text-align: center;
-  }
-
-  .item {
-    grid-template-columns: 34px 1fr;
-    text-align: left;
-    max-width: 680px;
-    margin: 0 auto;
-  }
-
-  .left {
-    order: -1;
-  }
-}

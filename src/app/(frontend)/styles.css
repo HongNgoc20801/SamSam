@@ -1,6 +1,22 @@
 :root {
-  --font-mono: 'Roboto Mono', monospace;
+  --bg: #f8fbff;
+  --bg2: #eef4ff;
+  --text: #0f172a;
+  --muted: rgba(15, 23, 42, 0.70);
+
+  --card: rgba(255, 255, 255, 0.92);
+  --border: rgba(15, 23, 42, 0.08);
+
+  --blue: #2563eb;
+  --blue2: #60a5fa;
+
+  --radius-xl: 28px;
+  --radius-lg: 18px;
+
+  --shadow1: 0 20px 50px rgba(15, 23, 42, 0.10);
+  --shadow2: 0 10px 24px rgba(15, 23, 42, 0.06);
 }
+
 
 * {
   box-sizing: border-box;
@@ -10,7 +26,7 @@ html {
   font-size: 18px;
   line-height: 32px;
 
-  background: rgb(0, 0, 0);
+  background: rgb(230, 239, 247);
   -webkit-font-smoothing: antialiased;
 }
 

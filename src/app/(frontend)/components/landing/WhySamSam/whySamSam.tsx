@@ -1,4 +1,4 @@
-import styles from "./whySamsam.module.css"
+import styles from "./whySamSam.module.css"
 
 interface Props {
   data: {

@@ -1,4 +1,4 @@
-import styles from "./HowItWork.module.css";
+import styles from "./HowItWork.module.css"
 
 interface Props {
   data: {

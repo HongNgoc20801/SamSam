@@ -1,9 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import styles from './register.module.css'
 import Brand from '../../components/Brand'
+
+const AUTH_COLLECTION = 'customers'
 
 function cleanEmailInput(v: string) {
   return v.trim().toLowerCase().replace(/\u200B|\u200C|\u200D|\uFEFF/g, '')
@@ -18,6 +20,13 @@ function isValidPhone(phone: string) {
 export default function RegisterPage() {
   const router = useRouter()
 
+  const API_BASE = useMemo(() => {
+    // chạy cùng origin thì NEXT_PUBLIC_PAYLOAD_URL có thể bỏ trống
+    const base = process.env.NEXT_PUBLIC_PAYLOAD_URL
+    const clean = base ? base.replace(/\/$/, '') : ''
+    return clean ? `${clean}/api/${AUTH_COLLECTION}` : `/api/${AUTH_COLLECTION}`
+  }, [])
+
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [birthDate, setBirthDate] = useState('')
@@ -30,7 +39,7 @@ export default function RegisterPage() {
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
 
- const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
   async function handleSubmit(e: React.FormEvent) {
@@ -75,15 +84,55 @@ export default function RegisterPage() {
       setError('Passordene matcher ikke.')
       return
     }
+
     setLoading(true)
     try {
-    
+      const createRes = await fetch(`${API_BASE}`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          firstName: firstName.trim(),
+          lastName: lastName.trim(),
+          birthDate,
+          email: cleanEmail,
+          phone: phone.trim(),
+          address: address.trim(),
+          gender,
+          familyRole,
+          password,
+        }),
+      })
+
+      const raw = await createRes.text()
+      let createData: any = {}
+      try {
+        createData = JSON.parse(raw)
+      } catch {}
+
+      if (!createRes.ok) {
+        const msg =
+          createData?.message ||
+          createData?.errors?.[0]?.message ||
+          raw ||
+          'Kunne ikke opprette konto.'
+        throw new Error(msg)
+      }
+
+      // ✅ giữ luồng: nếu user nhập invite code, lưu để login join
+      const code = inviteCode.trim()
+      if (code) sessionStorage.setItem('samsam_invite_code', code)
+      else sessionStorage.removeItem('samsam_invite_code')
+
+      router.push('/login?registered=1')
+    } catch (err: any) {
+      setError(err?.message || 'Noe gikk galt. Prøv igjen.')
     } finally {
       setLoading(false)
     }
-   
   }
 
+  
   return (
     <main className={styles.bg}>
       <section className={styles.card} aria-label="Registrering">
@@ -266,14 +315,19 @@ export default function RegisterPage() {
           </div>
 
           <button className={styles.primaryBtn} type="submit" disabled={loading}>
-            Opprett konto
+            {loading ? 'Oppretter…' : 'Opprett konto'}
           </button>
 
           <div className={styles.divider} role="separator" aria-label="eller">
             <span>eller</span>
           </div>
 
-          <button className={styles.secondaryBtn} type="button" onClick={() => router.push('/login')} disabled={loading}>
+          <button
+            className={styles.secondaryBtn}
+            type="button"
+            onClick={() => router.push('/login')}
+            disabled={loading}
+          >
             Tilbake til Logg inn
           </button>
 
@@ -285,3 +339,4 @@ export default function RegisterPage() {
     </main>
   )
 }
+

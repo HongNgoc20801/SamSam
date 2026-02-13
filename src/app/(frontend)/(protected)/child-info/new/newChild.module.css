@@ -1,0 +1,71 @@
+.wrapper {
+  padding: 24px;
+}
+
+.title {
+  font-size: 24px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.subtitle {
+  opacity: 0.8;
+  color: #444;
+  margin-bottom: 12px;
+  line-height: 1.5;
+}
+
+.form {
+  margin-top: 12px;
+  display: grid;
+  gap: 10px;
+  max-width: 420px;
+}
+
+.label {
+  display: grid;
+  gap: 6px;
+  font-size: 14px;
+  color: #222;
+}
+
+.input {
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  outline: none;
+  font-size: 14px;
+}
+
+.input:focus {
+  border-color: #bbb;
+}
+
+.checkboxRow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 14px;
+  color: #222;
+}
+
+.button {
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid #111;
+  background: #111;
+  color: #fff;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.error {
+  color: crimson;
+  margin-top: 4px;
+  font-size: 14px;
+}

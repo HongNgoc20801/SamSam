@@ -1,32 +1,13 @@
 import type { ReactNode } from 'react'
-import { cookies, headers } from 'next/headers'
+//import { cookies, headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import styles from './protectedLayout.module.css'
 import ProtectedSidebar from '../components/ProtectedSidebar'
+import { serverFetch } from '../../lib/serverFetch' 
+
+
  
 export const dynamic = 'force-dynamic'
- 
-async function getOrigin() {
-  const h = await headers()
-  const host = h.get('x-forwarded-host') ?? h.get('host')
-  const proto = h.get('x-forwarded-proto') ?? 'http'
-  return `${proto}://${host}`
-}
- 
-async function serverFetch(path: string) {
-  const cookieStore = await cookies()
-  const cookieHeader = cookieStore
-    .getAll()
-    .map((c) => `${c.name}=${c.value}`)
-    .join('; ')
- 
-  const origin = await getOrigin()
- 
-  return fetch(`${origin}${path}`, {
-    headers: { cookie: cookieHeader },
-    cache: 'no-store',
-  })
-}
  
 export default async function ProtectedLayout({ children }: { children: ReactNode }) {
   // ✅ đổi users -> customers

@@ -73,6 +73,7 @@ export interface Config {
     landingPage: LandingPage;
     customers: Customer;
     families: Family;
+    children: Child;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
@@ -85,6 +86,7 @@ export interface Config {
     landingPage: LandingPageSelect<false> | LandingPageSelect<true>;
     customers: CustomersSelect<false> | CustomersSelect<true>;
     families: FamiliesSelect<false> | FamiliesSelect<true>;
+    children: ChildrenSelect<false> | ChildrenSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -309,6 +311,20 @@ export interface Family {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "children".
+ */
+export interface Child {
+  id: number;
+  family: number | Family;
+  fullName: string;
+  birthDate: string;
+  status: 'pending' | 'confirmed';
+  createdBy?: (number | null) | Customer;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
 export interface PayloadKv {
@@ -350,6 +366,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'families';
         value: number | Family;
+      } | null)
+    | ({
+        relationTo: 'children';
+        value: number | Child;
       } | null);
   globalSlug?: string | null;
   user:
@@ -570,6 +590,19 @@ export interface FamiliesSelect<T extends boolean = true> {
   name?: T;
   inviteCode?: T;
   members?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "children_select".
+ */
+export interface ChildrenSelect<T extends boolean = true> {
+  family?: T;
+  fullName?: T;
+  birthDate?: T;
+  status?: T;
+  createdBy?: T;
   updatedAt?: T;
   createdAt?: T;
 }

@@ -1,0 +1,47 @@
+.wrapper {
+  padding: 24px;
+}
+
+.title {
+  font-size: 24px;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+.card {
+  margin-top: 12px;
+  padding: 16px;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  background-color: #fff;
+}
+
+.cardTitle {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.cardText {
+  margin-bottom: 12px;
+  color: #444;
+}
+
+.cta {
+  display: inline-block;
+  padding: 8px 14px;
+  border-radius: 6px;
+  background-color: #111;
+  color: #fff;
+  text-decoration: none;
+  font-size: 14px;
+}
+
+.cta:hover {
+  opacity: 0.9;
+}
+
+.empty {
+  font-size: 16px;
+  color: #666;
+}

@@ -320,6 +320,57 @@ export interface Child {
   family: number | Family;
   fullName: string;
   birthDate: string;
+  gender?: ('na' | 'male' | 'female' | 'other') | null;
+  /**
+   * MVP: store an image URL. Later change to Upload.
+   */
+  avatarURL?: string | null;
+  nationalId?: string | null;
+  medical?: {
+    bloodType?: ('unknown' | 'A' | 'B' | 'AB' | 'O' | 'A+' | 'A-' | 'B+' | 'B-' | 'AB+' | 'AB-' | 'O+' | 'O-') | null;
+    allergies?:
+      | {
+          value: string;
+          id?: string | null;
+        }[]
+      | null;
+    /**
+     * Bệnh nền / tình trạng sức khoẻ (nếu có).
+     */
+    conditions?:
+      | {
+          value: string;
+          id?: string | null;
+        }[]
+      | null;
+    medications?:
+      | {
+          name: string;
+          dose?: string | null;
+          notes?: string | null;
+          id?: string | null;
+        }[]
+      | null;
+    notesShort?: string | null;
+  };
+  school?: {
+    schoolName?: string | null;
+    className?: string | null;
+    mainTeacher?: string | null;
+  };
+  emergencyContact?: {
+    name?: string | null;
+    relation?: ('mother' | 'father' | 'grandparent' | 'guardian' | 'other') | null;
+    phone?: string | null;
+  };
+  emergencyContacts?:
+    | {
+        name: string;
+        relation: 'mother' | 'father' | 'grandparent' | 'guardian' | 'babysitter' | 'relative' | 'other';
+        phone: string;
+        id?: string | null;
+      }[]
+    | null;
   status: 'pending' | 'confirmed';
   createdBy?: (number | null) | Customer;
   updatedAt: string;
@@ -624,6 +675,57 @@ export interface ChildrenSelect<T extends boolean = true> {
   family?: T;
   fullName?: T;
   birthDate?: T;
+  gender?: T;
+  avatarURL?: T;
+  nationalId?: T;
+  medical?:
+    | T
+    | {
+        bloodType?: T;
+        allergies?:
+          | T
+          | {
+              value?: T;
+              id?: T;
+            };
+        conditions?:
+          | T
+          | {
+              value?: T;
+              id?: T;
+            };
+        medications?:
+          | T
+          | {
+              name?: T;
+              dose?: T;
+              notes?: T;
+              id?: T;
+            };
+        notesShort?: T;
+      };
+  school?:
+    | T
+    | {
+        schoolName?: T;
+        className?: T;
+        mainTeacher?: T;
+      };
+  emergencyContact?:
+    | T
+    | {
+        name?: T;
+        relation?: T;
+        phone?: T;
+      };
+  emergencyContacts?:
+    | T
+    | {
+        name?: T;
+        relation?: T;
+        phone?: T;
+        id?: T;
+      };
   status?: T;
   createdBy?: T;
   updatedAt?: T;

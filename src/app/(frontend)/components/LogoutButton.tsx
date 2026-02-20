@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 
-const AUTH_COLLECTION = 'users' // đổi nếu slug khác
+const AUTH_COLLECTION = 'customers' // đổi nếu slug khác
 
 export default function LogoutButton() {
   const router = useRouter()

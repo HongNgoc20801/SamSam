@@ -11,6 +11,7 @@ import { LandingPage } from './collections/LandingPage'
 import { Customers } from './collections/Customers'
 import { Families } from './collections/Families'
 import { Children } from './collections/Children'
+import { CalendarEvents } from './collections/CalendarEvents'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -22,7 +23,7 @@ export default buildConfig({
       baseDir: path.resolve(dirname),
     },
   },
-  collections: [Users, Media, LandingPage, Customers, Families, Children],
+  collections: [Users, Media, LandingPage, Customers, Families, Children, CalendarEvents],
   editor: lexicalEditor(),
   secret: process.env.PAYLOAD_SECRET || '',
   typescript: {

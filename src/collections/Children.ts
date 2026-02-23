@@ -20,6 +20,17 @@ function cleanPhone(v: any) {
   return String(v).trim()
 }
 
+function isValidHttpUrl(v: any) {
+  if (!v) return true
+  const s = String(v).trim()
+  try {
+    const u = new URL(s)
+    return u.protocol === 'http:' || u.protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
 export const Children: CollectionConfig = {
   slug: 'children',
   admin: { useAsTitle: 'fullName' },
@@ -54,6 +65,30 @@ export const Children: CollectionConfig = {
         // normalize
         if (next.fullName) next.fullName = String(next.fullName).trim()
         if (next.nationalId) next.nationalId = String(next.nationalId).replace(/\s+/g, '')
+
+        // avatar normalize (Upload or URL)
+        // NOTE: requires a Media collection, e.g. slug: 'media'
+        if (next?.avatar?.source === 'upload') {
+          // if upload is selected, keep upload, clear url
+          next.avatar.url = ''
+        } else if (next?.avatar?.source === 'url') {
+          // if url is selected, keep url, clear upload
+          next.avatar.upload = null
+          if (next.avatar.url) next.avatar.url = String(next.avatar.url).trim()
+        } else if (next?.avatar) {
+          // fallback if somehow source missing
+          // prefer upload if exists, else url
+          if (next.avatar.upload) {
+            next.avatar.source = 'upload'
+            next.avatar.url = ''
+          } else if (next.avatar.url) {
+            next.avatar.source = 'url'
+            next.avatar.upload = null
+            next.avatar.url = String(next.avatar.url).trim()
+          } else {
+            next.avatar.source = 'url'
+          }
+        }
 
         // primary emergency contact
         if (next?.emergencyContact?.name) next.emergencyContact.name = String(next.emergencyContact.name).trim()
@@ -125,12 +160,51 @@ export const Children: CollectionConfig = {
       ],
     },
 
+    // avatar (upload or URL)
     {
-      name: 'avatarURL',
-      label: 'Avatar URL',
-      type: 'text',
-      required: false,
-      admin: { description: 'MVP: store an image URL. Later change to Upload.' },
+      name: 'avatar',
+      label: 'Avatar',
+      type: 'group',
+      fields: [
+        {
+          name: 'source',
+          label: 'Avatar source',
+          type: 'radio',
+          defaultValue: 'url',
+          options: [
+            { label: 'Upload', value: 'upload' },
+            { label: 'URL', value: 'url' },
+          ],
+        },
+        {
+          name: 'upload',
+          label: 'Avatar (Upload)',
+          type: 'upload',
+          relationTo: 'media', // <-- change if your media collection slug is different
+          required: false,
+          admin: {
+            condition: (_: any, siblingData: any) => siblingData?.source === 'upload',
+            description: 'Upload an image to Media.',
+          },
+        },
+        {
+          name: 'url',
+          label: 'Avatar URL',
+          type: 'text',
+          required: false,
+          validate: (value: any, { siblingData }: any) => {
+            // only validate when URL mode is selected
+            if (siblingData?.source !== 'url') return true
+            if (!value) return true
+            if (!isValidHttpUrl(value)) return 'Avatar URL must be a valid http(s) URL.'
+            return true
+          },
+          admin: {
+            condition: (_: any, siblingData: any) => siblingData?.source === 'url',
+            description: 'MVP: store an image URL. Later switch to Upload or keep both.',
+          },
+        },
+      ],
     },
 
     // admin (paperwork)
@@ -293,6 +367,7 @@ export const Children: CollectionConfig = {
         { label: 'Pending', value: 'pending' },
         { label: 'Confirmed', value: 'confirmed' },
       ],
+      
     },
     { name: 'createdBy', type: 'relationship', relationTo: 'customers' },
   ],

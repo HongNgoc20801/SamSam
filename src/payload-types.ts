@@ -319,10 +319,17 @@ export interface Child {
   fullName: string;
   birthDate: string;
   gender?: ('na' | 'male' | 'female' | 'other') | null;
-  /**
-   * MVP: store an image URL. Later change to Upload.
-   */
-  avatarURL?: string | null;
+  avatar?: {
+    source?: ('upload' | 'url') | null;
+    /**
+     * Upload an image to Media.
+     */
+    upload?: (number | null) | Media;
+    /**
+     * MVP: store an image URL. Later switch to Upload or keep both.
+     */
+    url?: string | null;
+  };
   nationalId?: string | null;
   medical?: {
     bloodType?: ('unknown' | 'A' | 'B' | 'AB' | 'O' | 'A+' | 'A-' | 'B+' | 'B-' | 'AB+' | 'AB-' | 'O+' | 'O-') | null;
@@ -653,7 +660,13 @@ export interface ChildrenSelect<T extends boolean = true> {
   fullName?: T;
   birthDate?: T;
   gender?: T;
-  avatarURL?: T;
+  avatar?:
+    | T
+    | {
+        source?: T;
+        upload?: T;
+        url?: T;
+      };
   nationalId?: T;
   medical?:
     | T

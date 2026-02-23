@@ -1,35 +1,24 @@
 .brand {
   display: flex;
   align-items: center;
-  gap: 10px;
 }
 
-.icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+/* Khung nhỏ gọn, không blur */
+.logoWrap {
+  width: 56px;
+  height: 56px;
+  display: grid;
+  place-items: center;
+
+  border-radius: 16px;
+  background: #fff;   /* ✅ trắng hẳn */
+  border: none;       /* ✅ bỏ viền */
+  box-shadow: none;   /* ✅ bỏ shadow */
 }
 
-.heart {
-  stroke: #d9b44a;
-}
-
-.text {
-  display: flex;
-  flex-direction: column;
-  line-height: 0.95;
-}
-
-.name {
-  font-weight: 900;
-  color: #d9b44a;
-  letter-spacing: 0.02em;
-}
-
-.lg .name {
-  font-size: 20px;
-}
-
-.sm .name {
-  font-size: 16px;
+/* Chỉ drop-shadow, KHÔNG brightness/contrast */
+.logoImg {
+  display: block;
+  object-fit: contain;
+  filter: none;
 }

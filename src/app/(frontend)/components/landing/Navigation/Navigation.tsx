@@ -15,9 +15,11 @@ export default function NavbarWelcome() {
 
         {/* Navigation */}
         <nav className={styles.nav}>
-          <Link href="#how-it-works">How Samsam work</Link>
+          <Link href="#how">How Samsam work</Link>
           <Link href="#features">Features</Link>
-          <Link href="#why-samsam">Why Choose Samsam</Link>
+          <Link href="#why">Why Choose Samsam</Link>
+          <Link href="#about">About us</Link>
+          <Link href="#faq">FAQ</Link>
         </nav>
 
         {/* Buttons */}

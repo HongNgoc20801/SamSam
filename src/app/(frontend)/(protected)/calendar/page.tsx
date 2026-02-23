@@ -4,8 +4,20 @@ import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import styles from './calendar.module.css'
 
+import {
+  Calendar as BigCalendar,
+  dateFnsLocalizer,
+  Views,
+  type SlotInfo,
+  type Event as RBCBaseEvent,
+} from 'react-big-calendar'
+
+import { format, parse, startOfWeek, getDay } from 'date-fns'
+import { nb } from 'date-fns/locale'
+
 type Child = { id: string | number; fullName: string; status?: string }
-type CalEvent = {
+
+type CalEventDoc = {
   id: string | number
   title: string
   notes?: string
@@ -15,33 +27,57 @@ type CalEvent = {
   child?: string | number | { id: string | number; fullName?: string }
 }
 
-// ✅ Payload có thể dùng numeric id (SQL) => select luôn trả string
+type RBCResource = {
+  notes?: string
+  childId?: string
+  childName?: string
+}
+
+type RBCEvent = RBCBaseEvent & {
+  id: string
+  title: string
+  start: Date
+  end: Date
+  resource: RBCResource
+}
+
 function normalizeID(v: string) {
   const t = String(v ?? '').trim()
   return /^\d+$/.test(t) ? Number(t) : t
 }
 
-function fmt(dt: string) {
-  const d = new Date(dt)
-  if (Number.isNaN(d.getTime())) return dt
-  return new Intl.DateTimeFormat('no-NO', {
-    year: 'numeric',
-    month: 'short',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(d)
+function toLocalInputValue(d: Date) {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const yyyy = d.getFullYear()
+  const mm = pad(d.getMonth() + 1)
+  const dd = pad(d.getDate())
+  const hh = pad(d.getHours())
+  const mi = pad(d.getMinutes())
+  return `${yyyy}-${mm}-${dd}T${hh}:${mi}`
 }
+
+const locales = { 'no-NO': nb }
+const localizer = dateFnsLocalizer({
+  format,
+  parse,
+  startOfWeek: () => startOfWeek(new Date(), { locale: nb }),
+  getDay,
+  locales,
+})
 
 export default function CalendarPage() {
   const [loading, setLoading] = useState(true)
   const [children, setChildren] = useState<Child[]>([])
-  const [events, setEvents] = useState<CalEvent[]>([])
+  const [docs, setDocs] = useState<CalEventDoc[]>([])
   const [error, setError] = useState('')
 
-  // form state
-  const [openForm, setOpenForm] = useState(false)
-  const [childId, setChildId] = useState('') // select always string
+  const [filterChild, setFilterChild] = useState<'all' | string>('all')
+
+  const [open, setOpen] = useState(false)
+  const [mode, setMode] = useState<'create' | 'view'>('create')
+  const [activeEvent, setActiveEvent] = useState<RBCEvent | null>(null)
+
+  const [childId, setChildId] = useState('')
   const [title, setTitle] = useState('')
   const [notes, setNotes] = useState('')
   const [startAt, setStartAt] = useState('')
@@ -65,7 +101,7 @@ export default function CalendarPage() {
           credentials: 'include',
           cache: 'no-store',
         }),
-        fetch('/api/calendar-events?limit=200&sort=-startAt', {
+        fetch('/api/calendar-events?limit=500&sort=-startAt', {
           credentials: 'include',
           cache: 'no-store',
         }),
@@ -84,20 +120,22 @@ export default function CalendarPage() {
       } catch {}
 
       if (!cRes.ok) {
-        const msg = cData?.message || cData?.errors?.[0]?.message || cRaw || `Children failed: ${cRes.status}`
-        throw new Error(msg)
+        throw new Error(
+          cData?.message || cData?.errors?.[0]?.message || cRaw || `Children failed: ${cRes.status}`,
+        )
       }
       if (!eRes.ok) {
-        const msg = eData?.message || eData?.errors?.[0]?.message || eRaw || `Events failed: ${eRes.status}`
-        throw new Error(msg)
+        throw new Error(
+          eData?.message || eData?.errors?.[0]?.message || eRaw || `Events failed: ${eRes.status}`,
+        )
       }
 
       setChildren(cData?.docs ?? [])
-      setEvents(eData?.docs ?? [])
+      setDocs(eData?.docs ?? [])
     } catch (err: any) {
       setError(err?.message || 'Network error')
       setChildren([])
-      setEvents([])
+      setDocs([])
     } finally {
       setLoading(false)
     }
@@ -106,6 +144,58 @@ export default function CalendarPage() {
   useEffect(() => {
     loadAll()
   }, [])
+
+  const events: RBCEvent[] = useMemo(() => {
+    const mapped = (docs ?? [])
+      .map((d) => {
+        const start = new Date(d.startAt)
+        const end = new Date(d.endAt)
+        if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return null
+
+        const cid =
+          typeof d.child === 'object' && d.child ? (d.child as any).id : d.child
+        const cidStr = cid != null ? String(cid) : undefined
+        const childName = cidStr ? childNameById.get(cidStr) : undefined
+
+        const ev: RBCEvent = {
+          id: String(d.id),
+          title: d.title,
+          start,
+          end,
+          allDay: Boolean(d.allDay),
+          resource: {
+            notes: d.notes,
+            childId: cidStr,
+            childName,
+          },
+        }
+        return ev
+      })
+      .filter(Boolean) as RBCEvent[]
+
+    if (filterChild === 'all') return mapped
+    return mapped.filter((e) => e.resource.childId === filterChild)
+  }, [docs, childNameById, filterChild])
+
+  function resetForm() {
+    setChildId('')
+    setTitle('')
+    setNotes('')
+    setStartAt('')
+    setEndAt('')
+  }
+
+  function openCreateWithRange(start: Date, end: Date) {
+    setError('')
+    setMode('create')
+    setActiveEvent(null)
+    setOpen(true)
+
+    setStartAt(toLocalInputValue(start))
+    setEndAt(toLocalInputValue(end))
+
+    if (filterChild !== 'all') setChildId(filterChild)
+  }
 
   async function createEvent(e: React.FormEvent) {
     e.preventDefault()
@@ -138,7 +228,7 @@ export default function CalendarPage() {
 
     setSaving(true)
     try {
-      const childValue = normalizeID(childId) // ✅ FIX Child invalid
+      const childValue = normalizeID(childId)
 
       const res = await fetch('/api/calendar-events', {
         method: 'POST',
@@ -153,7 +243,6 @@ export default function CalendarPage() {
         }),
       })
 
-      // ✅ show đúng error của Payload
       const raw = await res.text()
       let j: any = {}
       try {
@@ -165,14 +254,8 @@ export default function CalendarPage() {
         throw new Error(msg)
       }
 
-      // reset form
-      setTitle('')
-      setNotes('')
-      setStartAt('')
-      setEndAt('')
-      setChildId('')
-      setOpenForm(false)
-
+      resetForm()
+      setOpen(false)
       await loadAll()
     } catch (err: any) {
       setError(err?.message || 'Noe gikk galt.')
@@ -181,7 +264,7 @@ export default function CalendarPage() {
     }
   }
 
-  async function deleteEvent(id: string | number) {
+  async function deleteEvent(id: string) {
     if (!confirm('Slette denne avtalen?')) return
     setError('')
     try {
@@ -201,6 +284,8 @@ export default function CalendarPage() {
         throw new Error(msg)
       }
 
+      setOpen(false)
+      setActiveEvent(null)
       await loadAll()
     } catch (err: any) {
       setError(err?.message || 'Noe gikk galt.')
@@ -211,20 +296,43 @@ export default function CalendarPage() {
 
   return (
     <div className={styles.wrapper}>
-      <div className={styles.header}>
+      <div className={styles.topBar}>
         <div>
           <h1 className={styles.title}>Kalender</h1>
-          <p className={styles.subtitle}>Legg til avtaler for barna i familiegruppen.</p>
+          <p className={styles.subtitle}>Velg dato i kalenderen for å legge til avtale.</p>
         </div>
 
-        <button
-          className={styles.primaryBtn}
-          onClick={() => setOpenForm((s) => !s)}
-          disabled={!hasChildren}
-          title={!hasChildren ? 'Legg til et barn først' : 'Legg til avtale'}
-        >
-          + Legg til avtale
-        </button>
+        <div className={styles.topActions}>
+          <label className={styles.filterLabel}>
+            Filter barn
+            <select
+              className={styles.select}
+              value={filterChild}
+              onChange={(e) => setFilterChild(e.target.value)}
+              disabled={!hasChildren}
+            >
+              <option value="all">Alle</option>
+              {children.map((c) => (
+                <option key={String(c.id)} value={String(c.id)}>
+                  {c.fullName}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <button
+            className={styles.primaryBtn}
+            disabled={!hasChildren}
+            title={!hasChildren ? 'Legg til et barn først' : 'Opprett avtale'}
+            onClick={() => {
+              const now = new Date()
+              const end = new Date(now.getTime() + 30 * 60 * 1000)
+              openCreateWithRange(now, end)
+            }}
+          >
+            + Ny avtale
+          </button>
+        </div>
       </div>
 
       {!hasChildren ? (
@@ -238,120 +346,150 @@ export default function CalendarPage() {
         </div>
       ) : null}
 
-      {openForm && hasChildren ? (
-        <form className={styles.form} onSubmit={createEvent}>
-          <div className={styles.formRow}>
-            <label className={styles.label}>
-              Velg barn
-              <select
-                className={styles.select}
-                value={childId}
-                onChange={(ev) => setChildId(ev.target.value)}
-                disabled={saving}
-              >
-                <option value="">Velg…</option>
-                {children.map((c) => (
-                  <option key={String(c.id)} value={String(c.id)}>
-                    {c.fullName} {c.status ? `(${c.status})` : ''}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className={styles.label}>
-              Tittel
-              <input
-                className={styles.input}
-                value={title}
-                onChange={(ev) => setTitle(ev.target.value)}
-                disabled={saving}
-                placeholder="F.eks. Legetime / Barnehage / Fotball"
-              />
-            </label>
-          </div>
-
-          <div className={styles.formRow}>
-            <label className={styles.label}>
-              Start
-              <input
-                className={styles.input}
-                type="datetime-local"
-                value={startAt}
-                onChange={(ev) => setStartAt(ev.target.value)}
-                disabled={saving}
-              />
-            </label>
-
-            <label className={styles.label}>
-              Slutt
-              <input
-                className={styles.input}
-                type="datetime-local"
-                value={endAt}
-                onChange={(ev) => setEndAt(ev.target.value)}
-                disabled={saving}
-              />
-            </label>
-          </div>
-
-          <label className={styles.label}>
-            Notat (valgfritt)
-            <textarea
-              className={styles.textarea}
-              value={notes}
-              onChange={(ev) => setNotes(ev.target.value)}
-              disabled={saving}
-              placeholder="F.eks. ta med helsekort, møte opp 10 min før..."
-            />
-          </label>
-
-          <div className={styles.actions}>
-            <button className={styles.secondaryBtn} type="button" onClick={() => setOpenForm(false)} disabled={saving}>
-              Avbryt
-            </button>
-            <button className={styles.primaryBtn} type="submit" disabled={saving}>
-              {saving ? 'Lagrer…' : 'Opprett'}
-            </button>
-          </div>
-        </form>
-      ) : null}
-
       {error ? <p className={styles.error}>Feil: {error}</p> : null}
 
-      {!events.length ? (
-        <div className={styles.listEmpty}>Ingen avtaler enda.</div>
-      ) : (
-        <ul className={styles.list}>
-          {events.map((ev) => {
-            const cid =
-              typeof ev.child === 'object' && ev.child
-                ? (ev.child as any).id
-                : ev.child
+      <div className={styles.calendarShell}>
+        <BigCalendar<RBCEvent>
+          localizer={localizer}
+          events={events}
+          startAccessor="start"
+          endAccessor="end"
+          defaultView={Views.MONTH}
+          views={[Views.MONTH, Views.WEEK, Views.DAY, Views.AGENDA]}
+          selectable
+          popup
+          style={{ height: '72vh', minHeight: 620 }}  
+          onSelectSlot={(slot: SlotInfo) => {
+            if (!hasChildren) return
+            openCreateWithRange(slot.start as Date, slot.end as Date)
+          }}
+          onSelectEvent={(ev: RBCEvent) => {
+            setMode('view')
+            setActiveEvent(ev)
+            setOpen(true)
+          }}
+          tooltipAccessor={(ev: RBCEvent) => (ev.resource.childName ? ev.resource.childName : '')}
+          formats={{
+            timeGutterFormat: (date: Date, culture: string | undefined, loc: any) =>
+              loc.format(date, 'HH:mm', culture),
+            eventTimeRangeFormat: (
+              { start, end }: { start: Date; end: Date },
+              culture: string | undefined,
+              loc: any,
+            ) => `${loc.format(start, 'HH:mm', culture)}–${loc.format(end, 'HH:mm', culture)}`,
+          }}
+        />
+      </div>
 
-            const childName = cid ? childNameById.get(String(cid)) || 'Barn' : 'Barn'
+      {open ? (
+        <div className={styles.modalBackdrop} onMouseDown={() => setOpen(false)}>
+          <div className={styles.modal} onMouseDown={(e) => e.stopPropagation()}>
+            <div className={styles.modalHeader}>
+              <div className={styles.modalTitle}>{mode === 'create' ? 'Opprett avtale' : 'Avtale'}</div>
+              <button className={styles.iconBtn} onClick={() => setOpen(false)} aria-label="Close">
+                ✕
+              </button>
+            </div>
 
-            return (
-              <li key={String(ev.id)} className={styles.item}>
-                <div className={styles.itemTop}>
-                  <div className={styles.itemTitle}>{ev.title}</div>
-                  <button className={styles.dangerBtn} onClick={() => deleteEvent(ev.id)} type="button">
-                    Slett
-                  </button>
-                </div>
-
-                <div className={styles.meta}>
-                  <span className={styles.pill}>{childName}</span>
+            {mode === 'view' && activeEvent ? (
+              <div className={styles.viewBox}>
+                <div className={styles.viewTitle}>{activeEvent.title}</div>
+                <div className={styles.viewMeta}>
+                  <span className={styles.pill}>{activeEvent.resource.childName || 'Barn'}</span>
                   <span>
-                    {fmt(ev.startAt)} → {fmt(ev.endAt)}
+                    {format(activeEvent.start, 'dd.MM.yyyy HH:mm')} → {format(activeEvent.end, 'dd.MM.yyyy HH:mm')}
                   </span>
                 </div>
 
-                {ev.notes ? <div className={styles.notes}>{ev.notes}</div> : null}
-              </li>
-            )
-          })}
-        </ul>
-      )}
+                {activeEvent.resource.notes ? <div className={styles.viewNotes}>{activeEvent.resource.notes}</div> : null}
+
+                <div className={styles.modalActions}>
+                  <button className={styles.secondaryBtn} onClick={() => setOpen(false)}>
+                    Lukk
+                  </button>
+                  <button className={styles.dangerBtn} onClick={() => deleteEvent(activeEvent.id)}>
+                    Slett
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <form className={styles.form} onSubmit={createEvent}>
+                <label className={styles.label}>
+                  Velg barn
+                  <select
+                    className={styles.select}
+                    value={childId}
+                    onChange={(ev) => setChildId(ev.target.value)}
+                    disabled={saving}
+                  >
+                    <option value="">Velg…</option>
+                    {children.map((c) => (
+                      <option key={String(c.id)} value={String(c.id)}>
+                        {c.fullName} {c.status ? `(${c.status})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className={styles.label}>
+                  Tittel
+                  <input
+                    className={styles.input}
+                    value={title}
+                    onChange={(ev) => setTitle(ev.target.value)}
+                    disabled={saving}
+                    placeholder="F.eks. Legetime / Barnehage / Fotball"
+                  />
+                </label>
+
+                <div className={styles.formRow}>
+                  <label className={styles.label}>
+                    Start
+                    <input
+                      className={styles.input}
+                      type="datetime-local"
+                      value={startAt}
+                      onChange={(ev) => setStartAt(ev.target.value)}
+                      disabled={saving}
+                    />
+                  </label>
+
+                  <label className={styles.label}>
+                    Slutt
+                    <input
+                      className={styles.input}
+                      type="datetime-local"
+                      value={endAt}
+                      onChange={(ev) => setEndAt(ev.target.value)}
+                      disabled={saving}
+                    />
+                  </label>
+                </div>
+
+                <label className={styles.label}>
+                  Notat (valgfritt)
+                  <textarea
+                    className={styles.textarea}
+                    value={notes}
+                    onChange={(ev) => setNotes(ev.target.value)}
+                    disabled={saving}
+                    placeholder="F.eks. ta med helsekort..."
+                  />
+                </label>
+
+                <div className={styles.modalActions}>
+                  <button className={styles.secondaryBtn} type="button" onClick={() => setOpen(false)} disabled={saving}>
+                    Avbryt
+                  </button>
+                  <button className={styles.primaryBtn} type="submit" disabled={saving}>
+                    {saving ? 'Lagrer…' : 'Opprett'}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }

@@ -54,31 +54,56 @@ export const LandingPage: CollectionConfig = {
       ],
     },
 
+   {
+  name: "about",
+  type: "group",
+  label: "Mål",
+  fields: [
     {
-      name: "about",
-      type: "group",
-      label: "What is Samsam",
+      name: "title",
+      type: "text",
+      required: true,
+      label: "Tittel (quote)"
+    },
+    {
+      name: "content",
+      type: "textarea",
+      required: true,
+      label: "Innhold"
+    },
+
+    {
+      name: "utfordringer",
+      type: "array",
+      label: "Utfordringer (barnet står i midten)",
       fields: [
-        { name: "title", type: "text", required: true },
-        { name: "content", type: "textarea", required: true },
+        { name: "title", type: "text", required: true, label: "Tittel" },
         {
-          name: "principles",
-          type: "array",
-          label: "Key Principles",
-          fields: [
-            { name: "text", type: "text", required: true },
-          ],
+          name: "description",
+          type: "textarea",
+          required: true,
+          label: "Beskrivelse"
         },
+
+      ],
+    },
+
+    {
+      name: "prinsipper",
+      type: "array",
+      label: "Prinsipper",
+      fields: [
+        { name: "title", type: "text", required: true, label: "Tittel" },
         {
-          name: "outcomes",
-          type: "array",
-          label: "Outcomes",
-          fields: [
-            { name: "text", type: "text", required: true },
-          ],
+          name: "description",
+          type: "textarea",
+          required: true,
+          label: "Beskrivelse"
         },
       ],
     },
+  ],
+},
 
     {
       name: "howItWorks",
@@ -96,30 +121,32 @@ export const LandingPage: CollectionConfig = {
         },
       ],
     },
+{
+  name: "features",
+  type: "group",
+  label: "What Makes Samsam Different",
+  fields: [
+    { name: "title", type: "text", required: true },
+    { name: "intro", type: "textarea" },
 
     {
-      name: "features",
-      type: "group",
-      label: "Features",
-      fields: [
-        { name: "title", type: "text", required: true },
-        {
-          name: "items",
-          type: "array",
-          fields: [
-            { name: "featureTitle", type: "text", required: true },
-            {
-              name: "points",
-              type: "array",
-              fields: [
-                { name: "text", type: "text", required: true },
-              ],
-            },
-          ],
-        },
-      ],
+      name: "image",
+      type: "upload",
+      relationTo: "media",
+      required: false,
     },
 
+    {
+      name: "items",
+      type: "array",
+      fields: [
+        { name: "featureTitle", type: "text", required: true },
+        { name: "description", type: "textarea", required: true },
+      ],
+    },
+  ],
+
+  },
     {
   name: "whySamsam",
   type: "group",

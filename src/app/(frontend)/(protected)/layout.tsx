@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation'
 import styles from './protectedLayout.module.css'
 import ProtectedSidebar from '../components/ProtectedSidebar'
 import { serverFetch } from '../../lib/serverFetch' 
-
+import 'react-big-calendar/lib/css/react-big-calendar.css'
 
  
 export const dynamic = 'force-dynamic'

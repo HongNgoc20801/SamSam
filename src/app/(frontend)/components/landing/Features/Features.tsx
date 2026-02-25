@@ -1,52 +1,120 @@
+import Image from "next/image";
 import styles from "./Features.module.css";
+
+type FeatureItem = {
+  featureTitle: string;
+
+
+  description?: string | null;
+
+ 
+  points?: { text: string }[] | null;
+};
+
+type FeatureImage =
+  | string
+  | {
+      url?: string | null;
+      alt?: string | null;
+      width?: number | null;
+      height?: number | null;
+    }
+  | null
+  | undefined;
 
 interface Props {
   data: {
     title: string;
-    items: {
-      featureTitle: string;
-      points: { text: string }[];
-    }[];
+    intro?: string | null;
+    image?: FeatureImage;
+    items: FeatureItem[];
   };
 }
 
-const icons = ["📅", "💬", "💳", "🔒", "🧾", "📌", "✅", "🧠"];
+function getImageUrl(image?: FeatureImage): string {
+  if (!image) return "";
+  if (typeof image === "string") return image;
+  return image.url?.trim() || "";
+}
+
+function getImageAlt(image: FeatureImage, fallback: string): string {
+  if (!image) return fallback;
+  if (typeof image === "string") return fallback;
+  return image.alt?.trim() || fallback;
+}
+
+function getImageDims(image: FeatureImage): { width: number; height: number } {
+  
+  const fallback = { width: 1100, height: 650 };
+  if (!image || typeof image === "string") return fallback;
+
+  const w = image.width ?? undefined;
+  const h = image.height ?? undefined;
+
+  if (typeof w === "number" && typeof h === "number" && w > 0 && h > 0) {
+    return { width: w, height: h };
+  }
+
+  return fallback;
+}
 
 export default function Features({ data }: Props) {
+  const imageUrl = getImageUrl(data.image);
+  const imageAlt = getImageAlt(data.image ?? null, data.title);
+  const { width, height } = getImageDims(data.image ?? null);
+
   return (
-     <section id="features" className={styles.section}>
+    <section id="features" className={styles.section}>
       <div className={styles.container}>
-        <h2 className={styles.title}>{data.title}</h2>
+        <div className={styles.layout}>
+          {/* LEFT */}
+          <div className={styles.left}>
+            <h2 className={styles.title}>{data.title}</h2>
 
-        <div className={styles.grid}>
-          {data.items.map((item, i) => {
-            const primary = item.points?.[0]?.text ?? "";
-            const rest = item.points?.slice(1) ?? [];
+            {data.intro ? (
+              <p className={styles.intro}>{data.intro}</p>
+            ) : null}
 
-            return (
-              <div key={i} className={styles.card}>
-                <div className={styles.icon} aria-hidden="true">
-                  {icons[i % icons.length]}
-                </div>
-
-                <h3 className={styles.cardTitle}>{item.featureTitle}</h3>
-
-                
-                {primary && <p className={styles.cardDesc}>{primary}</p>}
-
-               
-                {rest.length > 0 && (
-                  <ul className={styles.list}>
-                    {rest.map((p, j) => (
-                      <li key={j} className={styles.listItem}>
-                        {p.text}
-                      </li>
-                    ))}
-                  </ul>
-                )}
+           
+            {imageUrl ? (
+              <div className={styles.imageWrap}>
+                <Image
+                  src={imageUrl}
+                  alt={imageAlt}
+                  width={width}
+                  height={height}
+                  className={styles.image}
+                  sizes="(max-width: 900px) 100vw, 520px"
+                />
               </div>
-            );
-          })}
+            ) : null}
+          </div>
+
+          {/* RIGHT */}
+          <div className={styles.right}>
+            {data.items?.map((item, i) => {
+              const desc =
+                item.description?.trim() ||
+                item.points?.[0]?.text?.trim() ||
+                "";
+
+              return (
+                <div key={i} className={styles.feature}>
+                  <div className={styles.icon} aria-hidden="true">
+                    ✓
+                  </div>
+
+                  <div className={styles.featureBody}>
+                    <h3 className={styles.featureTitle}>{item.featureTitle}</h3>
+
+                    {desc ? (
+                      <p className={styles.featureDesc}>{desc}</p>
+                    ) : null}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
     </section>

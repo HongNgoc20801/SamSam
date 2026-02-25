@@ -1,0 +1,283 @@
+/* ✅ ép màu chữ cho trang calendar (global body của bạn đang trắng) */
+.wrapper {
+  padding: 24px;
+  color: #111;
+}
+
+.loading {
+  padding: 24px;
+  font-size: 14px;
+  color: #555;
+}
+
+.topBar {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.title {
+  font-size: 24px;
+  font-weight: 900;
+  margin: 0;
+}
+
+.subtitle {
+  margin: 6px 0 0;
+  color: #444;
+  opacity: 0.85;
+  font-size: 14px;
+}
+
+.topActions {
+  display: flex;
+  gap: 12px;
+  align-items: end;
+  flex-wrap: wrap;
+}
+
+.filterLabel {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 800;
+  color: #222;
+}
+
+.select,
+.input,
+.textarea {
+  width: 100%;
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  padding: 10px 12px;
+  outline: none;
+  font-size: 14px;
+  background: #fff;
+  color: #111;
+}
+
+.textarea {
+  min-height: 90px;
+  resize: vertical;
+}
+
+.primaryBtn {
+  height: 40px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid #111;
+  background: #111;
+  color: #fff;
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.primaryBtn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.secondaryBtn {
+  height: 40px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid #d1d5db;
+  background: #fff;
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.dangerBtn {
+  height: 40px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid #fca5a5;
+  background: #fff;
+  color: #b91c1c;
+  cursor: pointer;
+  font-weight: 900;
+}
+
+.linkBtn {
+  display: inline-flex;
+  align-items: center;
+  height: 40px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid #111;
+  background: #fff;
+  color: #111;
+  text-decoration: none;
+  font-weight: 900;
+}
+
+.emptyCard {
+  margin-top: 10px;
+  padding: 16px;
+  border: 1px solid #ddd;
+  border-radius: 14px;
+  background: #fff;
+}
+
+.emptyText {
+  margin: 0 0 10px;
+  color: #444;
+}
+
+.error {
+  margin-top: 10px;
+  color: crimson;
+  font-size: 14px;
+}
+
+/* ✅ Calendar shell có chiều cao rõ ràng */
+.calendarShell {
+  margin-top: 14px;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 14px;
+  padding: 10px;
+  overflow: hidden;
+  height: 72vh;
+  min-height: 620px;
+}
+
+/* ✅ React-big-calendar classes phải dùng :global */
+.calendarShell :global(.rbc-calendar) {
+  height: 100%;
+  color: #111;
+}
+
+.calendarShell :global(.rbc-toolbar),
+.calendarShell :global(.rbc-toolbar button),
+.calendarShell :global(.rbc-date-cell),
+.calendarShell :global(.rbc-header),
+.calendarShell :global(.rbc-label) {
+  color: #111;
+}
+
+.calendarShell :global(.rbc-month-view),
+.calendarShell :global(.rbc-time-view),
+.calendarShell :global(.rbc-agenda-view) {
+  background: #fff;
+  color: #111;
+}
+
+.calendarShell :global(.rbc-event) {
+  border-radius: 10px;
+  padding: 2px 8px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+}
+
+/* Modal */
+.modalBackdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(17, 24, 39, 0.55);
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  z-index: 50;
+}
+
+.modal {
+  width: min(720px, 96vw);
+  background: #fff;
+  border-radius: 16px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+  color: #111;
+}
+
+.modalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 16px;
+  border-bottom: 1px solid #eee;
+}
+
+.modalTitle {
+  font-weight: 900;
+  font-size: 16px;
+}
+
+.iconBtn {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 18px;
+  opacity: 0.8;
+}
+
+.form {
+  padding: 16px;
+  display: grid;
+  gap: 12px;
+}
+
+.formRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+@media (max-width: 700px) {
+  .formRow {
+    grid-template-columns: 1fr;
+  }
+}
+
+.label {
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 800;
+  color: #222;
+}
+
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 4px;
+}
+
+.viewBox {
+  padding: 16px;
+}
+
+.viewTitle {
+  font-weight: 1000;
+  font-size: 18px;
+}
+
+.viewMeta {
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  color: #444;
+  font-size: 13px;
+  align-items: center;
+}
+
+.pill {
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid #e5e7eb;
+  background: #f8fafc;
+  font-weight: 900;
+  color: #111;
+}
+
+.viewNotes {
+  margin-top: 10px;
+  color: #333;
+  font-size: 14px;
+  line-height: 1.45;
+}

@@ -74,6 +74,7 @@ export interface Config {
     customers: Customer;
     families: Family;
     children: Child;
+    'calendar-events': CalendarEvent;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
@@ -87,6 +88,7 @@ export interface Config {
     customers: CustomersSelect<false> | CustomersSelect<true>;
     families: FamiliesSelect<false> | FamiliesSelect<true>;
     children: ChildrenSelect<false> | ChildrenSelect<true>;
+    'calendar-events': CalendarEventsSelect<false> | CalendarEventsSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -212,15 +214,17 @@ export interface LandingPage {
   about: {
     title: string;
     content: string;
-    principles?:
+    utfordringer?:
       | {
-          text: string;
+          title: string;
+          description: string;
           id?: string | null;
         }[]
       | null;
-    outcomes?:
+    prinsipper?:
       | {
-          text: string;
+          title: string;
+          description: string;
           id?: string | null;
         }[]
       | null;
@@ -237,15 +241,12 @@ export interface LandingPage {
   };
   features: {
     title: string;
+    intro?: string | null;
+    image?: (number | null) | Media;
     items?:
       | {
           featureTitle: string;
-          points?:
-            | {
-                text: string;
-                id?: string | null;
-              }[]
-            | null;
+          description: string;
           id?: string | null;
         }[]
       | null;
@@ -383,6 +384,23 @@ export interface Child {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "calendar-events".
+ */
+export interface CalendarEvent {
+  id: number;
+  family: number | Family;
+  child: number | Child;
+  title: string;
+  notes?: string | null;
+  startAt: string;
+  endAt: string;
+  allDay?: boolean | null;
+  createdBy?: (number | null) | Customer;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
 export interface PayloadKv {
@@ -428,6 +446,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'children';
         value: number | Child;
+      } | null)
+    | ({
+        relationTo: 'calendar-events';
+        value: number | CalendarEvent;
       } | null);
   globalSlug?: string | null;
   user:
@@ -552,16 +574,18 @@ export interface LandingPageSelect<T extends boolean = true> {
     | {
         title?: T;
         content?: T;
-        principles?:
+        utfordringer?:
           | T
           | {
-              text?: T;
+              title?: T;
+              description?: T;
               id?: T;
             };
-        outcomes?:
+        prinsipper?:
           | T
           | {
-              text?: T;
+              title?: T;
+              description?: T;
               id?: T;
             };
       };
@@ -581,16 +605,13 @@ export interface LandingPageSelect<T extends boolean = true> {
     | T
     | {
         title?: T;
+        intro?: T;
+        image?: T;
         items?:
           | T
           | {
               featureTitle?: T;
-              points?:
-                | T
-                | {
-                    text?: T;
-                    id?: T;
-                  };
+              description?: T;
               id?: T;
             };
       };
@@ -717,6 +738,22 @@ export interface ChildrenSelect<T extends boolean = true> {
         id?: T;
       };
   status?: T;
+  createdBy?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "calendar-events_select".
+ */
+export interface CalendarEventsSelect<T extends boolean = true> {
+  family?: T;
+  child?: T;
+  title?: T;
+  notes?: T;
+  startAt?: T;
+  endAt?: T;
+  allDay?: T;
   createdBy?: T;
   updatedAt?: T;
   createdAt?: T;

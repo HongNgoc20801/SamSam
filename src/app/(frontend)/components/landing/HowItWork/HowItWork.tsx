@@ -1,5 +1,7 @@
 import styles from "./HowItWork.module.css";
 import Link from "next/link";
+import { Link2, CalendarDays, Receipt, Heart } from "lucide-react";
+
 interface Props {
   data: {
     title: string;
@@ -12,19 +14,20 @@ interface Props {
   };
 }
 
-function getIcon(stepNumber: number) {
- 
+function StepIcon({ stepNumber }: { stepNumber: number }) {
+  const commonProps = { size: 18, className: styles.stepIcon, "aria-hidden": true as const };
+
   switch (stepNumber) {
     case 1:
-      return "🔗";
+      return <Link2 {...commonProps} />;
     case 2:
-      return "📅";
+      return <CalendarDays {...commonProps} />;
     case 3:
-      return "🧾";
+      return <Receipt {...commonProps} />;
     case 4:
-      return "💙";
+      return <Heart {...commonProps} />;
     default:
-      return "•";
+      return <span className={styles.stepIconFallback} aria-hidden="true">•</span>;
   }
 }
 
@@ -37,7 +40,7 @@ export default function HowItWorks({ data }: Props) {
         <header className={styles.header}>
           <h2 className={styles.title}>{data.title}</h2>
           <div className={styles.underline} />
-          {data.description && <p className={styles.subtitle}>{data.description}</p>}
+          {data.description ? <p className={styles.subtitle}>{data.description}</p> : null}
         </header>
 
         <div className={styles.stepsWrap} aria-label="How it works steps">
@@ -48,9 +51,7 @@ export default function HowItWorks({ data }: Props) {
               <article key={step.stepNumber} className={styles.card}>
                 <div className={styles.top}>
                   <div className={styles.iconBox}>
-                    <span className={styles.icon} aria-hidden="true">
-                      {getIcon(step.stepNumber)}
-                    </span>
+                    <StepIcon stepNumber={step.stepNumber} />
                   </div>
 
                   <span className={styles.badge} aria-hidden="true">
@@ -64,12 +65,12 @@ export default function HowItWorks({ data }: Props) {
             ))}
           </div>
         </div>
-              <div className={styles.ctaRow}>
-            <Link href="/login" className={styles.cta}>
-              Kom i gang med Samsam
-              
-            </Link>
-          </div>
+
+        <div className={styles.ctaRow}>
+          <Link href="/login" className={styles.cta}>
+            Kom i gang med Samsam
+          </Link>
+        </div>
       </div>
     </section>
   );

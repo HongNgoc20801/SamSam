@@ -1,13 +1,10 @@
 import Image from "next/image";
 import styles from "./Features.module.css";
+import { Layers, FileClock, Baby, Scale } from "lucide-react";
 
 type FeatureItem = {
   featureTitle: string;
-
-
   description?: string | null;
-
- 
   points?: { text: string }[] | null;
 };
 
@@ -44,7 +41,6 @@ function getImageAlt(image: FeatureImage, fallback: string): string {
 }
 
 function getImageDims(image: FeatureImage): { width: number; height: number } {
-  
   const fallback = { width: 1100, height: 650 };
   if (!image || typeof image === "string") return fallback;
 
@@ -54,9 +50,10 @@ function getImageDims(image: FeatureImage): { width: number; height: number } {
   if (typeof w === "number" && typeof h === "number" && w > 0 && h > 0) {
     return { width: w, height: h };
   }
-
   return fallback;
 }
+
+const ICONS = [Layers, FileClock, Baby, Scale];
 
 export default function Features({ data }: Props) {
   const imageUrl = getImageUrl(data.image);
@@ -71,11 +68,8 @@ export default function Features({ data }: Props) {
           <div className={styles.left}>
             <h2 className={styles.title}>{data.title}</h2>
 
-            {data.intro ? (
-              <p className={styles.intro}>{data.intro}</p>
-            ) : null}
+            {data.intro ? <p className={styles.intro}>{data.intro}</p> : null}
 
-           
             {imageUrl ? (
               <div className={styles.imageWrap}>
                 <Image
@@ -85,9 +79,15 @@ export default function Features({ data }: Props) {
                   height={height}
                   className={styles.image}
                   sizes="(max-width: 900px) 100vw, 520px"
+                  priority={false}
                 />
               </div>
             ) : null}
+
+            {/* Optional closing line */}
+            <p className={styles.closing}>
+              The structure itself reduces conflict.
+            </p>
           </div>
 
           {/* RIGHT */}
@@ -98,22 +98,26 @@ export default function Features({ data }: Props) {
                 item.points?.[0]?.text?.trim() ||
                 "";
 
+              const Icon = ICONS[i] ?? Layers;
+
               return (
                 <div key={i} className={styles.feature}>
                   <div className={styles.icon} aria-hidden="true">
-                    ✓
+                    <Icon size={20} />
                   </div>
 
                   <div className={styles.featureBody}>
                     <h3 className={styles.featureTitle}>{item.featureTitle}</h3>
-
-                    {desc ? (
-                      <p className={styles.featureDesc}>{desc}</p>
-                    ) : null}
+                    {desc ? <p className={styles.featureDesc}>{desc}</p> : null}
                   </div>
                 </div>
               );
             })}
+
+            {/* CTA nhỏ để dẫn qua phần tiếp theo */}
+            <a className={styles.linkBtn} href="#faq">
+              Read common questions →
+            </a>
           </div>
         </div>
       </div>

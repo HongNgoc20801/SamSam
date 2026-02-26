@@ -11,6 +11,7 @@ import WhySamsam from './components/landing/WhySamSam/whySamSam'
 import styles from './page.module.css'
 import NavbarWelcome from './components/landing/Navigation/Navigation'
 import FooterWelcome from './components/landing/Footer/Footer'
+import FinalCTA from './components/landing/FinalCTA/FinalCTA'
 
 export default async function LandingPage() {
   const payload = await getPayload({ config })
@@ -89,6 +90,7 @@ export default async function LandingPage() {
             })),
           }}
         />
+        <FinalCTA data={landing.finalCTA}/>
 
       
       </main>

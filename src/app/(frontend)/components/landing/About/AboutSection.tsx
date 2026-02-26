@@ -1,9 +1,20 @@
 import styles from "./AboutSection.module.css";
+import {
+  Baby,
+  AlertTriangle,
+  MessageCircleOff,
+  Layers,
+  ShieldCheck,
+  FileClock,
+  CalendarDays,
+  Heart,
+  ArrowRight,
+} from "lucide-react";
 
 interface Props {
   data: {
-    title: string; 
-    content: string; 
+    title: string;
+    content: string;
     utfordringer?: { title?: string; description?: string; text?: string }[] | null;
     prinsipper?: { title: string; description: string }[] | null;
   };
@@ -16,6 +27,10 @@ export default function AboutSection({ data }: Props) {
   }));
 
   const prinsipper = data.prinsipper ?? [];
+
+  // Icon map (fallback theo index)
+  const challengeIcons = [Baby, AlertTriangle, MessageCircleOff, Layers];
+  const principleIcons = [ShieldCheck, FileClock, CalendarDays, Heart];
 
   return (
     <section className={styles.section} id="about">
@@ -34,55 +49,71 @@ export default function AboutSection({ data }: Props) {
               <div className={styles.panelLabel}>UTFORDRINGER VI LØSER</div>
 
               <div className={styles.timeline}>
-                {utfordringer.map((item, idx) => (
-                  <div key={idx} className={styles.tItem}>
-                    <div className={styles.tIconWrap}>
-                      <span className={styles.tIcon}>
-                        {idx === 0 ? "🙂" : idx === 1 ? "⚠️" : "💡"}
-                      </span>
-                      {idx !== utfordringer.length - 1 && (
-                        <span className={styles.tLine} />
-                      )}
-                    </div>
+                {utfordringer.map((item, idx) => {
+                  const Icon = challengeIcons[idx] ?? Layers;
 
-                    <div className={styles.tBody}>
-                      <div className={styles.tTitle}>{item.title}</div>
-                      {item.description ? (
-                        <div className={styles.tText}>{item.description}</div>
-                      ) : null}
+                  return (
+                    <div key={idx} className={styles.tItem}>
+                      <div className={styles.tIconWrap}>
+                        <span className={styles.tIcon} aria-hidden="true">
+                          <Icon size={16} />
+                        </span>
+
+                        {idx !== utfordringer.length - 1 ? (
+                          <span className={styles.tLine} aria-hidden="true" />
+                        ) : null}
+                      </div>
+
+                      <div className={styles.tBody}>
+                        <div className={styles.tTitle}>{item.title}</div>
+                        {item.description ? (
+                          <div className={styles.tText}>{item.description}</div>
+                        ) : null}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </div>
 
           {/* Right: Principles */}
           <div className={styles.right}>
-            <div className={styles.rightLabel}>VÅRE PRINSIPPER</div>
+            <div className={styles.rightLabel}>VÅRE STRUKTURELLE PRINSIPPER</div>
 
             <div className={styles.grid}>
-              {prinsipper.map((p, idx) => (
-                <div
-                  key={idx}
-                  className={`${styles.pCard} ${styles[`pVar${(idx % 4) + 1}`]}`}
-                >
-                  <div className={styles.pTop}>
-                    <div className={styles.pNumber}>
-                      {(idx + 1).toString().padStart(2, "0")}
+              {prinsipper.map((p, idx) => {
+                const Icon = principleIcons[idx] ?? ShieldCheck;
+
+                return (
+                  <div
+                    key={idx}
+                    className={`${styles.pCard} ${styles[`pVar${(idx % 4) + 1}`]}`}
+                  >
+                    <div className={styles.pHeader}>
+                      <span className={styles.pMiniIcon} aria-hidden="true">
+                        <Icon size={16} />
+                      </span>
+
+                      <div className={styles.pHeading}>
+                        <h3 className={styles.pTitle}>{p.title}</h3>
+                        <div className={styles.pNumber}>
+                          {(idx + 1).toString().padStart(2, "0")}
+                        </div>
+                      </div>
                     </div>
-                  </div>
 
-                  <div className={styles.pTitleRow}>
-                    <span className={styles.pMiniIcon}>
-                      {idx === 0 ? "🛡️" : idx === 1 ? "💜" : idx === 2 ? "✅" : "♻️"}
-                    </span>
-                    <h3 className={styles.pTitle}>{p.title}</h3>
+                    <p className={styles.pText}>{p.description}</p>
                   </div>
+                );
+              })}
+            </div>
 
-                  <p className={styles.pText}>{p.description}</p>
-                </div>
-              ))}
+            {/* CTA nhỏ dẫn qua features/how-it-works */}
+            <div className={styles.sectionCTA}>
+              <a href="#how-it-works" className={styles.linkBtn}>
+                Se hvordan strukturen fungerer <ArrowRight size={16} />
+              </a>
             </div>
           </div>
         </div>

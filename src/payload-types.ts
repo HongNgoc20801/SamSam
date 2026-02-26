@@ -262,6 +262,18 @@ export interface LandingPage {
         }[]
       | null;
   };
+  finalCTA: {
+    title: string;
+    description: string;
+    primaryButton: {
+      label: string;
+      url: string;
+    };
+    secondaryButton?: {
+      label?: string | null;
+      url?: string | null;
+    };
+  };
   updatedAt: string;
   createdAt: string;
 }
@@ -626,6 +638,24 @@ export interface LandingPageSelect<T extends boolean = true> {
               title?: T;
               description?: T;
               id?: T;
+            };
+      };
+  finalCTA?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+        primaryButton?:
+          | T
+          | {
+              label?: T;
+              url?: T;
+            };
+        secondaryButton?:
+          | T
+          | {
+              label?: T;
+              url?: T;
             };
       };
   updatedAt?: T;

@@ -19,7 +19,6 @@ export default function Brand({
 
   return (
     <div className={`${styles.brand} ${styles[size]} ${className}`}>
-      <div className={styles.logoWrap}>
         <Image
           src="/SamSamlogo.png"
           alt={alt}
@@ -28,7 +27,7 @@ export default function Brand({
           className={styles.logoImg}
           priority
         />
-      </div>
     </div>
+    
   )
 }

@@ -11,7 +11,7 @@ import WhySamsam from './components/landing/WhySamSam/whySamSam'
 import styles from './page.module.css'
 import NavbarWelcome from './components/landing/Navigation/Navigation'
 import FooterWelcome from './components/landing/Footer/Footer'
-
+import FAQ from "./components/landing/FAQ/FAQ";
 export default async function LandingPage() {
   const payload = await getPayload({ config })
 
@@ -68,19 +68,16 @@ export default async function LandingPage() {
 
         <WhySamsam
           data={{
-            ...landing.whySamsam,
-            image: {
-              url:
-                typeof landing.whySamsam.image === 'object' && landing.whySamsam.image?.url
-                  ? landing.whySamsam.image.url
-                  : '',
-            },
+            title: landing.whySamsam.title,
+            description: landing.whySamsam.description ?? null, // nếu bạn có field này
             reasons: (landing.whySamsam.reasons ?? []).map((r) => ({
               title: r.title,
               description: r.description,
             })),
           }}
         />
+
+        <FAQ data={landing.faq} />
 
       
       </main>

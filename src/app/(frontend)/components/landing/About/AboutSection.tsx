@@ -14,11 +14,9 @@ export default function AboutSection({ data }: Props) {
   const hasOutcomes = !!data.outcomes?.length;
 
   return (
-    <section className={styles.about}>
-      {/* QUOTE lớn */}
+    <section id ="about" className={styles.about}>
       <h2 className={styles.quote}>“{data.title}”</h2>
 
-      {/* CARD */}
       <div className={styles.card}>
         <p className={styles.cardText}>{data.content}</p>
 

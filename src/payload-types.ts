@@ -254,11 +254,22 @@ export interface LandingPage {
   };
   whySamsam: {
     title: string;
+    description: string;
     image?: (number | null) | Media;
     reasons?:
       | {
           title: string;
           description?: string | null;
+          id?: string | null;
+        }[]
+      | null;
+  };
+  faq: {
+    title: string;
+    items?:
+      | {
+          question: string;
+          answer: string;
           id?: string | null;
         }[]
       | null;
@@ -614,12 +625,25 @@ export interface LandingPageSelect<T extends boolean = true> {
     | T
     | {
         title?: T;
+        description?: T;
         image?: T;
         reasons?:
           | T
           | {
               title?: T;
               description?: T;
+              id?: T;
+            };
+      };
+  faq?:
+    | T
+    | {
+        title?: T;
+        items?:
+          | T
+          | {
+              question?: T;
+              answer?: T;
               id?: T;
             };
       };

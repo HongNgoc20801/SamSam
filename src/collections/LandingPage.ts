@@ -114,6 +114,7 @@ export const LandingPage: CollectionConfig = {
         {
           name: "steps",
           type: "array",
+            
           fields: [
             { name: "title", type: "text", required: true },
             { name: "description", type: "textarea", required: true },
@@ -151,22 +152,47 @@ export const LandingPage: CollectionConfig = {
   name: "whySamsam",
   type: "group",
   label: "Why Samsam",
-  fields: [
-    { name: "title", type: "text", required: true },
+ fields: [
+        { name: "title", type: "text", required: true },
+        { name: "description", type: "textarea", required: true },
 
-    { name: "image", type: "upload", relationTo: "media" }, // optional
+        { name: "image", type: "upload", relationTo: "media" }, 
+
+        {
+          name: "reasons",
+          type: "array",
+          fields: [
+            { name: "title", type: "text", required: true },
+            { name: "description", type: "textarea" },
+          ],
+        },
+
+      ],
+    },
+    
 
     {
-      name: "reasons",
-      type: "array",
+      name: "faq",
+      type: "group",
+      label: "FAQ",
       fields: [
         { name: "title", type: "text", required: true },
-        { name: "description", type: "textarea" },
+
+        {
+          name: "items",
+          type: "array",
+          label: "FAQ items",
+          minRows: 3,
+          fields: [
+            { name: "question", type: "text", required: true },
+            { name: "answer", type: "textarea", required: true },
+          ],
+        },
       ],
     },
 
-  ],
-},
+
+    
   {
   name: "finalCTA",
   type: "group",
@@ -203,3 +229,4 @@ export const LandingPage: CollectionConfig = {
    
   ],
 };
+

@@ -1,5 +1,5 @@
 .section {
-  padding: 100px 20px;
+  padding: 60px 20px;
   background: linear-gradient(
     180deg,
     rgba(37, 99, 235, 0.05),
@@ -9,8 +9,8 @@
 }
 
 .container {
-  max-width: 800px;
-  margin: 0 auto;
+  max-width: 1400px;
+  margin:  auto;
 }
 
 .title {
@@ -37,33 +37,51 @@
 
 .primaryBtn,
 .secondaryBtn {
-  padding: 14px 28px;
-  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  height: 52px;                 /* cố định chiều cao */
+  padding: 0 28px;              /* padding ngang */
+  border-radius: 14px;          /* vuông mềm */
+
   font-weight: 800;
+  font-size: 16px;
+  letter-spacing: 0.02em;
+
   text-decoration: none;
-  transition: all 0.2s ease;
+  white-space: nowrap;
+
+  transition: 
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
+    background 0.18s ease,
+    color 0.18s ease;
 }
 
 .primaryBtn {
-  background: #2563eb;
-  color: white;
-  box-shadow: 0 16px 30px rgba(37, 99, 235, 0.3);
+  background: #3B0E63; /* tím đậm hơn chút cho giống hình */
+  color: #ffffff;
+  border: none;
 }
 
 .primaryBtn:hover {
-  background: #1d4ed8;
   transform: translateY(-2px);
+  background: #EAF205;
+  color:#330C59;
+  box-shadow: 0 10px 22px rgba(59, 14, 99, 0.28);
 }
 
 .secondaryBtn {
-  background: white;
-  border: 1px solid rgba(15, 23, 42, 0.1);
-  color: #0f172a;
+  background: #ffffff;
+  color: #330C59;
+  border: 1px solid #330C59;
 }
 
 .secondaryBtn:hover {
-  background: #f8fafc;
+  background: #EAF205;
   transform: translateY(-2px);
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.12);
 }
 
 @media (max-width: 600px) {

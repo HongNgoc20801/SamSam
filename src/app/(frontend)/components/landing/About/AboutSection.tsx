@@ -48,6 +48,7 @@ export default function AboutSection({ data }: Props) {
             <div className={styles.panel}>
               <div className={styles.panelLabel}>UTFORDRINGER VI LØSER</div>
 
+
               <div className={styles.timeline}>
                 {utfordringer.map((item, idx) => {
                   const Icon = challengeIcons[idx] ?? Layers;
@@ -97,9 +98,6 @@ export default function AboutSection({ data }: Props) {
 
                       <div className={styles.pHeading}>
                         <h3 className={styles.pTitle}>{p.title}</h3>
-                        <div className={styles.pNumber}>
-                          {(idx + 1).toString().padStart(2, "0")}
-                        </div>
                       </div>
                     </div>
 

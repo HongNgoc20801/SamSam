@@ -86,7 +86,7 @@ export default function Features({ data }: Props) {
 
             {/* Optional closing line */}
             <p className={styles.closing}>
-              The structure itself reduces conflict.
+              Strukturen i seg selv reduserer konflikt.
             </p>
           </div>
 
@@ -116,7 +116,7 @@ export default function Features({ data }: Props) {
 
             {/* CTA nhỏ để dẫn qua phần tiếp theo */}
             <a className={styles.linkBtn} href="#faq">
-              Read common questions →
+              Les vanlige spørsmål →
             </a>
           </div>
         </div>

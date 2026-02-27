@@ -1,138 +1,254 @@
 .section {
   position: relative;
-  padding: 90px 12px;
+  padding: 70px 20px;
   overflow: hidden;
 
-  
-    background:
-    radial-gradient(1100px 520px at 18% 18%, rgba(37, 99, 235, 0.10), transparent 60%),
-    radial-gradient(900px 520px at 80% 25%, rgba(96, 165, 250, 0.12), transparent 55%),
-    linear-gradient(180deg, var(--bg) 0%, var(--bg2) 100%);
+  background:
+    radial-gradient(1000px 520px at 18% 18%, rgba(37, 99, 235, 0.10), transparent 60%),
+    radial-gradient(900px 520px at 82% 22%, rgba(96, 165, 250, 0.12), transparent 55%),
+    linear-gradient(180deg, #ffffff 0%, #f7f9fc 100%);
 }
 
 .container {
-  max-width: 1120px;
+  max-width: 1320px;
   margin: 0 auto;
-  position: relative;
-  z-index: 2;
+  padding: 0 24px;
 }
 
 
-
-.layout {
-  display: grid;
-   grid-template-columns: 1fr 1fr ;
-  gap: 60px;
-  align-items: center;
-}
-
-.left {
-  justify-content: unset; 
-  justify-self: start; 
-}
-
-.right {
-  justify-self: end;     
-  text-align: left;
-  max-width: 520px;      
-}
-
-
-.img {
-  width: min(640px, 100%); 
-  height: auto;            
-  aspect-ratio: 16 / 9;    
-  object-fit: cover;
-  border-radius: 22px;
-  display: block;
-}
-
-.mockPlaceholder {
-  width: 100%;
-  height: 100%;
-  border-radius: 22px;
-  background: linear-gradient(180deg, #ffffff 0%, #f5fbf8 100%);
-  padding: 18px;
-}
-
-.placeholderTop {
-  height: 54px;
-  border-radius: 16px;
-  background: rgba(16, 78, 60, 0.08);
-  margin-bottom: 16px;
-}
-
-.placeholderRow {
-  height: 22px;
-  border-radius: 999px;
-  background: rgba(16, 78, 60, 0.08);
-  margin-bottom: 10px;
-}
-
-/* RIGHT */
-.right {
-  text-align: left;
-}
-
-.eyebrow {
-  margin: 0 0 10px;
-  font-weight: 700;
-  color: #0d5a44;
-  letter-spacing: 0.2px;
+.header {
+  text-align: center;
+  max-width: 980px;
+ margin: 0 auto 10px;  
 }
 
 .title {
-  margin: 0 0 24px;
-  font-size: clamp(34px, 4.2vw, 54px);
-  line-height: 1.05;
-  font-weight: 800;
-  color: #272a29;
+  margin: 0 auto 10px;
+  font-size: clamp(32px, 3.4vw, 44px);
+  line-height: 1.5;
+  letter-spacing: -0.03em;
+  font-weight: 900;
+  color: #0f172a;
+
+  position: relative;
+  display: inline-block;
+  padding-bottom: 2px;
 }
 
-.list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: grid;
-  gap: 18px;
+/* underline (centered) */
+.title::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 2px;
+  width: 72px;
+  height: 6px;
+  border-radius: 15px;
+  background: linear-gradient(90deg, #2c67f2, #7c3aed);
+  box-shadow: 0 10px 24px rgba(44, 103, 242, 0.22);
+  pointer-events: none;
 }
 
-.item {
-  display: grid;
-  grid-template-columns: 40px 1fr;
-  gap: 14px;
-  align-items: start;
+.desc {
+  margin: 5px;
+  max-width: 920px; 
+  font-size: clamp(16px, 1.2vw, 18px);
+  line-height: 1.75;
+  color: rgba(15, 23, 42, 0.62);
+
 }
 
-.check {
-  width: 34px;
-  height: 34px;
+.orbit {
+  position: relative;
+  width: min(1320px, 100%);
+  height: 420px;
+  margin: 8px auto 0; 
+  border-radius: 28px;
+}
+
+/* dashed oval frame */
+.orbit::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 96%;
+  height: 74%;
+  transform: translate(-50%, -50%);
   border-radius: 999px;
+
+  border: 2px dashed rgba(51, 12, 89, 0.20);
+  background: rgba(255, 255, 255, 0.28);
+
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.55),
+    0 16px 40px rgba(15, 23, 42, 0.06);
+
+  pointer-events: none;
+}
+
+/* connector lines */
+.connectors {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.connectorLine {
+  stroke: rgba(51, 12, 89, 0.22);
+  stroke-width: 1.35;
+  stroke-linecap: round;
+  stroke-dasharray: 4 7;
+  vector-effect: non-scaling-stroke;
+  filter: drop-shadow(0 1px 3px rgba(51, 12, 89, 0.12));
+}
+
+.center {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 116px;
+  height: 116px;
+  transform: translate(-50%, -50%);
+  border-radius: 999px;
+
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(15, 23, 42, 0.10);
+  box-shadow: 0 18px 44px rgba(15, 23, 42, 0.10);
+
   display: grid;
   place-items: center;
-
-  background: #0a56a3;
-  color: #ffffff;
-  font-weight: 900;
-  font-size: 16px;
-
-  box-shadow: 0 10px 22px rgba(10, 143, 163, 0.25);
+  z-index: 2;
 }
 
-.itemBody {
-  padding-top: 2px;
+.centerLogo {
+  position: relative;
+  z-index: 3;
 }
 
-.itemTitle {
-  font-size: 18px;
+.pill {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  z-index: 3;
+
+  padding: 10px 14px;
+  max-width: 240px;
+  border-radius: 999px;
+
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(15, 23, 42, 0.10);
+
+  box-shadow:
+    0 14px 30px rgba(15, 23, 42, 0.08),
+    0 4px 10px rgba(15, 23, 42, 0.04);
+
+  text-align: center;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.pillText {
+  font-size: 14.5px;
   font-weight: 800;
-  color: #1263b3;
-  margin: 0 0 6px;
+  line-height: 1.35;
+  color: #330c59;
+
+  max-width: 210px;
+  margin: 0 auto;
+
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+  overflow: hidden;
 }
 
-.itemDesc {
-  font-size: 15px;
-  line-height: 1.6;
-  color: rgba(13, 53, 79, 0.72);
+.pill:hover {
+  z-index: 10;
+  transform: translate(-50%, -50%) translateY(-2px);
+  border-color: rgba(44, 103, 242, 0.22);
+  box-shadow:
+    0 18px 44px rgba(15, 23, 42, 0.12),
+    0 6px 14px rgba(15, 23, 42, 0.06);
 }
 
+
+.mobileList {
+  display: none;
+  margin-top: 18px;
+  gap: 10px;
+}
+
+.mobileItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  padding: 12px 14px;
+  border-radius: 14px;
+
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(15, 23, 42, 0.10);
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.06);
+}
+
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: #eaf205;
+  border: 1px solid rgba(51, 12, 89, 0.25);
+}
+
+.mobileText {
+  color: #330c59;
+  font-weight: 800;
+  font-size: 14.5px;
+}
+
+/* =========================
+   RESPONSIVE
+   ========================= */
+
+/* Tablet */
+@media (max-width: 920px) {
+  .container {
+    padding: 0 18px;
+  }
+
+  .orbit {
+    height: 500px;
+    width: 100%;
+  }
+
+  .pill {
+    max-width: 220px;
+    padding: 9px 12px;
+  }
+
+  .pillText {
+    max-width: 190px;
+    font-size: 14px;
+  }
+}
+
+/* Phone: hide orbit -> show list */
+@media (max-width: 640px) {
+  .section {
+    padding: 48px 14px;
+  }
+
+  .desc {
+    max-width: 44ch;
+  }
+
+  .orbit {
+    display: none;
+  }
+
+  .mobileList {
+    display: grid;
+  }
+}

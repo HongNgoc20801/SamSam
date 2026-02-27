@@ -23,6 +23,23 @@ export default function HeroSection({ data }: Props) {
           <h2 className={styles.subtitle}>{data.subtitle}</h2>
 
           <p className={styles.description}>{data.description}</p>
+          {/* TRUST SIGNALS */}
+          <div className={styles.trust} aria-label="Trust signals">
+            <div className={styles.trustItem}>
+              <ShieldCheck size={18} className={styles.trustIcon} />
+              <span>Sikker tilgang</span>
+            </div>
+
+            <div className={styles.trustItem}>
+              <FileText size={18} className={styles.trustIcon} />
+              <span>Full historikk log</span>
+            </div>
+
+            <div className={styles.trustItem}>
+              <Baby size={18} className={styles.trustIcon} />
+              <span>Barnet i sentrum</span>
+            </div>
+          </div>
 
           <div className={styles.actions}>
             <a href={data.primaryCTA.url} className={styles.primaryBtn}>
@@ -36,23 +53,7 @@ export default function HeroSection({ data }: Props) {
             ) : null}
           </div>
 
-          {/* TRUST SIGNALS */}
-          <div className={styles.trust} aria-label="Trust signals">
-            <div className={styles.trustItem}>
-              <ShieldCheck size={18} className={styles.trustIcon} />
-              <span>Secure access</span>
-            </div>
-
-            <div className={styles.trustItem}>
-              <FileText size={18} className={styles.trustIcon} />
-              <span>Full system log</span>
-            </div>
-
-            <div className={styles.trustItem}>
-              <Baby size={18} className={styles.trustIcon} />
-              <span>Child-centered</span>
-            </div>
-          </div>
+          
         </div>
 
         {/* RIGHT */}

@@ -3,22 +3,8 @@
   align-items: center;
 }
 
-/* Khung nhỏ gọn, không blur */
-.logoWrap {
-  width: 56px;
-  height: 56px;
-  display: grid;
-  place-items: center;
 
-  border-radius: 16px;
-  background: #fff;   /* ✅ trắng hẳn */
-  border: none;       /* ✅ bỏ viền */
-  box-shadow: none;   /* ✅ bỏ shadow */
-}
-
-/* Chỉ drop-shadow, KHÔNG brightness/contrast */
 .logoImg {
   display: block;
   object-fit: contain;
-  filter: none;
 }

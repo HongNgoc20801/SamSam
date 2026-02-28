@@ -22,14 +22,15 @@ const BLOOD_ALL = [
 ] as const
 
 type Gender = 'na' | 'male' | 'female' | 'other'
-type Relation = 'mother' | 'father' | 'grandparent' | 'guardian' | 'other' | ''
+type Relation = 'mother' | 'father' | 'grandparent' | 'guardian' | 'other' | 'relative' | 'babysitter' | ''
+
+type AvatarSource = 'url' | 'upload'
 
 function normalize11Digits(v: string) {
   return v.replace(/\s+/g, '')
 }
 
 function parseTags(input: string) {
-  // "Hải sản, Đậu phộng; Phấn hoa" -> [{value:"Hải sản"}, ...]
   return input
     .split(/[,;]+/g)
     .map((s) => s.trim())
@@ -37,19 +38,35 @@ function parseTags(input: string) {
     .map((value) => ({ value }))
 }
 
+function isLikelyHttpUrl(url: string) {
+  const u = url.trim()
+  if (!u) return false
+  return /^https?:\/\/.+/i.test(u)
+}
+
 export default function NewChildPage() {
   const router = useRouter()
 
   // profile
+  const [avatarSource, setAvatarSource] = useState<AvatarSource>('url')
   const [avatarURL, setAvatarURL] = useState('')
+  const [avatarFile, setAvatarFile] = useState<File | null>(null)
+
   const [fullName, setFullName] = useState('')
   const [birthDate, setBirthDate] = useState('')
   const [gender, setGender] = useState<Gender>('na')
   const [nationalId, setNationalId] = useState('')
 
+  // school
+  const [schoolName, setSchoolName] = useState('')
+  const [className, setClassName] = useState('')
+  const [mainTeacher, setMainTeacher] = useState('')
+
   // medical
   const [bloodType, setBloodType] = useState<(typeof BLOOD_ALL)[number]>('unknown')
   const [allergyText, setAllergyText] = useState('')
+  const [conditionsText, setConditionsText] = useState('')
+  const [medicalShort, setMedicalShort] = useState('')
 
   // emergency contact (single)
   const [emName, setEmName] = useState('')
@@ -66,6 +83,36 @@ export default function NewChildPage() {
     return !!fullName.trim() && !!birthDate && agree && !loading
   }, [fullName, birthDate, agree, loading])
 
+  // Avatar preview
+  const avatarLetter = (fullName.trim()?.[0] ?? 'C').toUpperCase()
+  const filePreview = useMemo(() => {
+    if (!avatarFile) return ''
+    return URL.createObjectURL(avatarFile)
+  }, [avatarFile])
+
+  const showAvatarImage =
+    avatarSource === 'upload'
+      ? !!filePreview
+      : !!avatarURL.trim() && isLikelyHttpUrl(avatarURL.trim())
+
+  async function uploadToMedia(file: File) {
+    // Payload Media upload (typical)
+    const form = new FormData()
+    form.append('file', file)
+
+    const res = await fetch('/api/media', {
+      method: 'POST',
+      credentials: 'include',
+      body: form,
+    })
+
+    const j = await res.json().catch(() => ({}))
+    if (!res.ok) throw new Error(j?.message || 'Could not upload image.')
+
+    // Expecting Payload Media doc back with id
+    return j
+  }
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!canSubmit) return
@@ -73,9 +120,13 @@ export default function NewChildPage() {
 
     const cleanNationalId = normalize11Digits(nationalId.trim())
 
-    // optional validation at UI-level (backend validate vẫn có)
     if (cleanNationalId && !/^\d{11}$/.test(cleanNationalId)) {
-      setError('Số định danh phải gồm đúng 11 chữ số.')
+      setError('National ID must be exactly 11 digits.')
+      return
+    }
+
+    if (avatarSource === 'url' && avatarURL.trim() && !isLikelyHttpUrl(avatarURL)) {
+      setError('Invalid avatar URL. Please use a link starting with http(s)://')
       return
     }
 
@@ -87,20 +138,44 @@ export default function NewChildPage() {
         gender,
       }
 
-      if (avatarURL.trim()) body.avatarURL = avatarURL.trim()
+      // Avatar (matches the new collection schema: avatar.source + avatar.url or avatar.upload)
+      if (avatarSource === 'url') {
+        const u = avatarURL.trim()
+        if (u) body.avatar = { source: 'url', url: u }
+      } else {
+        if (avatarFile) {
+          const mediaDoc = await uploadToMedia(avatarFile)
+          body.avatar = { source: 'upload', upload: mediaDoc?.id }
+        }
+      }
+
       if (cleanNationalId) body.nationalId = cleanNationalId
 
-      // medical: only send if user provided something
+      // school group
+      if (schoolName.trim() || className.trim() || mainTeacher.trim()) {
+        body.school = {
+          schoolName: schoolName.trim() || undefined,
+          className: className.trim() || undefined,
+          mainTeacher: mainTeacher.trim() || undefined,
+        }
+      }
+
+      // medical group
       const allergies = parseTags(allergyText)
-      if (bloodType !== 'unknown' || allergies.length) {
+      const conditions = parseTags(conditionsText)
+      const notesShort = medicalShort.trim()
+
+      if (bloodType !== 'unknown' || allergies.length || conditions.length || notesShort) {
         body.medical = {}
         if (bloodType !== 'unknown') body.medical.bloodType = bloodType
         if (allergies.length) body.medical.allergies = allergies
+        if (conditions.length) body.medical.conditions = conditions
+        if (notesShort) body.medical.notesShort = notesShort.slice(0, 160)
       }
 
-      // emergencyContact: only send if any field
+      // primaryEmergencyContact (if you kept old field name in backend, rename here accordingly)
       if (emName.trim() || emPhone.trim() || emRelation) {
-        body.emergencyContact = {
+        body.primaryEmergencyContact = {
           name: emName.trim() || undefined,
           phone: emPhone.trim() || undefined,
           relation: emRelation || undefined,
@@ -115,11 +190,11 @@ export default function NewChildPage() {
       })
 
       const j = await res.json().catch(() => ({}))
-      if (!res.ok) throw new Error(j?.message || 'Kunne ikke opprette barneprofil.')
+      if (!res.ok) throw new Error(j?.message || 'Could not create child profile.')
 
       router.push('/child-info')
     } catch (err: any) {
-      setError(err?.message || 'Noe gikk galt.')
+      setError(err?.message || 'Something went wrong.')
     } finally {
       setLoading(false)
     }
@@ -131,204 +206,340 @@ export default function NewChildPage() {
         <button className={styles.backBtn} onClick={() => router.back()} aria-label="Back">
           ←
         </button>
-        <div className={styles.title}>Thông tin của trẻ</div>
+        <div>
+          <div className={styles.title}>Create child profile</div>
+          <div className={styles.subtitle}>This information will be shared with your family group.</div>
+        </div>
         <div className={styles.rightSpace} />
       </header>
 
       <form onSubmit={onSubmit} className={styles.form}>
-        {/* Avatar */}
-        <div className={styles.avatarBlock}>
-          <div className={styles.avatarCircle}>
-            <div className={styles.avatarPlaceholder}>
-              {(fullName.trim()?.[0] ?? 'C').toUpperCase()}
+        {/* Section: Identity */}
+        <section className={styles.section}>
+          <div className={styles.sectionTop}>
+            <div>
+              <div className={styles.sectionTitle}>Basic information</div>
+              <div className={styles.sectionHint}>Used for calendars, messages, and notifications.</div>
             </div>
-
-            <button
-              type="button"
-              className={styles.cameraBtn}
-              onClick={() => {
-                const url = prompt('Dán Avatar URL (MVP):')
-                if (url) setAvatarURL(url)
-              }}
-              aria-label="Upload avatar"
-            >
-              📷
-            </button>
+            <span className={styles.badge}>Shared</span>
           </div>
 
-          <div className={styles.avatarText}>Tải ảnh đại diện</div>
-
-          {avatarURL ? (
-            <div className={styles.smallNote}>
-              Đã chọn avatar URL ✓{' '}
-              <button
-                type="button"
-                className={styles.linkBtn}
-                onClick={() => setAvatarURL('')}
-              >
-                Xoá
-              </button>
+          <div className={styles.identityGrid}>
+            <div className={styles.avatarBlock}>
+              <div className={styles.avatarCircle} aria-label="Avatar preview">
+                {showAvatarImage ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    className={styles.avatarImg}
+                    src={avatarSource === 'upload' ? filePreview : avatarURL.trim()}
+                    alt="Child avatar"
+                  />
+                ) : (
+                  <div className={styles.avatarPlaceholder}>{avatarLetter}</div>
+                )}
+              </div>
+              <div className={styles.avatarText}>Avatar (optional)</div>
             </div>
-          ) : null}
-        </div>
 
-        {/* Full name */}
-        <div className={styles.field}>
-          <label>Họ và tên</label>
-          <input
-            placeholder="Nhập họ và tên đầy đủ"
-            value={fullName}
-            onChange={(e) => setFullName(e.target.value)}
-            disabled={loading}
-          />
-        </div>
+            <div className={styles.fieldsCol}>
+              {/* Avatar source */}
+              <div className={styles.field}>
+                <label>Avatar source</label>
+                <div className={styles.segment}>
+                  <button
+                    type="button"
+                    className={`${styles.segmentBtn} ${avatarSource === 'url' ? styles.segmentActive : ''}`}
+                    onClick={() => setAvatarSource('url')}
+                    disabled={loading}
+                    aria-pressed={avatarSource === 'url'}
+                  >
+                    URL
+                  </button>
+                  <button
+                    type="button"
+                    className={`${styles.segmentBtn} ${avatarSource === 'upload' ? styles.segmentActive : ''}`}
+                    onClick={() => setAvatarSource('upload')}
+                    disabled={loading}
+                    aria-pressed={avatarSource === 'upload'}
+                  >
+                    Upload
+                  </button>
+                </div>
+                <div className={styles.helpText}>Choose one option. You can change it later.</div>
+              </div>
 
-        {/* Birth date + Gender */}
-        <div className={styles.row2}>
+              {/* Avatar URL */}
+              {avatarSource === 'url' ? (
+                <div className={styles.field}>
+                  <label>Image URL</label>
+                  <input
+                    placeholder="https://..."
+                    value={avatarURL}
+                    onChange={(e) => setAvatarURL(e.target.value)}
+                    disabled={loading}
+                  />
+                  <div className={styles.helpText}>Use a direct http(s) image URL. Leave empty if not needed.</div>
+                </div>
+              ) : (
+                <div className={styles.field}>
+                  <label>Upload image</label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => setAvatarFile(e.target.files?.[0] ?? null)}
+                    disabled={loading}
+                  />
+                  <div className={styles.helpText}>PNG/JPG recommended. The image will be stored in Media.</div>
+                </div>
+              )}
+
+              <div className={styles.field}>
+                <label>Full name</label>
+                <input
+                  placeholder="Enter full name"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  disabled={loading}
+                />
+              </div>
+
+              <div className={styles.row2}>
+                <div className={styles.field}>
+                  <label>Date of birth</label>
+                  <input
+                    type="date"
+                    value={birthDate}
+                    onChange={(e) => setBirthDate(e.target.value)}
+                    disabled={loading}
+                  />
+                </div>
+
+                <div className={styles.field}>
+                  <label>Gender</label>
+                  <select value={gender} onChange={(e) => setGender(e.target.value as Gender)} disabled={loading}>
+                    <option value="na">Prefer not to say</option>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className={styles.field}>
+                <label>National ID (11 digits) (optional)</label>
+                <input
+                  inputMode="numeric"
+                  placeholder="Example: 12345678901"
+                  value={nationalId}
+                  onChange={(e) => setNationalId(e.target.value)}
+                  disabled={loading}
+                />
+                <div className={styles.helpText}>For administrative/medical paperwork. Spaces are removed automatically.</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Section: School */}
+        <section className={styles.section}>
+          <div className={styles.sectionTop}>
+            <div>
+              <div className={styles.sectionTitle}>School / Kindergarten</div>
+              <div className={styles.sectionHint}>Helps keep contact info and schedules consistent.</div>
+            </div>
+          </div>
+
+          <div className={styles.row2}>
+            <div className={styles.field}>
+              <label>School name</label>
+              <input
+                placeholder="Example: ABC Kindergarten"
+                value={schoolName}
+                onChange={(e) => setSchoolName(e.target.value)}
+                disabled={loading}
+              />
+            </div>
+
+            <div className={styles.field}>
+              <label>Class</label>
+              <input
+                placeholder="Example: 2A"
+                value={className}
+                onChange={(e) => setClassName(e.target.value)}
+                disabled={loading}
+              />
+            </div>
+          </div>
+
           <div className={styles.field}>
-            <label>Ngày sinh</label>
+            <label>Main teacher (optional)</label>
             <input
-              type="date"
-              value={birthDate}
-              onChange={(e) => setBirthDate(e.target.value)}
+              placeholder="Teacher name"
+              value={mainTeacher}
+              onChange={(e) => setMainTeacher(e.target.value)}
               disabled={loading}
             />
           </div>
+        </section>
+
+        {/* Section: Medical */}
+        <section className={styles.section}>
+          <div className={styles.sectionTop}>
+            <div>
+              <div className={styles.sectionTitle}>Medical (emergency)</div>
+              <div className={styles.sectionHint}>Keep it short and specific.</div>
+            </div>
+          </div>
 
           <div className={styles.field}>
-            <label>Giới tính</label>
-            <select value={gender} onChange={(e) => setGender(e.target.value as Gender)} disabled={loading}>
-              <option value="na">Chọn</option>
-              <option value="male">Nam</option>
-              <option value="female">Nữ</option>
-              <option value="other">Khác</option>
-            </select>
-          </div>
-        </div>
+            <label>Blood type</label>
+            <div className={styles.bloodRow}>
+              {BLOOD_MAIN.map((b) => (
+                <button
+                  key={b}
+                  type="button"
+                  className={`${styles.bloodBtn} ${bloodType === b ? styles.bloodActive : ''}`}
+                  onClick={() => setBloodType(b)}
+                  disabled={loading}
+                >
+                  {b}
+                </button>
+              ))}
 
-        {/* National ID (optional) */}
-        <div className={styles.field}>
-          <label>Số định danh (11 số) (tuỳ chọn)</label>
-          <input
-            inputMode="numeric"
-            placeholder="Ví dụ: 12345678901"
-            value={nationalId}
-            onChange={(e) => setNationalId(e.target.value)}
-            disabled={loading}
-          />
-          <div className={styles.helpText}>
-            Dùng cho thủ tục hành chính/y tế. Có thể để trống.
-          </div>
-        </div>
-
-        {/* Blood type */}
-        <div className={styles.field}>
-          <label>Nhóm máu</label>
-
-          <div className={styles.bloodRow}>
-            {BLOOD_MAIN.map((b) => (
-              <button
-                key={b}
-                type="button"
-                className={`${styles.bloodBtn} ${bloodType === b ? styles.bloodActive : ''}`}
-                onClick={() => setBloodType(b)}
+              <select
+                className={styles.bloodMore}
+                value={bloodType}
+                onChange={(e) => setBloodType(e.target.value as any)}
                 disabled={loading}
               >
-                {b}
-              </button>
-            ))}
+                {BLOOD_ALL.map((b) => (
+                  <option key={b} value={b}>
+                    {b === 'unknown' ? 'Unknown / Other' : b}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
 
-            <select
-              className={styles.bloodMore}
-              value={bloodType}
-              onChange={(e) => setBloodType(e.target.value as any)}
+          <div className={styles.row2}>
+            <div className={styles.field}>
+              <label>Allergies (tags)</label>
+              <input
+                placeholder="Seafood, peanuts, pollen..."
+                value={allergyText}
+                onChange={(e) => setAllergyText(e.target.value)}
+                disabled={loading}
+              />
+              <div className={styles.helpText}>Separate with commas or semicolons.</div>
+            </div>
+
+            <div className={styles.field}>
+              <label>Conditions (tags)</label>
+              <input
+                placeholder="Asthma, eczema..."
+                value={conditionsText}
+                onChange={(e) => setConditionsText(e.target.value)}
+                disabled={loading}
+              />
+              <div className={styles.helpText}>Use short keywords only.</div>
+            </div>
+          </div>
+
+          <div className={styles.field}>
+            <label>Medical note (short) (optional)</label>
+            <textarea
+              className={styles.textarea}
+              placeholder="Example: Carries an EpiPen. Avoid medication X."
+              value={medicalShort}
+              onChange={(e) => setMedicalShort(e.target.value)}
               disabled={loading}
-            >
-              {BLOOD_ALL.map((b) => (
-                <option key={b} value={b}>
-                  {b === 'unknown' ? 'Không rõ / Khác' : b}
-                </option>
-              ))}
+              maxLength={160}
+            />
+            <div className={styles.helpText}>
+              Max 160 characters ({medicalShort.length}/160).
+            </div>
+          </div>
+        </section>
+
+        {/* Section: Emergency */}
+        <section className={styles.section}>
+          <div className={styles.sectionTop}>
+            <div>
+              <div className={styles.sectionTitle}>Emergency contact</div>
+              <div className={styles.sectionHint}>Used when we need to reach someone quickly.</div>
+            </div>
+            <span className={styles.iconPill}>🚨</span>
+          </div>
+
+          <div className={styles.row2}>
+            <div className={styles.field}>
+              <label>Contact name</label>
+              <input
+                placeholder="Full name"
+                value={emName}
+                onChange={(e) => setEmName(e.target.value)}
+                disabled={loading}
+              />
+            </div>
+
+            <div className={styles.field}>
+              <label>Phone number</label>
+              <input
+                placeholder="+47 123 45 678"
+                value={emPhone}
+                onChange={(e) => setEmPhone(e.target.value)}
+                disabled={loading}
+              />
+            </div>
+          </div>
+
+          <div className={styles.field}>
+            <label>Relation</label>
+            <select value={emRelation} onChange={(e) => setEmRelation(e.target.value as Relation)} disabled={loading}>
+              <option value="">Select</option>
+              <option value="guardian">Guardian</option>
+              <option value="grandparent">Grandparent</option>
+              <option value="mother">Mother</option>
+              <option value="father">Father</option>
+              <option value="relative">Relative</option>
+              <option value="babysitter">Babysitter</option>
+              <option value="other">Other</option>
             </select>
           </div>
-        </div>
+        </section>
 
-        {/* Allergies (tags as text input) */}
-        <div className={styles.field}>
-          <label>Các loại dị ứng</label>
-          <input
-            placeholder="Ví dụ: Hải sản, Đậu phộng, Phấn hoa..."
-            value={allergyText}
-            onChange={(e) => setAllergyText(e.target.value)}
-            disabled={loading}
-          />
-          <div className={styles.helpText}>Ngăn cách bằng dấu phẩy hoặc dấu chấm phẩy.</div>
-        </div>
-
-        {/* Emergency */}
-        <div className={styles.sectionHeader}>
-          <span>🚨</span>
-          <span>Liên hệ khẩn cấp</span>
-        </div>
-
-        <div className={styles.card}>
-          <div className={styles.field}>
-            <label>Tên người liên hệ</label>
-            <input
-              placeholder="Họ và tên người liên hệ"
-              value={emName}
-              onChange={(e) => setEmName(e.target.value)}
-              disabled={loading}
-            />
+        {/* Agreement + actions */}
+        <section className={styles.footerCard}>
+          <div className={styles.infoBox}>
+            <div className={styles.infoIcon}>ℹ️</div>
+            <div>
+              <div className={styles.infoText}>
+                The profile information will be visible to both parents and changes are recorded.
+              </div>
+            </div>
           </div>
 
-          <div className={styles.field}>
-            <label>Số điện thoại</label>
-            <input
-              placeholder="+84 090 123 4567"
-              value={emPhone}
-              onChange={(e) => setEmPhone(e.target.value)}
-              disabled={loading}
-            />
+          <label className={styles.agree}>
+            <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} disabled={loading} />
+            <span>I understand this information is shared within my family group.</span>
+          </label>
+
+          {error ? (
+            <p role="alert" className={styles.error}>
+              {error}
+            </p>
+          ) : null}
+
+          <div className={styles.actions}>
+            <button type="button" className={styles.secondary} onClick={() => router.back()} disabled={loading}>
+              Cancel
+            </button>
+
+            <button className={styles.primary} type="submit" disabled={!canSubmit}>
+              {loading ? 'Saving…' : 'Save profile'}
+            </button>
           </div>
-
-          <div className={styles.field}>
-            <label>Quan hệ</label>
-            <select
-              value={emRelation}
-              onChange={(e) => setEmRelation(e.target.value as Relation)}
-              disabled={loading}
-            >
-              <option value="">Chọn</option>
-              <option value="guardian">Người giám hộ</option>
-              <option value="grandparent">Ông/Bà</option>
-              <option value="mother">Mẹ</option>
-              <option value="father">Bố</option>
-              <option value="other">Khác</option>
-            </select>
-          </div>
-        </div>
-
-        {/* Agreement */}
-        <label className={styles.agree}>
-          <input
-            type="checkbox"
-            checked={agree}
-            onChange={(e) => setAgree(e.target.checked)}
-            disabled={loading}
-          />
-          <span>Tôi hiểu đây là thông tin được chia sẻ trong nhóm gia đình</span>
-        </label>
-
-        {error ? (
-          <p role="alert" className={styles.error}>
-            {error}
-          </p>
-        ) : null}
-
-        <button className={styles.primary} type="submit" disabled={!canSubmit}>
-          {loading ? 'Đang lưu…' : 'Lưu hồ sơ'}
-        </button>
+        </section>
       </form>
     </div>
   )

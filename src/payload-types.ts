@@ -214,15 +214,17 @@ export interface LandingPage {
   about: {
     title: string;
     content: string;
-    principles?:
+    utfordringer?:
       | {
-          text: string;
+          title: string;
+          description: string;
           id?: string | null;
         }[]
       | null;
-    outcomes?:
+    prinsipper?:
       | {
-          text: string;
+          title: string;
+          description: string;
           id?: string | null;
         }[]
       | null;
@@ -239,15 +241,12 @@ export interface LandingPage {
   };
   features: {
     title: string;
+    intro?: string | null;
+    image?: (number | null) | Media;
     items?:
       | {
           featureTitle: string;
-          points?:
-            | {
-                text: string;
-                id?: string | null;
-              }[]
-            | null;
+          description: string;
           id?: string | null;
         }[]
       | null;
@@ -273,6 +272,18 @@ export interface LandingPage {
           id?: string | null;
         }[]
       | null;
+  };
+  finalCTA: {
+    title: string;
+    description: string;
+    primaryButton: {
+      label: string;
+      url: string;
+    };
+    secondaryButton?: {
+      label?: string | null;
+      url?: string | null;
+    };
   };
   updatedAt: string;
   createdAt: string;
@@ -332,10 +343,17 @@ export interface Child {
   fullName: string;
   birthDate: string;
   gender?: ('na' | 'male' | 'female' | 'other') | null;
-  /**
-   * MVP: store an image URL. Later change to Upload.
-   */
-  avatarURL?: string | null;
+  avatar?: {
+    source?: ('upload' | 'url') | null;
+    /**
+     * Upload an image to Media.
+     */
+    upload?: (number | null) | Media;
+    /**
+     * MVP: store an image URL. Later switch to Upload or keep both.
+     */
+    url?: string | null;
+  };
   nationalId?: string | null;
   medical?: {
     bloodType?: ('unknown' | 'A' | 'B' | 'AB' | 'O' | 'A+' | 'A-' | 'B+' | 'B-' | 'AB+' | 'AB-' | 'O+' | 'O-') | null;
@@ -579,16 +597,18 @@ export interface LandingPageSelect<T extends boolean = true> {
     | {
         title?: T;
         content?: T;
-        principles?:
+        utfordringer?:
           | T
           | {
-              text?: T;
+              title?: T;
+              description?: T;
               id?: T;
             };
-        outcomes?:
+        prinsipper?:
           | T
           | {
-              text?: T;
+              title?: T;
+              description?: T;
               id?: T;
             };
       };
@@ -608,16 +628,13 @@ export interface LandingPageSelect<T extends boolean = true> {
     | T
     | {
         title?: T;
+        intro?: T;
+        image?: T;
         items?:
           | T
           | {
               featureTitle?: T;
-              points?:
-                | T
-                | {
-                    text?: T;
-                    id?: T;
-                  };
+              description?: T;
               id?: T;
             };
       };
@@ -645,6 +662,24 @@ export interface LandingPageSelect<T extends boolean = true> {
               question?: T;
               answer?: T;
               id?: T;
+            };
+      };
+  finalCTA?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+        primaryButton?:
+          | T
+          | {
+              label?: T;
+              url?: T;
+            };
+        secondaryButton?:
+          | T
+          | {
+              label?: T;
+              url?: T;
             };
       };
   updatedAt?: T;
@@ -700,7 +735,13 @@ export interface ChildrenSelect<T extends boolean = true> {
   fullName?: T;
   birthDate?: T;
   gender?: T;
-  avatarURL?: T;
+  avatar?:
+    | T
+    | {
+        source?: T;
+        upload?: T;
+        url?: T;
+      };
   nationalId?: T;
   medical?:
     | T

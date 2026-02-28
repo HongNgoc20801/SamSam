@@ -11,7 +11,10 @@ import WhySamsam from './components/landing/WhySamSam/whySamSam'
 import styles from './page.module.css'
 import NavbarWelcome from './components/landing/Navigation/Navigation'
 import FooterWelcome from './components/landing/Footer/Footer'
-import FAQ from "./components/landing/FAQ/FAQ";
+import FAQ from './components/landing/FAQ/FAQ'
+import FinalCTA from './components/landing/FinalCTA/FinalCTA'
+
+
 export default async function LandingPage() {
   const payload = await getPayload({ config })
 
@@ -57,14 +60,22 @@ export default async function LandingPage() {
         />
 
         <Features
-          data={{
-            title: landing.features.title,
-            items: (landing.features.items ?? []).map((item) => ({
-              featureTitle: item.featureTitle,
-              points: (item.points ?? []).map((p) => ({ text: p.text })), // loại bỏ id, đảm bảo luôn là mảng
-            })),
-          }}
-        />
+  data={{
+    title: landing.features.title,
+    intro: landing.features.intro ?? null,
+    image: {
+      url:
+        typeof landing.features.image === "object" && landing.features.image?.url
+          ? landing.features.image.url
+          : "",
+    },
+
+    items: (landing.features.items ?? []).map((item) => ({
+      featureTitle: item.featureTitle,
+      description: item.description ?? null,
+    })),
+  }}
+/>
 
         <WhySamsam
           data={{
@@ -78,6 +89,10 @@ export default async function LandingPage() {
         />
 
         <FAQ data={landing.faq} />
+
+        <FinalCTA data={landing.finalCTA}/>
+
+       
 
       
       </main>

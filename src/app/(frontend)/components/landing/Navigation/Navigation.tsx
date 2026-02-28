@@ -6,10 +6,10 @@ import styles from "./Navigation.module.css";
 import Brand from "../../Brand/Brand";
 
 const navLinks = [
-  { href: "#how", label: "How Samsam work" },
-  { href: "#features", label: "Features" },
-  { href: "#why", label: "Why Choose Samsam" },
-  { href: "#about", label: "About us" },
+  { href: "#how-it-works", label: "Slik fungerer det" },
+  { href: "#features", label: "Plattformen" },
+  { href: "#why-samsam", label: "Hvorfor SamSam" },
+  { href: "#about", label: "Løsningen" },
   { href: "#faq", label: "FAQ" },
 ];
 

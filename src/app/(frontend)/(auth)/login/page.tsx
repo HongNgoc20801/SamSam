@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import styles from './login.module.css'
-import Brand from '../../components/Brand'
+import Brand from '../../components/Brand/Brand'
  
 const AUTH_COLLECTION = 'customers'
  

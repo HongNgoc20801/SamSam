@@ -1,28 +1,45 @@
+
 .section {
-  padding: 70px 20px;
-  background: #f8fbff;
+  padding-block: var(--section-y);
+  padding-left: 0;
+  padding-right: 0;
+  background:var(--section-soft);
 }
 
 .container {
-  max-width: 1280px; /* thu gọn nhẹ để nhìn gọn hơn */
+  max-width: var(--container);
   margin: 0 auto;
+  padding-left: var(--px);
+  padding-right: var(--px);
 }
+
 
 .layout {
   display: grid;
-  grid-template-columns: 1.05fr 0.95fr;
-  gap: 30px; /* giảm khoảng cách giữa 2 phần */
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+  gap: 30px;
   align-items: start;
 }
 
-/* LEFT */
 .left {
   display: flex;
   flex-direction: column;
-  margin-top: -50px;
+  min-width: 0;
+  margin-top: -20px;
+  gap: 12px;
 }
 
+.right {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+  margin-top: 40px;
+}
+
+
 .title {
+  margin: 0;
   font-size: clamp(32px, 3.4vw, 44px);
   font-weight: 900;
   color: #0f172a;
@@ -30,7 +47,8 @@
   line-height: 1.1;
   position: relative;
   display: inline-block;
-  padding-bottom: 5px;
+  padding-bottom: 10px;
+  text-wrap: balance;
 }
 
 .title::after {
@@ -46,63 +64,65 @@
 }
 
 .intro {
+  margin: 0;
   font-size: 16px;
-  line-height: 1.7; /* thoáng hơn */
+  line-height: 1.7;
   color: #64748b;
-  margin: 0 0 15px; /* tách khỏi hình */
+  max-width: 62ch;
 }
 
-/* IMAGE */
 .imageWrap {
   margin-top: 6px;
-  max-width: 520px; /* cho hình “đã” hơn */
+  max-width: 520px;
+  width: 100%;
 }
 
 .image {
   width: 100%;
   height: auto;
   display: block;
-  border-radius: 18px;
+  border-radius: var(--radius-xl);
   box-shadow: 0 18px 46px rgba(15, 23, 42, 0.12);
 }
 
 /* closing line */
 .closing {
-  margin: 14px 0 0;
+  margin: 10px 0 0;
   font-size: 18px;
   line-height: 1.6;
-  color: rgb(21, 21, 21);
-  font-weight: 700;
-
+  color: rgba(15, 23, 42, 0.92);
+  font-weight: 800;
+  max-width: 46ch;
 }
 
-/* RIGHT */
-.right {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  margin-top: 70px;   /* chỉnh số này */
-}
-
-/* feature card */
+/* =========================
+   Feature card
+   ========================= */
 .feature {
   display: flex;
   gap: 14px;
   align-items: flex-start;
 
   padding: 14px 14px;
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.8);
-  border: 1px solid rgba(15, 23, 42, 0.1);
+  border-radius: var(--radius-xl);
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(15, 23, 42, 0.10);
+
   box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
-  transition: transform 0.18s ease, border-color 0.18s ease,
-  box-shadow 0.18s ease, background 0.18s ease;
+  transition:
+    transform 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    background 0.18s ease;
+
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 
 .feature:hover {
   transform: translateY(-2px);
   border-color: rgba(44, 103, 242, 0.28);
-  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.1);
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.10);
   background: rgba(255, 255, 255, 0.95);
 }
 
@@ -115,12 +135,12 @@
   flex-shrink: 0;
 
   color: #2c67f2;
-  background: rgba(44, 103, 242, 0.1);
+  background: rgba(44, 103, 242, 0.10);
   border: 1px solid rgba(44, 103, 242, 0.22);
 }
 
 .featureBody {
-  min-width: 0; /* tránh tràn chữ */
+  min-width: 0;
 }
 
 .featureTitle {
@@ -129,6 +149,7 @@
   margin: 0 0 6px;
   color: #0f172a;
   line-height: 1.25;
+  text-wrap: balance;
 }
 
 .featureDesc {
@@ -143,59 +164,141 @@
 .linkBtn {
   margin-top: 12px;
   align-self: flex-start;
+
   display: inline-flex;
   gap: 8px;
   align-items: center;
+  justify-content: center;
 
-  padding: 11px 16px;
-  border-radius: 16px;
+  padding: 12px 16px;
+  border-radius: var(--radius-lg);
   text-decoration: none;
 
-  font-weight: 800;
-  font-size: 14px; /* FIX: font-size phải có đơn vị */
+  font-weight: 850;
+  font-size: 14px;
   color: #330c59;
 
-  background: #ffffff;
-  border: 1px solid rgba(51, 12, 89, 0.7);
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(51, 12, 89, 0.70);
 
   box-shadow: 0 10px 22px rgba(15, 23, 42, 0.06);
-  transition: transform 0.15s ease, background 0.15s ease,
-    border-color 0.15s ease;
+  transition:
+    transform 0.15s ease,
+    background 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
 .linkBtn:hover {
   transform: translateY(-1px);
   background: #eaf205;
-  border-color: #330c59;
+  border-color: rgba(51, 12, 89, 0.95);
+  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.08);
 }
 
-/* Responsive */
-@media (max-width: 900px) {
+/* =========================
+   TABLET: stack layout
+   LEFT ở trên, RIGHT bên dưới 2 cột
+   ========================= */
+@media (max-width: 1024px) {
+  .layout {
+    grid-template-columns: 1fr;   /* LEFT trên, RIGHT dưới */
+    gap: 22px;
+  }
+
+  .imageWrap {
+    max-width: 720px;
+  }
+
+  /* ✅ Right thành grid 2 cột */
+  .right {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+    align-items: start;
+  }
+
+  /* CTA xuống hàng cuối full width */
+  .linkBtn {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+}
+
+/* =========================
+   MOBILE: everything 1 column
+   ========================= */
+@media (max-width: 640px) {
   .section {
-    padding: 64px 16px;
+    padding-block: 48px;
   }
 
   .layout {
-    grid-template-columns: 1fr;
-    gap: 28px; /* mobile giảm gap */
+    gap: 16px;
+  }
+
+  .title {
+    font-size: 28px;
+    padding-bottom: 8px;
+  }
+
+  .title::after {
+    width: 64px;
+    height: 5px;
   }
 
   .intro {
-    max-width: none;
+    font-size: 15.5px;
   }
 
   .imageWrap {
     max-width: none;
   }
 
+  .closing {
+    font-size: 16.5px;
+    line-height: 1.55;
+  }
+
+  /* ✅ Right thành 1 cột */
   .right {
-    padding-top: 0;
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .feature {
+    padding: 13px;
+    border-radius: 18px;
+  }
+
+  .icon {
+    width: 40px;
+    height: 40px;
+  }
+
+  .featureTitle {
+    font-size: 16.5px;
+  }
+
+  .featureDesc {
+    font-size: 14.3px;
+    line-height: 1.65;
+  }
+
+  /* CTA full width */
+  .linkBtn {
+    width: 100%;
+    justify-self: stretch;
+    min-height: 48px;
   }
 }
 
-/* Optional: màn hình rất lớn */
-@media (min-width: 1200px) {
-  .layout {
-    gap: 52px;
+@media (max-width: 420px) {
+  .feature {
+    padding: 12px;
+  }
+
+  .closing {
+    font-size: 16px;
   }
 }

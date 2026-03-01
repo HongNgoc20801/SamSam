@@ -49,7 +49,7 @@ export default function NavbarWelcome() {
             Log In
           </Link>
           <Link href="/register" className={styles.getStarted}>
-            Get Started
+            Start nå
           </Link>
         </div>
 

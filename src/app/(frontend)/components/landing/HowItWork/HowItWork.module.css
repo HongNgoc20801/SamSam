@@ -1,56 +1,71 @@
+/* HowItWork.module.css */
 
-
+/* =========================
+   SECTION + CONTAINER (sync tokens)
+   ========================= */
 .section {
   position: relative;
-  padding: 70px 20px;
   overflow: hidden;
 
-  /* đồng nhất với các section trên: nền dịu + hơi gradient */
+  padding-block: var(--section-y);
+  padding-left: 0;
+  padding-right: 0;
+
   background:
-    radial-gradient(900px 520px at 20% 10%, rgba(110, 64, 170, 0.08), transparent 60%),
-    radial-gradient(900px 520px at 85% 20%, rgba(59, 130, 246, 0.08), transparent 55%),
-    linear-gradient(180deg, #ffffff 0%, #f5f8fc 100%);
+    var(--section-brand);
 }
 
 .container {
-  max-width: 1320px;
+  max-width: var(--container);
   margin: 0 auto;
+  padding-left: var(--px);
+  padding-right: var(--px);
 }
+
 
 .header {
   text-align: center;
-  margin-bottom: clamp(26px, 3vw, 40px);
+  margin-bottom: clamp(22px, 3vw, 40px);
 }
 
 .title {
   margin: 0;
-  font-size: clamp(30px, 3vw, 40px);
+  font-size: clamp(28px, 3vw, 40px);
   line-height: 1.15;
   font-weight: 900;
   letter-spacing: -0.03em;
   color: #0f172a;
+  text-wrap: balance;
+
 }
 
 .underline {
   width: 78px;
   height: 4px;
-  border-radius: 15px;
+  border-radius: 999px;
   margin: 12px auto 12px;
 
-  /* vàng dịu như bạn đang dùng */
-  background: linear-gradient(90deg, rgba(212, 175, 55, 0.9), rgba(234, 242, 5, 0.55));
+  background: linear-gradient(
+    90deg,
+    rgba(212, 175, 55, 0.92),
+    rgba(234, 242, 5, 0.60)
+  );
   box-shadow: 0 10px 24px rgba(212, 175, 55, 0.18);
+  
 }
 
 .subtitle {
   margin: 0 auto;
-  max-width: 640px;
-  font-size: clamp(15px, 1.2vw, 18px);
+  max-width: 70ch;
+  font-size: clamp(15.5px, 1.15vw, 18px);
   line-height: 1.75;
   color: rgba(15, 23, 42, 0.65);
+  text-wrap: balance;
 }
 
-/* wrapper */
+/* =========================
+   WRAP + CONNECTOR
+   ========================= */
 .stepsWrap {
   position: relative;
   padding-top: 10px;
@@ -61,13 +76,15 @@
   display: none;
 }
 
-@media (min-width: 900px) {
+@media (min-width: 1024px) {
   .connector {
     display: block;
     position: absolute;
-    left: 24px;
-    right: 24px;
-    top: 108px; /* canh theo iconBox mới */
+    left: var(--px);
+    right: var(--px);
+
+    /* canh theo iconBox mới (86px) + padding card */
+    top: 112px;
     height: 2px;
 
     background-image: linear-gradient(
@@ -83,24 +100,26 @@
   }
 }
 
-/* grid */
+/* =========================
+   GRID
+   ========================= */
 .grid {
   position: relative;
   z-index: 1;
 
   display: grid;
   grid-template-columns: 1fr;
-  gap: 18px;
+  gap: 16px;
 }
 
-@media (min-width: 700px) {
+@media (min-width: 720px) {
   .grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 18px;
   }
 }
 
-@media (min-width: 1000px) {
+@media (min-width: 1024px) {
   .grid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 22px;
@@ -108,10 +127,11 @@
 }
 
 /* =========================
-   CARD – Bigger & Premium
+   CARD (premium)
    ========================= */
 .card {
   position: relative;
+  text-align: center;
 
   background: linear-gradient(
     180deg,
@@ -119,27 +139,28 @@
     rgba(255, 255, 255, 0.88)
   );
 
-  border-radius: 22px;
-  border: 2px solid rgba(15, 23, 42, 0.08);
+  border-radius: var(--radius-xl);
+  border: 1px solid rgba(15, 23, 42, 0.08);
 
-  padding: 38px 28px 32px;
-  min-height: 320px;
-  text-align: center;
+  padding: 34px 24px 30px;
+  min-height: 300px;
 
   box-shadow:
-    0 30px 70px rgba(15, 23, 42, 0.12),
+    0 26px 60px rgba(15, 23, 42, 0.12),
     0 8px 20px rgba(15, 23, 42, 0.06);
 
-  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+  transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 
 .card:hover {
-  transform: translateY(-6px);
-  border-color: rgba(59, 130, 246, 0.35);
+  transform: translateY(-5px);
+  border-color: rgba(59, 130, 246, 0.30);
 
   box-shadow:
-    0 40px 90px rgba(15, 23, 42, 0.18),
-    0 12px 30px rgba(15, 23, 42, 0.10);
+    0 36px 80px rgba(15, 23, 42, 0.16),
+    0 12px 30px rgba(15, 23, 42, 0.08);
 }
 
 /* top icon row */
@@ -149,12 +170,7 @@
   margin-bottom: 18px;
 }
 
-.iconWrapper {
-  position: relative;
-  display: inline-block;
-}
-
-/* icon container – larger */
+/* icon container */
 .iconBox {
   width: 86px;
   height: 86px;
@@ -182,10 +198,7 @@
   text-align: center;
 }
 
-/* =========================
-   MODERN NUMBER (01-04)
-   - số lớn, mờ, hiện đại
-   ========================= */
+/* number (01-04) */
 .badge {
   position: absolute;
   top: 16px;
@@ -197,12 +210,6 @@
   letter-spacing: -0.03em;
 
   color: rgba(59, 130, 246, 0.10);
-
-  background: none;
-  box-shadow: none;
-  padding: 0;
-  border-radius: 0;
-
   pointer-events: none;
 }
 
@@ -214,22 +221,25 @@
   font-weight: 900;
   letter-spacing: -0.01em;
   color: #0f172a;
+  text-wrap: balance;
 }
 
 .cardDesc {
   margin: 0 auto;
-  max-width: 320px;
+  max-width: 34ch;
 
   font-size: 15px;
   line-height: 1.75;
   color: rgba(15, 23, 42, 0.62);
 }
 
-/* CTA */
+/* =========================
+   CTA
+   ========================= */
 .ctaRow {
   display: flex;
   justify-content: center;
-  margin-top: clamp(18px, 2.6vw, 30px);
+  margin-top: clamp(16px, 2.6vw, 30px);
 }
 
 .cta {
@@ -240,23 +250,23 @@
 
   background: #ffffff;
   color: #330C59;
-  border: 1px solid #330C59;
+  border: 1px solid rgba(51, 12, 89, 0.75);
 
   padding: 12px 22px;
-  border-radius: 15px;
+  border-radius: var(--radius-lg);
 
   font-weight: 850;
   font-size: 15px;
   text-decoration: none;
 
   box-shadow: 0 12px 26px rgba(15, 23, 42, 0.08);
-
-  transition: transform 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+  transition: transform 0.15s ease, background 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
 }
 
 .cta:hover {
   transform: translateY(-1px);
   background: #EAF205;
+  border-color: rgba(51, 12, 89, 0.95);
   box-shadow: 0 18px 34px rgba(15, 23, 42, 0.10);
 }
 
@@ -264,31 +274,30 @@
   transform: translateY(0px);
 }
 
-.ctaArrow {
-  font-weight: 900;
-}
-
 /* =========================
-   MOBILE – smoother
+   MOBILE (<= 640)
    ========================= */
-@media (max-width: 520px) {
+@media (max-width: 640px) {
   .section {
-    padding: 56px 14px 68px;
+    padding-block: 48px; /* sync với About/Hero */
   }
 
   .header {
-    margin-bottom: 22px;
+    margin-bottom: 20px;
   }
 
   .underline {
     width: 66px;
-    height: 4px;
     margin: 10px auto 10px;
+  }
+
+  .grid {
+    gap: 12px;
   }
 
   .card {
     min-height: 0;
-    padding: 22px 18px 20px;
+    padding: 22px 16px 20px;
     border-radius: 18px;
   }
 
@@ -304,7 +313,7 @@
   }
 
   .badge {
-    font-size: 42px;
+    font-size: 40px;
     top: 12px;
     right: 14px;
   }
@@ -315,13 +324,22 @@
   }
 
   .cardDesc {
-    font-size: 14.5px;
+    font-size: 14.3px;
     line-height: 1.7;
   }
 
+  /* CTA full width, touch-friendly */
   .cta {
     width: 100%;
-    max-width: 340px;
+    max-width: 360px;
     padding: 12px 18px;
+    min-height: 48px;
+  }
+}
+
+
+@media (max-width: 420px) {
+  .card {
+    padding: 20px 14px 18px;
   }
 }

@@ -38,7 +38,7 @@ export default function FooterWelcome() {
           <div className={styles.col}>
             <h4 className={styles.title}>Navigasjon</h4>
             <div className={styles.linkList}>
-              <Link href="#how">Slik fungerer det</Link>
+              <Link href="#how-it-works">Slik fungerer det</Link>
               <Link href="#features">Funksjoner</Link>
               <Link href="#why-samsam">Hvorfor SamSam</Link>
               <Link href="#about">Om oss</Link>

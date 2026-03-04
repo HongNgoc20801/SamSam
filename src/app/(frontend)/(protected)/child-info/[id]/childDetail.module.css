@@ -364,3 +364,73 @@
   box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
   cursor: pointer;
 }
+/* ===== Pending / Confirm UI ===== */
+.heroStatusRow {
+  margin-top: 10px;
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.statusPillPending,
+.statusPillConfirmed {
+  padding: 7px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.statusPillPending {
+  color: #ffd166;
+  border-color: rgba(255, 209, 102, 0.25);
+  background: rgba(255, 209, 102, 0.10);
+}
+
+.statusPillConfirmed {
+  color: #2bd576;
+  border-color: rgba(43, 213, 118, 0.25);
+  background: rgba(43, 213, 118, 0.10);
+}
+
+.confirmedMeta {
+  font-size: 12px;
+  opacity: 0.72;
+}
+
+.confirmBox {
+  margin-top: 12px;
+  display: grid;
+  justify-content: center;
+  gap: 8px;
+}
+
+.confirmBtn {
+  height: 40px;
+  padding: 0 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(136, 162, 255, 0.30);
+  background: rgba(136, 162, 255, 0.14);
+  color: #e9edf7;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.confirmBtn:hover {
+  background: rgba(136, 162, 255, 0.20);
+}
+
+.confirmBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.confirmError {
+  font-size: 12px;
+  color: #ff6b6b;
+  opacity: 0.95;
+  text-align: center;
+}

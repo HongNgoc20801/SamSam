@@ -7,8 +7,14 @@ function isAdmin(req: any) {
   return getCollectionSlug(req) === 'users'
 }
 function isCustomer(req: any) {
-  return getCollectionSlug(req) === 'customers'
+  const slug = getCollectionSlug(req)
+  if (slug === 'customers') return true
+  const u: any = req?.user
+  if (u?.role === 'customer') return true
+  if (u?.type === 'customer') return true
+  return false
 }
+
 function getFamilyIdFromUser(req: any) {
   const u: any = req?.user
   if (!u) return null
@@ -20,16 +26,30 @@ function cleanPhone(v: any) {
   return String(v).trim()
 }
 
-function isValidHttpUrl(v: any) {
-  if (!v) return true
-  const s = String(v).trim()
-  try {
-    const u = new URL(s)
-    return u.protocol === 'http:' || u.protocol === 'https:'
-  } catch {
-    return false
-  }
+function stableJson(v: any) {
+  return JSON.stringify(v ?? null)
 }
+
+function pick(obj: any, keys: string[]) {
+  const out: any = {}
+  for (const k of keys) out[k] = obj?.[k]
+  return out
+}
+
+/**
+ * Những field này mà thay đổi sau khi đã CONFIRMED thì nên reset lại về PENDING.
+ * (đúng tinh thần Samsam: single source of truth + re-acknowledge)
+ */
+const IMPORTANT_FIELDS = [
+  'fullName',
+  'birthDate',
+  'gender',
+  'nationalId',
+  'avatar',
+  'medical',
+  'school',
+  'emergencyContacts',
+] as const
 
 export const Children: CollectionConfig = {
   slug: 'children',
@@ -54,80 +74,175 @@ export const Children: CollectionConfig = {
       return { family: { equals: familyId } }
     },
 
-    delete: ({ req }) => isAdmin(req),
+    delete: ({ req }) => !!req.user && isAdmin(req),
   },
 
   hooks: {
     beforeChange: [
-      async ({ data, req, operation }) => {
+      async (args: any) => {
+        const { data, req, operation } = args
+        // Payload version khác nhau có thể dùng originalDoc hoặc doc/previousDoc
+        const originalDoc = args?.originalDoc ?? args?.previousDoc ?? args?.doc ?? null
+
         const next: any = { ...(data ?? {}) }
 
-        // normalize
+        // ---- normalize basic
         if (next.fullName) next.fullName = String(next.fullName).trim()
         if (next.nationalId) next.nationalId = String(next.nationalId).replace(/\s+/g, '')
 
-        // avatar normalize (Upload or URL)
-        // NOTE: requires a Media collection, e.g. slug: 'media'
-        if (next?.avatar?.source === 'upload') {
-          // if upload is selected, keep upload, clear url
-          next.avatar.url = ''
-        } else if (next?.avatar?.source === 'url') {
-          // if url is selected, keep url, clear upload
-          next.avatar.upload = null
-          if (next.avatar.url) next.avatar.url = String(next.avatar.url).trim()
-        } else if (next?.avatar) {
-          // fallback if somehow source missing
-          // prefer upload if exists, else url
-          if (next.avatar.upload) {
-            next.avatar.source = 'upload'
-            next.avatar.url = ''
-          } else if (next.avatar.url) {
-            next.avatar.source = 'url'
-            next.avatar.upload = null
-            next.avatar.url = String(next.avatar.url).trim()
-          } else {
-            next.avatar.source = 'url'
+        // ---- normalize emergencyContacts (phones)
+        if (Array.isArray(next?.emergencyContacts)) {
+          next.emergencyContacts = next.emergencyContacts
+            .map((c: any) => {
+              const phones = Array.isArray(c?.phones)
+                ? c.phones
+                    .map((p: any) => ({ value: cleanPhone(p?.value) }))
+                    .filter((p: any) => p.value)
+                : []
+              return {
+                ...c,
+                name: String(c?.name ?? '').trim(),
+                relation: c?.relation ?? undefined,
+                isPrimary: !!c?.isPrimary,
+                phones,
+              }
+            })
+            // giữ contact nếu có name + có ít nhất 1 phone
+            .filter((c: any) => c.name && c.phones?.length)
+        }
+
+        // ensure one primary
+        if (Array.isArray(next?.emergencyContacts) && next.emergencyContacts.length) {
+          const hasPrimary = next.emergencyContacts.some((c: any) => c.isPrimary)
+          if (!hasPrimary) next.emergencyContacts[0].isPrimary = true
+          // nếu nhiều primary thì chỉ giữ primary đầu tiên
+          let found = false
+          next.emergencyContacts = next.emergencyContacts.map((c: any) => {
+            if (!c.isPrimary) return c
+            if (!found) {
+              found = true
+              return c
+            }
+            return { ...c, isPrimary: false }
+          })
+        }
+
+        // ---- normalize medical tags + gp phones
+        if (next?.medical) {
+          if (Array.isArray(next.medical.allergies)) {
+            next.medical.allergies = next.medical.allergies
+              .map((x: any) => ({ value: String(x?.value ?? '').trim() }))
+              .filter((x: any) => x.value)
+          }
+          if (Array.isArray(next.medical.conditions)) {
+            next.medical.conditions = next.medical.conditions
+              .map((x: any) => ({ value: String(x?.value ?? '').trim() }))
+              .filter((x: any) => x.value)
+          }
+          if (next.medical.notesShort) next.medical.notesShort = String(next.medical.notesShort).slice(0, 160)
+
+          if (next.medical.gp) {
+            if (next.medical.gp.name) next.medical.gp.name = String(next.medical.gp.name).trim()
+            if (next.medical.gp.clinic) next.medical.gp.clinic = String(next.medical.gp.clinic).trim()
+            if (Array.isArray(next.medical.gp.phones)) {
+              next.medical.gp.phones = next.medical.gp.phones
+                .map((p: any) => ({ value: cleanPhone(p?.value) }))
+                .filter((p: any) => p.value)
+            }
           }
         }
 
-        // primary emergency contact
-        if (next?.emergencyContact?.name) next.emergencyContact.name = String(next.emergencyContact.name).trim()
-        if (next?.emergencyContact?.phone) next.emergencyContact.phone = cleanPhone(next.emergencyContact.phone)
-
-        // additional contacts
-        if (Array.isArray(next?.emergencyContacts) && next.emergencyContacts.length) {
-          next.emergencyContacts = next.emergencyContacts
-            .map((c: any) => ({
-              ...c,
-              name: String(c?.name ?? '').trim(),
-              phone: cleanPhone(c?.phone),
-            }))
-            .filter((c: any) => c.name || c.phone) // drop empty rows
+        // ---- normalize school
+        if (next?.school) {
+          if (next.school.schoolName) next.school.schoolName = String(next.school.schoolName).trim()
+          if (next.school.className) next.school.className = String(next.school.className).trim()
+          if (next.school.mainTeacher) next.school.mainTeacher = String(next.school.mainTeacher).trim()
         }
 
-        // medical tags
-        if (next?.medical?.allergies?.length) {
-          next.medical.allergies = next.medical.allergies
-            .map((x: any) => ({ value: String(x?.value ?? '').trim() }))
-            .filter((x: any) => x.value)
-        }
-        if (next?.medical?.conditions?.length) {
-          next.medical.conditions = next.medical.conditions
-            .map((x: any) => ({ value: String(x?.value ?? '').trim() }))
-            .filter((x: any) => x.value)
+        // ==========================================================
+        // CREATE: set family/createdBy/status
+        // ==========================================================
+        if (operation === 'create') {
+          const familyId = getFamilyIdFromUser(req)
+          const userId = (req.user as any)?.id
+
+          if (!next.family && !familyId) {
+            throw new Error('Your account is not in a family group yet. Please create/join a family before creating a child profile.')
+          }
+
+          return {
+            ...next,
+            family: next.family ?? familyId,
+            createdBy: next.createdBy ?? userId,
+            status: next.status ?? 'pending',
+            confirmedBy: null,
+            confirmedAt: null,
+          }
         }
 
-        if (operation !== 'create') return next
+        // ==========================================================
+        // UPDATE logic: confirm + reset pending
+        // ==========================================================
+        if (operation === 'update') {
+          const userId = (req.user as any)?.id
 
-        const familyId = getFamilyIdFromUser(req)
-        const userId = (req.user as any)?.id
+          // ---- 1) Handle CONFIRM request
+          // Client sẽ PATCH { status: 'confirmed' }
+          // Server sẽ:
+          // - chặn createdBy confirm
+          // - set confirmedBy/confirmedAt
+          const wantsConfirm = next?.status === 'confirmed'
+          const wasPending = originalDoc?.status === 'pending'
 
-        return {
-          ...next,
-          family: next.family ?? familyId,
-          createdBy: next.createdBy ?? userId,
-          status: next.status ?? 'pending',
+          if (wantsConfirm && wasPending) {
+            const createdById =
+              typeof originalDoc?.createdBy === 'string' ? originalDoc.createdBy : originalDoc?.createdBy?.id
+
+            if (createdById && createdById === userId) {
+              throw new Error('You cannot confirm a child profile that you created. The other parent must confirm it.')
+            }
+
+            next.status = 'confirmed'
+            next.confirmedBy = userId
+            next.confirmedAt = new Date().toISOString()
+            return next
+          }
+
+          // ---- 2) Auto reset to PENDING if record was CONFIRMED and important fields changed
+          // (trừ trường hợp request chỉ để confirm / hoặc status unchanged)
+          const wasConfirmed = originalDoc?.status === 'confirmed'
+
+          if (wasConfirmed) {
+            const merged = { ...(originalDoc ?? {}), ...(next ?? {}) }
+
+            // nếu chỉ update status/read-only stuff, không reset
+            // Chúng ta check thay đổi trên IMPORTANT_FIELDS
+            const prevKey = stableJson(pick(originalDoc, IMPORTANT_FIELDS as any))
+            const nextKey = stableJson(pick(merged, IMPORTANT_FIELDS as any))
+
+            if (prevKey !== nextKey) {
+              // reset về pending
+              next.status = 'pending'
+              next.confirmedBy = null
+              next.confirmedAt = null
+            }
+          }
+
+          // ---- 3) If someone tries to manually set confirmedBy/confirmedAt (client), override
+          // (để tránh gian lận)
+          if ('confirmedBy' in next || 'confirmedAt' in next) {
+            // chỉ cho phép set confirmedBy/At thông qua flow confirm ở trên.
+            // còn lại: xoá nếu client gửi bừa.
+            if (!(next.status === 'confirmed' && originalDoc?.status === 'pending')) {
+              delete next.confirmedBy
+              delete next.confirmedAt
+            }
+          }
+
+          return next
         }
+
+        return next
       },
     ],
   },
@@ -160,54 +275,17 @@ export const Children: CollectionConfig = {
       ],
     },
 
-    // avatar (upload or URL)
+    // avatar
     {
       name: 'avatar',
       label: 'Avatar',
-      type: 'group',
-      fields: [
-        {
-          name: 'source',
-          label: 'Avatar source',
-          type: 'radio',
-          defaultValue: 'url',
-          options: [
-            { label: 'Upload', value: 'upload' },
-            { label: 'URL', value: 'url' },
-          ],
-        },
-        {
-          name: 'upload',
-          label: 'Avatar (Upload)',
-          type: 'upload',
-          relationTo: 'media', // <-- change if your media collection slug is different
-          required: false,
-          admin: {
-            condition: (_: any, siblingData: any) => siblingData?.source === 'upload',
-            description: 'Upload an image to Media.',
-          },
-        },
-        {
-          name: 'url',
-          label: 'Avatar URL',
-          type: 'text',
-          required: false,
-          validate: (value: any, { siblingData }: any) => {
-            // only validate when URL mode is selected
-            if (siblingData?.source !== 'url') return true
-            if (!value) return true
-            if (!isValidHttpUrl(value)) return 'Avatar URL must be a valid http(s) URL.'
-            return true
-          },
-          admin: {
-            condition: (_: any, siblingData: any) => siblingData?.source === 'url',
-            description: 'MVP: store an image URL. Later switch to Upload or keep both.',
-          },
-        },
-      ],
+      type: 'upload',
+      relationTo: 'media',
+      required: false,
+      admin: { description: 'Upload an image (JPG/PNG).' },
     },
 
-    // admin (paperwork)
+    // admin
     {
       name: 'nationalId',
       label: 'Số định danh (11 số)',
@@ -248,34 +326,33 @@ export const Children: CollectionConfig = {
             { label: 'O-', value: 'O-' },
           ],
         },
-
         {
           name: 'allergies',
           label: 'Allergies (tags)',
           type: 'array',
           fields: [{ name: 'value', type: 'text', required: true }],
         },
-
         {
           name: 'conditions',
           label: 'Conditions (tags)',
           type: 'array',
           fields: [{ name: 'value', type: 'text', required: true }],
-          admin: { description: 'Bệnh nền / tình trạng sức khoẻ (nếu có).' },
         },
-
+        { name: 'notesShort', label: 'Medical note (short)', type: 'text' },
         {
-          name: 'medications',
-          label: 'Medications',
-          type: 'array',
+          name: 'gp',
+          label: 'Primary doctor (GP)',
+          type: 'group',
           fields: [
-            { name: 'name', type: 'text', required: true },
-            { name: 'dose', type: 'text' },
-            { name: 'notes', type: 'text' },
+            { name: 'name', type: 'text' },
+            { name: 'clinic', type: 'text' },
+            {
+              name: 'phones',
+              type: 'array',
+              fields: [{ name: 'value', type: 'text', required: true }],
+            },
           ],
         },
-
-        { name: 'notesShort', label: 'Medical note (short)', type: 'text' },
       ],
     },
 
@@ -291,48 +368,25 @@ export const Children: CollectionConfig = {
       ],
     },
 
-    // emergency primary
-    {
-      name: 'emergencyContact',
-      label: 'Primary emergency contact',
-      type: 'group',
-      fields: [
-        { name: 'name', type: 'text' },
-        {
-          name: 'relation',
-          type: 'select',
-          options: [
-            { label: 'Mother', value: 'mother' },
-            { label: 'Father', value: 'father' },
-            { label: 'Grandparent', value: 'grandparent' },
-            { label: 'Guardian', value: 'guardian' },
-            { label: 'Other', value: 'other' },
-          ],
-        },
-        {
-          name: 'phone',
-          type: 'text',
-          validate: (value: any) => {
-            if (!value) return true
-            const v = String(value).trim()
-            if (!/^[+\d\s]{6,}$/.test(v)) return 'Invalid phone number.'
-            return true
-          },
-        },
-      ],
-    },
-
-    // emergency additional (many)
+    // emergencyContacts
     {
       name: 'emergencyContacts',
-      label: 'Additional emergency contacts',
+      label: 'Emergency contacts',
       type: 'array',
+      validate: (value: any) => {
+        if (!Array.isArray(value) || value.length === 0) return 'Please add at least one emergency contact.'
+        const ok = value.every((c: any) => c?.name && Array.isArray(c?.phones) && c.phones.length > 0)
+        if (!ok) return 'Each emergency contact must have a name and at least one phone number.'
+        const hasPrimary = value.some((c: any) => !!c?.isPrimary)
+        if (!hasPrimary) return 'Please select one primary emergency contact.'
+        return true
+      },
       fields: [
         { name: 'name', type: 'text', required: true },
         {
           name: 'relation',
           type: 'select',
-          required: true,
+          required: false,
           options: [
             { label: 'Mother', value: 'mother' },
             { label: 'Father', value: 'father' },
@@ -343,21 +397,28 @@ export const Children: CollectionConfig = {
             { label: 'Other', value: 'other' },
           ],
         },
+        { name: 'isPrimary', type: 'checkbox', defaultValue: false },
         {
-          name: 'phone',
-          type: 'text',
-          required: true,
-          validate: (value: any) => {
-            const v = String(value ?? '').trim()
-            if (!v) return 'Phone is required.'
-            if (!/^[+\d\s]{6,}$/.test(v)) return 'Invalid phone number.'
-            return true
-          },
+          name: 'phones',
+          type: 'array',
+          fields: [
+            {
+              name: 'value',
+              type: 'text',
+              required: true,
+              validate: (value: any) => {
+                const v = String(value ?? '').trim()
+                if (!v) return 'Phone is required.'
+                if (!/^[+\d\s]{6,}$/.test(v)) return 'Invalid phone number.'
+                return true
+              },
+            },
+          ],
         },
       ],
     },
 
-    // governance
+    // workflow
     {
       name: 'status',
       type: 'select',
@@ -367,8 +428,10 @@ export const Children: CollectionConfig = {
         { label: 'Pending', value: 'pending' },
         { label: 'Confirmed', value: 'confirmed' },
       ],
-      
     },
+
     { name: 'createdBy', type: 'relationship', relationTo: 'customers' },
+    { name: 'confirmedBy', type: 'relationship', relationTo: 'customers' },
+    { name: 'confirmedAt', type: 'date' },
   ],
 }

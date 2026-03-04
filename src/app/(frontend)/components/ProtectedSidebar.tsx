@@ -3,8 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import styles from '../(protected)/protectedLayout.module.css'
- 
-import Brand from '../components/Brand'
+import Brand from './Brand/Brand'
 import CopyButton from "../../(frontend)/components/CopyButton"
 import LogoutButton from "../../(frontend)/components/LogoutButton"
  

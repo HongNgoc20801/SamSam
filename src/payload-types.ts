@@ -174,7 +174,7 @@ export interface User {
  */
 export interface Media {
   id: number;
-  alt: string;
+  alt?: string | null;
   updatedAt: string;
   createdAt: string;
   url?: string | null;
@@ -343,17 +343,10 @@ export interface Child {
   fullName: string;
   birthDate: string;
   gender?: ('na' | 'male' | 'female' | 'other') | null;
-  avatar?: {
-    source?: ('upload' | 'url') | null;
-    /**
-     * Upload an image to Media.
-     */
-    upload?: (number | null) | Media;
-    /**
-     * MVP: store an image URL. Later switch to Upload or keep both.
-     */
-    url?: string | null;
-  };
+  /**
+   * Upload an image (JPG/PNG).
+   */
+  avatar?: (number | null) | Media;
   nationalId?: string | null;
   medical?: {
     bloodType?: ('unknown' | 'A' | 'B' | 'AB' | 'O' | 'A+' | 'A-' | 'B+' | 'B-' | 'AB+' | 'AB-' | 'O+' | 'O-') | null;
@@ -363,45 +356,47 @@ export interface Child {
           id?: string | null;
         }[]
       | null;
-    /**
-     * Bệnh nền / tình trạng sức khoẻ (nếu có).
-     */
     conditions?:
       | {
           value: string;
           id?: string | null;
         }[]
       | null;
-    medications?:
-      | {
-          name: string;
-          dose?: string | null;
-          notes?: string | null;
-          id?: string | null;
-        }[]
-      | null;
     notesShort?: string | null;
+    gp?: {
+      name?: string | null;
+      clinic?: string | null;
+      phones?:
+        | {
+            value: string;
+            id?: string | null;
+          }[]
+        | null;
+    };
   };
   school?: {
     schoolName?: string | null;
     className?: string | null;
     mainTeacher?: string | null;
   };
-  emergencyContact?: {
-    name?: string | null;
-    relation?: ('mother' | 'father' | 'grandparent' | 'guardian' | 'other') | null;
-    phone?: string | null;
-  };
   emergencyContacts?:
     | {
         name: string;
-        relation: 'mother' | 'father' | 'grandparent' | 'guardian' | 'babysitter' | 'relative' | 'other';
-        phone: string;
+        relation?: ('mother' | 'father' | 'grandparent' | 'guardian' | 'babysitter' | 'relative' | 'other') | null;
+        isPrimary?: boolean | null;
+        phones?:
+          | {
+              value: string;
+              id?: string | null;
+            }[]
+          | null;
         id?: string | null;
       }[]
     | null;
   status: 'pending' | 'confirmed';
   createdBy?: (number | null) | Customer;
+  confirmedBy?: (number | null) | Customer;
+  confirmedAt?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -735,13 +730,7 @@ export interface ChildrenSelect<T extends boolean = true> {
   fullName?: T;
   birthDate?: T;
   gender?: T;
-  avatar?:
-    | T
-    | {
-        source?: T;
-        upload?: T;
-        url?: T;
-      };
+  avatar?: T;
   nationalId?: T;
   medical?:
     | T
@@ -759,15 +748,19 @@ export interface ChildrenSelect<T extends boolean = true> {
               value?: T;
               id?: T;
             };
-        medications?:
+        notesShort?: T;
+        gp?:
           | T
           | {
               name?: T;
-              dose?: T;
-              notes?: T;
-              id?: T;
+              clinic?: T;
+              phones?:
+                | T
+                | {
+                    value?: T;
+                    id?: T;
+                  };
             };
-        notesShort?: T;
       };
   school?:
     | T
@@ -776,23 +769,24 @@ export interface ChildrenSelect<T extends boolean = true> {
         className?: T;
         mainTeacher?: T;
       };
-  emergencyContact?:
-    | T
-    | {
-        name?: T;
-        relation?: T;
-        phone?: T;
-      };
   emergencyContacts?:
     | T
     | {
         name?: T;
         relation?: T;
-        phone?: T;
+        isPrimary?: T;
+        phones?:
+          | T
+          | {
+              value?: T;
+              id?: T;
+            };
         id?: T;
       };
   status?: T;
   createdBy?: T;
+  confirmedBy?: T;
+  confirmedAt?: T;
   updatedAt?: T;
   createdAt?: T;
 }

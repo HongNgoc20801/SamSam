@@ -2,12 +2,16 @@ import styles from './childDetail.module.css'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { serverFetch } from '@/app/lib/serverFetch'
+import ConfirmChildButton from './ConfirmChildButton'
 
 type Child = {
   id: string
   fullName: string
   birthDate: string
-  status?: string
+  status?: 'pending' | 'confirmed' | string
+  createdBy?: any
+  confirmedBy?: any
+  confirmedAt?: string | null
 }
 
 function calcAge(birthDate: string) {
@@ -25,11 +29,14 @@ function formatBirth(birthDate: string) {
   return s || '—'
 }
 
-export default async function ChildProfilePage({
-  params,
-}: {
-  params: Promise<{ id: string }>
-}) {
+function formatConfirmedAt(v?: string | null) {
+  if (!v) return null
+  const d = new Date(v)
+  if (Number.isNaN(d.getTime())) return null
+  return d.toISOString().slice(0, 16).replace('T', ' ')
+}
+
+export default async function ChildProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
 
   const res = await serverFetch(`/api/children/${id}`)
@@ -39,8 +46,10 @@ export default async function ChildProfilePage({
   if (!child?.id) return notFound()
 
   const age = calcAge(child.birthDate)
+  const status = child.status || 'pending'
+  const confirmedAtText = formatConfirmedAt(child.confirmedAt)
 
-  // Mock “siblings bar” + documents + categories (để giống UI mẫu)
+  // Mock UI data giữ nguyên
   const topChildren = [
     { id: child.id, name: child.fullName.split(' ').slice(-1)[0] ?? 'An', active: true },
     { id: 'mock-2', name: 'Linh', active: false },
@@ -105,17 +114,32 @@ export default async function ChildProfilePage({
         </div>
 
         <div className={styles.heroName}>{child.fullName}</div>
+
+        {/* STATUS */}
+        <div className={styles.heroStatusRow}>
+          {status === 'pending' ? (
+            <span className={styles.statusPillPending}>⏳ Pending confirmation</span>
+          ) : (
+            <span className={styles.statusPillConfirmed}>✅ Confirmed</span>
+          )}
+
+          {status === 'confirmed' && confirmedAtText ? (
+            <span className={styles.confirmedMeta}>Confirmed at {confirmedAtText}</span>
+          ) : null}
+        </div>
+
         <div className={styles.heroMeta}>
           {age !== null ? `${age} Tuổi` : '—'} • Sinh {formatBirth(child.birthDate)} • Lớp 3A
         </div>
+
+        {/* CONFIRM BUTTON (client component) */}
+        <ConfirmChildButton childId={child.id} status={status} createdBy={child.createdBy} />
 
         <div className={styles.chipsRow} aria-label="Highlights">
           {quickChips.map((chip) => (
             <span
               key={chip.label}
-              className={`${styles.chip} ${
-                chip.tone === 'danger' ? styles.chipDanger : styles.chipWarning
-              }`}
+              className={`${styles.chip} ${chip.tone === 'danger' ? styles.chipDanger : styles.chipWarning}`}
             >
               {chip.label}
             </span>

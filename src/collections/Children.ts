@@ -1,5 +1,6 @@
 import type { CollectionConfig } from 'payload'
 
+
 function getCollectionSlug(req: any) {
   return req?.user?.collection ?? req?.user?._collection
 }

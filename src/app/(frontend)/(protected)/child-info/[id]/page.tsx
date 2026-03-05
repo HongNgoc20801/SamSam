@@ -1,20 +1,52 @@
-import styles from './childDetail.module.css'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import styles from './childDetail.module.css'
 import { serverFetch } from '@/app/lib/serverFetch'
 import ConfirmChildButton from './ConfirmChildButton'
+
+type Phone = { value: string }
+type EmergencyContact = {
+  name: string
+  relation?: string
+  isPrimary?: boolean
+  phones?: Phone[]
+}
 
 type Child = {
   id: string
   fullName: string
-  birthDate: string
+  birthDate?: string
+  gender?: string
+  nationalId?: string
   status?: 'pending' | 'confirmed' | string
+  avatar?: any
+
+  school?: {
+    schoolName?: string
+    className?: string
+    mainTeacher?: string
+  }
+
+  medical?: {
+    bloodType?: string
+    allergies?: { value: string }[]
+    conditions?: { value: string }[]
+    notesShort?: string
+    gp?: {
+      name?: string
+      clinic?: string
+      phones?: Phone[]
+    }
+  }
+
+  emergencyContacts?: EmergencyContact[]
+
   createdBy?: any
-  confirmedBy?: any
   confirmedAt?: string | null
 }
 
-function calcAge(birthDate: string) {
+function calcAge(birthDate?: string) {
+  if (!birthDate) return null
   const d = new Date(birthDate)
   if (Number.isNaN(d.getTime())) return null
   const now = new Date()
@@ -24,19 +56,30 @@ function calcAge(birthDate: string) {
   return age
 }
 
-function formatBirth(birthDate: string) {
-  const s = String(birthDate || '').slice(0, 10)
-  return s || '—'
+function fmtDate(v?: string) {
+  if (!v) return '—'
+  return String(v).slice(0, 10) || '—'
 }
 
-function formatConfirmedAt(v?: string | null) {
-  if (!v) return null
-  const d = new Date(v)
-  if (Number.isNaN(d.getTime())) return null
-  return d.toISOString().slice(0, 16).replace('T', ' ')
+function statusLabel(s?: string) {
+  const v = String(s || '').toLowerCase()
+  if (v.includes('confirm')) return { key: 'confirmed', text: 'Confirmed' }
+  return { key: 'pending', text: 'Pending' }
 }
 
-export default async function ChildProfilePage({ params }: { params: Promise<{ id: string }> }) {
+function relText(r?: string) {
+  if (!r) return '—'
+  // bạn có thể map sang tiếng Việt nếu muốn
+  return r
+}
+
+function renderPhones(phones?: Phone[]) {
+  const list = (phones || []).map((p) => String(p?.value || '').trim()).filter(Boolean)
+  if (!list.length) return '—'
+  return list.join(' • ')
+}
+
+export default async function ChildDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
 
   const res = await serverFetch(`/api/children/${id}`)
@@ -46,167 +89,196 @@ export default async function ChildProfilePage({ params }: { params: Promise<{ i
   if (!child?.id) return notFound()
 
   const age = calcAge(child.birthDate)
-  const status = child.status || 'pending'
-  const confirmedAtText = formatConfirmedAt(child.confirmedAt)
+  const st = statusLabel(child.status)
 
-  // Mock UI data giữ nguyên
-  const topChildren = [
-    { id: child.id, name: child.fullName.split(' ').slice(-1)[0] ?? 'An', active: true },
-    { id: 'mock-2', name: 'Linh', active: false },
-    { id: 'mock-3', name: 'Tùng', active: false },
-  ]
+  const allergies = child?.medical?.allergies?.map((x) => x.value).filter(Boolean) || []
+  const conditions = child?.medical?.conditions?.map((x) => x.value).filter(Boolean) || []
 
-  const quickChips = [
-    { label: 'Nhóm 0+', tone: 'danger' as const },
-    { label: 'Dị ứng Lạc', tone: 'warning' as const },
-  ]
+  const emergency = Array.isArray(child.emergencyContacts) ? child.emergencyContacts : []
+  const primaryEmergency = emergency.find((c) => c.isPrimary) || emergency[0]
 
-  const recentDocs = [
-    { id: 'd1', title: 'Giấy khai sinh.pdf', meta: '2.4 MB • 12/10/2023 • ME', type: 'pdf' as const },
-    { id: 'd2', title: 'Bảo hiểm y tế.jpg', meta: '1.8 MB • 15/01/2024 • Bố', type: 'img' as const },
-    { id: 'd3', title: 'Sổ tiêm chủng.pdf', meta: '5.1 MB • 20/02/2024 • ME', type: 'pdf' as const },
-  ]
-
-  const categories = [
-    { id: 'c1', title: 'Học bạ', sub: '4 tài liệu', icon: 'folder' as const },
-    { id: 'c2', title: 'Sức khoẻ', sub: '12 tài liệu', icon: 'heart' as const },
-    { id: 'c3', title: 'Giấy tờ tuỳ thân', sub: '2 tài liệu', icon: 'id' as const },
-    { id: 'c4', title: 'Khác', sub: '0 tài liệu', icon: 'dots' as const },
-  ]
+  const avatarLetter = (child.fullName?.trim()?.[0] || 'C').toUpperCase()
 
   return (
     <div className={styles.screen}>
-      {/* Top bar */}
+      {/* Topbar */}
       <header className={styles.topbar}>
-        <div className={styles.topbarLeft}>
-          <Link href="/child-info" className={styles.backBtn} aria-label="Tilbake">
-            ←
-          </Link>
-          <div className={styles.topbarTitle}>Hồ sơ con</div>
+        <Link href="/child-info" className={styles.backBtn} aria-label="Back">
+          ←
+        </Link>
+
+        <div className={styles.topbarCenter}>
+          <div className={styles.topbarTitle}>Child detail</div>
+          <div className={styles.topbarSub}>All info from Create Child</div>
         </div>
-        <button className={styles.iconBtn} aria-label="Settings">
-          ⚙
-        </button>
+
+        <Link href={`/child-info/${child.id}/edit`} className={styles.ghostBtn}>
+          Edit
+        </Link>
       </header>
 
-      {/* Horizontal child selector */}
-      <section className={styles.childStrip} aria-label="Children">
-        {topChildren.map((c) => (
-          <div key={c.id} className={`${styles.childPill} ${c.active ? styles.childPillActive : ''}`}>
-            <div className={styles.childAvatarSmall} aria-hidden="true">
-              {c.name.slice(0, 1).toUpperCase()}
-            </div>
-            <div className={styles.childNameSmall}>{c.name}</div>
-          </div>
-        ))}
-        <button className={styles.addChildBtn} aria-label="Add child">
-          +
-        </button>
-      </section>
+      {/* Hero */}
+      <section className={styles.hero}>
+        <div className={styles.heroLeft}>
+          <div className={styles.avatar}>{avatarLetter}</div>
 
-      {/* Profile hero */}
-      <section className={styles.hero} aria-label="Child profile">
-        <div className={styles.avatarWrap}>
-          <div className={styles.avatarLarge} aria-hidden="true">
-            {(child.fullName?.[0] ?? 'C').toUpperCase()}
+          <div className={styles.heroMeta}>
+            <div className={styles.nameRow}>
+              <div className={styles.name}>{child.fullName || '—'}</div>
+              <span className={`${styles.statusPill} ${st.key === 'confirmed' ? styles.statusConfirmed : styles.statusPending}`}>
+                {st.text}
+              </span>
+            </div>
+
+            <div className={styles.subRow}>
+              <span>{age !== null ? `${age} years old` : '—'}</span>
+              <span className={styles.dot}>•</span>
+              <span>DOB: {fmtDate(child.birthDate)}</span>
+              {child?.school?.className ? (
+                <>
+                  <span className={styles.dot}>•</span>
+                  <span>Class: {child.school.className}</span>
+                </>
+              ) : null}
+            </div>
           </div>
-          <span className={styles.onlineDot} aria-hidden="true" />
         </div>
 
-        <div className={styles.heroName}>{child.fullName}</div>
+        {/* Confirm button (giữ logic bạn đang có) */}
+        <div className={styles.heroRight}>
+          <ConfirmChildButton childId={child.id} status={child.status} createdBy={child.createdBy} />
+        </div>
+      </section>
 
-        {/* STATUS */}
-        <div className={styles.heroStatusRow}>
-          {status === 'pending' ? (
-            <span className={styles.statusPillPending}>⏳ Pending confirmation</span>
+      {/* Grid */}
+      <div className={styles.grid}>
+        {/* Basic */}
+        <section className={styles.card}>
+          <div className={styles.cardTitle}>Basic information</div>
+
+          <div className={styles.kv}>
+            <div className={styles.k}>Full name</div>
+            <div className={styles.v}>{child.fullName || '—'}</div>
+
+            <div className={styles.k}>Date of birth</div>
+            <div className={styles.v}>{fmtDate(child.birthDate)}</div>
+
+            <div className={styles.k}>Gender</div>
+            <div className={styles.v}>{child.gender || '—'}</div>
+
+            <div className={styles.k}>National ID</div>
+            <div className={styles.vMono}>{child.nationalId || '—'}</div>
+          </div>
+        </section>
+
+        {/* School */}
+        <section className={styles.card}>
+          <div className={styles.cardTitle}>School / Kindergarten</div>
+
+          <div className={styles.kv}>
+            <div className={styles.k}>School name</div>
+            <div className={styles.v}>{child.school?.schoolName || '—'}</div>
+
+            <div className={styles.k}>Class</div>
+            <div className={styles.v}>{child.school?.className || '—'}</div>
+
+            <div className={styles.k}>Main teacher</div>
+            <div className={styles.v}>{child.school?.mainTeacher || '—'}</div>
+          </div>
+        </section>
+
+        {/* Medical */}
+        <section className={styles.card}>
+          <div className={styles.cardTitle}>Medical (emergency)</div>
+
+          <div className={styles.kv}>
+            <div className={styles.k}>Blood type</div>
+            <div className={styles.v}>{child.medical?.bloodType && child.medical.bloodType !== 'unknown' ? child.medical.bloodType : '—'}</div>
+
+            <div className={styles.k}>Allergies</div>
+            <div className={styles.v}>
+              {allergies.length ? (
+                <div className={styles.tags}>
+                  {allergies.map((t) => (
+                    <span key={t} className={styles.tagWarn}>{t}</span>
+                  ))}
+                </div>
+              ) : (
+                '—'
+              )}
+            </div>
+
+            <div className={styles.k}>Conditions</div>
+            <div className={styles.v}>
+              {conditions.length ? (
+                <div className={styles.tags}>
+                  {conditions.map((t) => (
+                    <span key={t} className={styles.tagNeutral}>{t}</span>
+                  ))}
+                </div>
+              ) : (
+                '—'
+              )}
+            </div>
+
+            <div className={styles.k}>Short note</div>
+            <div className={styles.v}>{child.medical?.notesShort || '—'}</div>
+          </div>
+        </section>
+
+        {/* GP */}
+        <section className={styles.card}>
+          <div className={styles.cardTitle}>Primary doctor (GP)</div>
+
+          <div className={styles.kv}>
+            <div className={styles.k}>Doctor name</div>
+            <div className={styles.v}>{child.medical?.gp?.name || '—'}</div>
+
+            <div className={styles.k}>Clinic</div>
+            <div className={styles.v}>{child.medical?.gp?.clinic || '—'}</div>
+
+            <div className={styles.k}>Phones</div>
+            <div className={styles.v}>{renderPhones(child.medical?.gp?.phones)}</div>
+          </div>
+        </section>
+
+        {/* Emergency */}
+        <section className={styles.cardWide}>
+          <div className={styles.cardTitle}>Emergency contacts</div>
+
+          {!emergency.length ? (
+            <div className={styles.emptyText}>No emergency contacts.</div>
           ) : (
-            <span className={styles.statusPillConfirmed}>✅ Confirmed</span>
+            <div className={styles.emGrid}>
+              {emergency.map((c, idx) => {
+                const isPrimary = !!c.isPrimary
+                return (
+                  <div key={`${c.name}-${idx}`} className={`${styles.emCard} ${isPrimary ? styles.emPrimary : ''}`}>
+                    <div className={styles.emTop}>
+                      <div className={styles.emName}>{c.name || '—'}</div>
+                      {isPrimary ? <span className={styles.primaryBadge}>Primary</span> : null}
+                    </div>
+
+                    <div className={styles.emSub}>
+                      <span>Relation: {relText(c.relation)}</span>
+                    </div>
+
+                    <div className={styles.emPhones}>
+                      {renderPhones(c.phones)}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
           )}
 
-          {status === 'confirmed' && confirmedAtText ? (
-            <span className={styles.confirmedMeta}>Confirmed at {confirmedAtText}</span>
-          ) : null}
-        </div>
-
-        <div className={styles.heroMeta}>
-          {age !== null ? `${age} Tuổi` : '—'} • Sinh {formatBirth(child.birthDate)} • Lớp 3A
-        </div>
-
-        {/* CONFIRM BUTTON (client component) */}
-        <ConfirmChildButton childId={child.id} status={status} createdBy={child.createdBy} />
-
-        <div className={styles.chipsRow} aria-label="Highlights">
-          {quickChips.map((chip) => (
-            <span
-              key={chip.label}
-              className={`${styles.chip} ${chip.tone === 'danger' ? styles.chipDanger : styles.chipWarning}`}
-            >
-              {chip.label}
-            </span>
-          ))}
-          <span className={`${styles.chip} ${styles.chipPrimary}`}>Khẩn cấp</span>
-        </div>
-
-        {/* Tabs */}
-        <div className={styles.tabs} role="tablist" aria-label="Profile tabs">
-          <button className={styles.tabBtn} role="tab" aria-selected="false">
-            Y tế
-          </button>
-          <button className={styles.tabBtn} role="tab" aria-selected="false">
-            Học tập
-          </button>
-          <button className={`${styles.tabBtn} ${styles.tabBtnActive}`} role="tab" aria-selected="true">
-            Tài liệu
-          </button>
-        </div>
-      </section>
-
-      {/* Recent */}
-      <section className={styles.section}>
-        <div className={styles.sectionHeader}>
-          <div className={styles.sectionTitle}>Gần đây</div>
-          <button className={styles.linkBtn}>Xem tất cả</button>
-        </div>
-
-        <div className={styles.cardList}>
-          {recentDocs.map((d) => (
-            <div key={d.id} className={styles.docCard}>
-              <div className={`${styles.docIcon} ${d.type === 'pdf' ? styles.docPdf : styles.docImg}`}>
-                {d.type === 'pdf' ? 'PDF' : 'IMG'}
-              </div>
-              <div className={styles.docBody}>
-                <div className={styles.docTitle}>{d.title}</div>
-                <div className={styles.docMeta}>{d.meta}</div>
-              </div>
-              <button className={styles.moreBtn} aria-label="More">
-                ⋯
-              </button>
+          {primaryEmergency?.phones?.[0]?.value ? (
+            <div className={styles.hintRow}>
+              Tip: You can add “Call” / “Copy phone” actions later.
             </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Categories */}
-      <section className={styles.section}>
-        <div className={styles.sectionTitle}>Danh mục</div>
-
-        <div className={styles.grid}>
-          {categories.map((c) => (
-            <button key={c.id} className={styles.gridCard}>
-              <div className={styles.gridIcon} aria-hidden="true">
-                {c.icon === 'folder' ? '📁' : c.icon === 'heart' ? '❤️' : c.icon === 'id' ? '🪪' : '⋯'}
-              </div>
-              <div className={styles.gridTitle}>{c.title}</div>
-              <div className={styles.gridSub}>{c.sub}</div>
-            </button>
-          ))}
-        </div>
-      </section>
-
-      {/* Floating Action Button */}
-      <button className={styles.fab} aria-label="Add document">
-        +
-      </button>
+          ) : null}
+        </section>
+      </div>
     </div>
   )
 }

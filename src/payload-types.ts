@@ -74,6 +74,8 @@ export interface Config {
     customers: Customer;
     families: Family;
     children: Child;
+    child_documents: ChildDocument;
+    audit_logs: AuditLog;
     'calendar-events': CalendarEvent;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
@@ -88,6 +90,8 @@ export interface Config {
     customers: CustomersSelect<false> | CustomersSelect<true>;
     families: FamiliesSelect<false> | FamiliesSelect<true>;
     children: ChildrenSelect<false> | ChildrenSelect<true>;
+    child_documents: ChildDocumentsSelect<false> | ChildDocumentsSelect<true>;
+    audit_logs: AuditLogsSelect<false> | AuditLogsSelect<true>;
     'calendar-events': CalendarEventsSelect<false> | CalendarEventsSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
@@ -402,6 +406,62 @@ export interface Child {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "child_documents".
+ */
+export interface ChildDocument {
+  id: number;
+  family: number | Family;
+  child: number | Child;
+  file: number | Media;
+  title: string;
+  category: 'agreement' | 'school' | 'health' | 'id' | 'other';
+  noteShort?: string | null;
+  uploadedBy: number | Customer;
+  version: number;
+  /**
+   * If this document replaces an older one, link it here.
+   */
+  replaces?: (number | null) | ChildDocument;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "audit_logs".
+ */
+export interface AuditLog {
+  id: number;
+  family: number | Family;
+  child?: (number | null) | Child;
+  actorId?: string | null;
+  actorType: 'customer' | 'admin' | 'system';
+  actorName?: string | null;
+  action: string;
+  entityType: 'child' | 'document' | 'event' | 'other';
+  entityId?: string | null;
+  summary?: string | null;
+  changes?:
+    | {
+        field: string;
+        from?: string | null;
+        to?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  meta?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "calendar-events".
  */
 export interface CalendarEvent {
@@ -464,6 +524,14 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'children';
         value: number | Child;
+      } | null)
+    | ({
+        relationTo: 'child_documents';
+        value: number | ChildDocument;
+      } | null)
+    | ({
+        relationTo: 'audit_logs';
+        value: number | AuditLog;
       } | null)
     | ({
         relationTo: 'calendar-events';
@@ -787,6 +855,49 @@ export interface ChildrenSelect<T extends boolean = true> {
   createdBy?: T;
   confirmedBy?: T;
   confirmedAt?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "child_documents_select".
+ */
+export interface ChildDocumentsSelect<T extends boolean = true> {
+  family?: T;
+  child?: T;
+  file?: T;
+  title?: T;
+  category?: T;
+  noteShort?: T;
+  uploadedBy?: T;
+  version?: T;
+  replaces?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "audit_logs_select".
+ */
+export interface AuditLogsSelect<T extends boolean = true> {
+  family?: T;
+  child?: T;
+  actorId?: T;
+  actorType?: T;
+  actorName?: T;
+  action?: T;
+  entityType?: T;
+  entityId?: T;
+  summary?: T;
+  changes?:
+    | T
+    | {
+        field?: T;
+        from?: T;
+        to?: T;
+        id?: T;
+      };
+  meta?: T;
   updatedAt?: T;
   createdAt?: T;
 }

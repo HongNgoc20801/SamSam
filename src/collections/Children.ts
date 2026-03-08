@@ -1,5 +1,5 @@
 import type { CollectionConfig } from 'payload'
-
+import { logAudit } from '@/app/lib/logAudit'
 
 function getCollectionSlug(req: any) {
   return req?.user?.collection ?? req?.user?._collection
@@ -35,6 +35,30 @@ function pick(obj: any, keys: string[]) {
   const out: any = {}
   for (const k of keys) out[k] = obj?.[k]
   return out
+}
+function asText(v: any) {
+  if (v === null || v === undefined) return ''
+  if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') return String(v)
+  try {
+    return JSON.stringify(v)
+  } catch {
+    return String(v)
+  }
+}
+
+function pushChange(
+  changes: Array<{ field: string; from?: any; to?: any }>,
+  field: string,
+  from: any,
+  to: any,
+) {
+  if (asText(from) !== asText(to)) {
+    changes.push({ field, from, to })
+  }
+}
+
+function getFamilyIdFromDoc(doc: any) {
+  return typeof doc?.family === 'string' ? doc.family : doc?.family?.id ?? null
 }
 
 /**
@@ -246,6 +270,91 @@ export const Children: CollectionConfig = {
         return next
       },
     ],
+    afterChange: [
+  async ({ doc, previousDoc, operation, req }: any) => {
+    if (!req?.user || !doc) return
+
+    const childId = doc?.id ?? null
+    const familyId = getFamilyIdFromDoc(doc)
+
+    if (operation === 'create') {
+      await logAudit(req, {
+        familyId,
+        childId,
+        action: 'child.create',
+        entityType: 'child',
+        entityId: String(doc?.id),
+        summary: 'Created child profile',
+        meta: {
+          fullName: doc?.fullName,
+          status: doc?.status,
+        },
+      })
+      return
+    }
+
+    if (operation === 'update') {
+      const changes: Array<{ field: string; from?: any; to?: any }> = []
+
+      pushChange(changes, 'fullName', previousDoc?.fullName, doc?.fullName)
+      pushChange(changes, 'birthDate', previousDoc?.birthDate, doc?.birthDate)
+      pushChange(changes, 'gender', previousDoc?.gender, doc?.gender)
+      pushChange(changes, 'nationalId', previousDoc?.nationalId, doc?.nationalId)
+      pushChange(changes, 'status', previousDoc?.status, doc?.status)
+      pushChange(changes, 'avatar', previousDoc?.avatar, doc?.avatar)
+
+      pushChange(changes, 'school.schoolName', previousDoc?.school?.schoolName, doc?.school?.schoolName)
+      pushChange(changes, 'school.className', previousDoc?.school?.className, doc?.school?.className)
+      pushChange(changes, 'school.mainTeacher', previousDoc?.school?.mainTeacher, doc?.school?.mainTeacher)
+
+      pushChange(changes, 'medical.bloodType', previousDoc?.medical?.bloodType, doc?.medical?.bloodType)
+      pushChange(changes, 'medical.notesShort', previousDoc?.medical?.notesShort, doc?.medical?.notesShort)
+      pushChange(
+        changes,
+        'medical.allergies',
+        JSON.stringify(previousDoc?.medical?.allergies ?? []),
+        JSON.stringify(doc?.medical?.allergies ?? []),
+      )
+      pushChange(
+        changes,
+        'medical.conditions',
+        JSON.stringify(previousDoc?.medical?.conditions ?? []),
+        JSON.stringify(doc?.medical?.conditions ?? []),
+      )
+      pushChange(
+        changes,
+        'medical.gp',
+        JSON.stringify(previousDoc?.medical?.gp ?? {}),
+        JSON.stringify(doc?.medical?.gp ?? {}),
+      )
+      pushChange(
+        changes,
+        'emergencyContacts',
+        JSON.stringify(previousDoc?.emergencyContacts ?? []),
+        JSON.stringify(doc?.emergencyContacts ?? []),
+      )
+
+      if (!changes.length) return
+
+      const prevStatus = previousDoc?.status
+      const nextStatus = doc?.status
+      const isConfirm = prevStatus === 'pending' && nextStatus === 'confirmed'
+
+      await logAudit(req, {
+        familyId,
+        childId,
+        action: isConfirm ? 'child.confirm' : 'child.update',
+        entityType: 'child',
+        entityId: String(doc?.id),
+        summary: isConfirm ? 'Confirmed child profile' : 'Updated child profile',
+        changes,
+        meta: {
+          fullName: doc?.fullName,
+        },
+      })
+    }
+  },
+],
   },
 
   fields: [

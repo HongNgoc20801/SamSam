@@ -1,5 +1,5 @@
 'use client'
-
+ 
 import Image from 'next/image'
 import styles from './Brand.module.css'
 
@@ -8,7 +8,7 @@ type BrandProps = {
   className?: string
   alt?: string
 }
-
+ 
 export default function Brand({
   size = 'lg',
   className = '',
@@ -16,7 +16,7 @@ export default function Brand({
 }: BrandProps) {
   const w = size === 'sm' ? 60 : 84
   const h = size === 'sm' ? 60 : 84
-
+ 
   return (
     <div className={`${styles.brand} ${styles[size]} ${className}`}>
         <Image
@@ -28,6 +28,7 @@ export default function Brand({
           priority
         />
     </div>
-    
+   
   )
 }
+ 

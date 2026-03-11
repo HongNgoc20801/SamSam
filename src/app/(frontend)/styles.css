@@ -1,180 +1,122 @@
 :root {
-  --bg: #f8fbff;
-  --bg2: #eef4ff;
-  --text: #0f172a;
-  --muted: rgba(15, 23, 42, 0.70);
+  /* ===== Base colors ===== */
+  --bg: #F6F7FB;
+  --bg2: #EEF0FA;
+
+  --text: #0F172A;
+  --muted: rgba(15, 23, 42, 0.65);
 
   --card: rgba(255, 255, 255, 0.92);
   --border: rgba(15, 23, 42, 0.08);
 
-  --blue: #2563eb;
-  --blue2: #60a5fa;
+  --brand: #330C59;
+  --accent: #EAF205;
 
-  --radius-xl: 28px;
-  --radius-lg: 18px;
+  /* ===== Layout ===== */
+  --container: 1320px;
+  --px: clamp(14px, 2.2vw, 24px);
+  --section-y: clamp(52px, 6vw, 78px);
 
-  --shadow1: 0 20px 50px rgba(15, 23, 42, 0.10);
-  --shadow2: 0 10px 24px rgba(15, 23, 42, 0.06);
+  --radius-xl: clamp(18px, 2vw, 28px);
+  --radius-lg: 14px;
+
+  --shadow1: 0 20px 50px rgba(15, 23, 42, 0.08);
+  --shadow2: 0 10px 24px rgba(15, 23, 42, 0.05);
+
+  /* ===== NEW BACKGROUND SYSTEM ===== */
+
+  /* Neutral clean */
+  --section-base:
+    linear-gradient(180deg, #ffffff 0%, var(--bg) 100%);
+
+  /* Brand soft purple */
+  --section-brand:
+    radial-gradient(900px 520px at 20% 15%, rgba(51, 12, 89, 0.07), transparent 60%),
+    linear-gradient(180deg, #ffffff 0%, var(--bg) 100%);
+
+  /* Calm blue */
+  --section-trust:
+    radial-gradient(900px 520px at 20% 15%, rgba(37, 99, 235, 0.07), transparent 60%),
+    linear-gradient(180deg, #ffffff 0%, var(--bg) 100%);
+
+  /* Very soft surface */
+  --section-soft:
+    linear-gradient(180deg, var(--bg) 0%, var(--bg2) 100%);
 }
-
-
+/* =========================
+   BASE RESET
+   ========================= */
 * {
   box-sizing: border-box;
 }
 
 html {
-  font-size: 18px;
-  line-height: 32px;
-
-  background: rgb(230, 239, 247);
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  scroll-behavior: smooth;
+
+  /* ✅ Đồng bộ nền toàn site */
+  background: var(--bg);
 }
 
 html,
-body,
-#app {
+body {
   height: 100%;
+  background: var(--bg);
 }
 
 body {
-  font-family: system-ui;
-  font-size: 18px;
-  line-height: 32px;
-
   margin: 0;
-  color: rgb(1000, 1000, 1000);
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+  color: var(--text);
 
-  @media (max-width: 1024px) {
-    font-size: 15px;
-    line-height: 24px;
-  }
+  /* ✅ Không để transparent nữa */
+  background: var(--bg);
+
+  font-size: 16px;
+  line-height: 1.6;
 }
 
+/* Ảnh an toàn */
 img {
   max-width: 100%;
   height: auto;
   display: block;
 }
 
-h1 {
-  margin: 40px 0;
-  font-size: 64px;
-  line-height: 70px;
-  font-weight: bold;
-
-  @media (max-width: 1024px) {
-    margin: 24px 0;
-    font-size: 42px;
-    line-height: 42px;
-  }
-
-  @media (max-width: 768px) {
-    font-size: 38px;
-    line-height: 38px;
-  }
-
-  @media (max-width: 400px) {
-    font-size: 32px;
-    line-height: 32px;
-  }
-}
-
+/* Tránh margin mặc định làm "lệch layout" */
 p {
-  margin: 24px 0;
-
-  @media (max-width: 1024px) {
-    margin: calc(var(--base) * 0.75) 0;
-  }
+  margin: 0;
 }
 
 a {
-  color: currentColor;
+  color: inherit;
+  text-decoration: none;
+}
 
-  &:focus {
-    opacity: 0.8;
-    outline: none;
-  }
+a:focus-visible {
+  outline: 3px solid rgba(37, 99, 235, 0.22);
+  outline-offset: 3px;
+  border-radius: 10px;
+}
 
-  &:active {
-    opacity: 0.7;
-    outline: none;
+/* Nếu bạn vẫn muốn scale font nhẹ theo màn hình */
+@media (max-width: 1024px) {
+  body {
+    font-size: 15px;
   }
 }
 
-svg {
-  vertical-align: middle;
+/* =========================
+   OPTIONAL HELPERS (tiện đồng bộ)
+   Bạn có thể dùng hoặc không
+   ========================= */
+.section {
+  padding-block: var(--section-y);
 }
 
-.home {
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  align-items: center;
-  height: 100vh;
-  padding: 45px;
-  max-width: 1024px;
+.container {
+  max-width: var(--container);
   margin: 0 auto;
-  overflow: hidden;
-
-  @media (max-width: 400px) {
-    padding: 24px;
-  }
-
-  .content {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    flex-grow: 1;
-
-    h1 {
-      text-align: center;
-    }
-  }
-
-  .links {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-
-    a {
-      text-decoration: none;
-      padding: 0.25rem 0.5rem;
-      border-radius: 4px;
-    }
-
-    .admin {
-      color: rgb(0, 0, 0);
-      background: rgb(1000, 1000, 1000);
-      border: 1px solid rgb(0, 0, 0);
-    }
-
-    .docs {
-      color: rgb(1000, 1000, 1000);
-      background: rgb(0, 0, 0);
-      border: 1px solid rgb(1000, 1000, 1000);
-    }
-  }
-
-  .footer {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-
-    @media (max-width: 1024px) {
-      flex-direction: column;
-      gap: 6px;
-    }
-
-    p {
-      margin: 0;
-    }
-
-    .codeLink {
-      text-decoration: none;
-      padding: 0 0.5rem;
-      background: rgb(60, 60, 60);
-      border-radius: 4px;
-    }
-  }
+  padding-inline: var(--px);
 }

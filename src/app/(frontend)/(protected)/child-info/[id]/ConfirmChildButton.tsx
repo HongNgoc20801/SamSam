@@ -1,0 +1,91 @@
+'use client'
+
+import { useMemo, useState } from 'react'
+import styles from './childDetail.module.css'
+
+function getId(v: any): string | null {
+  if (!v) return null
+  if (typeof v === 'string') return v
+  if (typeof v === 'object' && v?.id) return String(v.id)
+  return null
+}
+
+export default function ConfirmChildButton({
+  childId,
+  status,
+  createdBy,
+}: {
+  childId: string
+  status?: string
+  createdBy?: any
+}) {
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  const createdById = useMemo(() => getId(createdBy), [createdBy])
+
+  // ✅ CHỈ cần pending là hiện nút
+  const canConfirm = status === 'pending'
+
+  async function fetchMeId(): Promise<string | null> {
+    // ✅ đổi endpoint đúng với auth collection của bạn
+    // Nếu bạn login là users -> dùng /api/users/me
+    // Nếu bạn login là customers -> dùng /api/customers/me
+    const res = await fetch('/api/customers/me', { credentials: 'include', cache: 'no-store' })
+    const j = await res.json().catch(() => ({}))
+
+    if (!res.ok) throw new Error(j?.message || `Could not load current user (${res.status})`)
+
+    // payload thường trả { user: {...} }
+    const me = j?.user ?? j
+    return getId(me?.id) ?? getId(me)
+  }
+
+  async function onConfirm() {
+    setError('')
+    setLoading(true)
+    try {
+      const myId = await fetchMeId()
+      if (!myId) throw new Error('Missing current user id.')
+
+      // ✅ client-side guard (optional). backend đã guard rồi.
+      if (createdById && myId === createdById) {
+        throw new Error('You cannot confirm a child profile that you created. The other parent must confirm it.')
+      }
+
+      const res = await fetch(`/api/children/${childId}`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'confirmed' }),
+      })
+
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(j?.message || `Could not confirm (${res.status}).`)
+
+      window.location.reload()
+    } catch (e: any) {
+      setError(e?.message || 'Could not confirm.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (!canConfirm) return null
+
+  return (
+    <div className={styles.confirmBox}>
+      <button
+        type="button"
+        className={styles.confirmBtn}
+        onClick={onConfirm}
+        disabled={loading}
+        aria-label="Confirm child profile"
+      >
+        {loading ? 'Confirming…' : 'Confirm profile'}
+      </button>
+
+      {error ? <div className={styles.confirmError}>{error}</div> : null}
+    </div>
+  )
+}

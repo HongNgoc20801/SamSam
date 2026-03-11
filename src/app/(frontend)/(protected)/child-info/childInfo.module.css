@@ -1,36 +1,7 @@
 .wrapper {
-  padding: 24px;
-}
-
-.header {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 12px;
-}
-
-.title {
-  font-size: 22px;
-  font-weight: 700;
-  margin: 0;
-}
-
-.addBtn {
-  display: inline-flex;
-  align-items: center;
-  height: 36px;
-  padding: 0 12px;
-  border-radius: 12px;
-  border: 1px solid #e5eaf0;
-  background: #fff;
-  color: #111;
-  text-decoration: none;
-  font-weight: 700;
-  font-size: 13px;
-}
-
-.addBtn:hover {
-  background: #f7f9fc;
+  padding: 22px 14px 28px;
+  max-width: 1100px;
+  margin: 0 auto;
 }
 
 .loading {
@@ -39,29 +10,134 @@
   color: #555;
 }
 
-.error {
-  margin-top: 12px;
-  color: crimson;
-  font-size: 14px;
+/* Header */
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
 }
 
-.emptyCard {
+.headerLeft {
+  min-width: 0;
+}
+
+.title {
+  font-size: 24px;
+  font-weight: 900;
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+
+.subtitle {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: #667085;
+}
+
+.primaryBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 38px;
+  padding: 0 14px;
+  border-radius: 12px;
+  border: 1px solid #dbeafe;
+  background: #2563eb;
+  color: #fff;
+  text-decoration: none;
+  font-weight: 900;
+  font-size: 13px;
+  white-space: nowrap;
+  box-shadow: 0 12px 22px rgba(37, 99, 235, 0.18);
+}
+
+.primaryBtn:hover {
+  filter: brightness(0.98);
+  transform: translateY(-1px);
+}
+
+.error {
   margin-top: 12px;
+  color: #b42318;
+  font-size: 13px;
+  background: #fff1f2;
+  border: 1px solid #fecdd3;
+  padding: 10px 12px;
+  border-radius: 12px;
+}
+
+/* Tools */
+.tools {
+  margin-top: 14px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.searchWrap {
+  flex: 1;
+  min-width: 220px;
+}
+
+.search {
+  width: 100%;
+  height: 42px;
+  border-radius: 12px;
+  border: 1px solid #e5eaf0;
+  background: #fff;
+  padding: 0 12px;
+  outline: none;
+}
+
+.search:focus {
+  border-color: #93c5fd;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
+}
+
+.controls {
+  display: flex;
+  gap: 10px;
+}
+
+.select {
+  height: 42px;
+  border-radius: 12px;
+  border: 1px solid #e5eaf0;
+  background: #fff;
+  padding: 0 10px;
+  font-weight: 700;
+  color: #111;
+}
+
+/* Empty */
+.emptyCard {
+  margin-top: 14px;
   padding: 16px;
   border: 1px solid #e5eaf0;
   border-radius: 16px;
   background: #fff;
+  display: grid;
+  gap: 10px;
+}
+
+.emptyTitle {
+  font-weight: 900;
+  font-size: 14px;
 }
 
 .emptyText {
-  margin: 0 0 10px;
-  color: #444;
+  font-size: 13px;
+  color: #667085;
 }
 
+/* Grid + Card */
 .grid {
   margin-top: 14px;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 12px;
 }
 
@@ -69,34 +145,35 @@
   text-decoration: none;
   color: inherit;
   border: 1px solid #e5eaf0;
-  border-radius: 16px;
+  border-radius: 18px;
   background: #fff;
-  padding: 12px;
+  padding: 14px;
   display: grid;
-  gap: 10px;
-  transition: transform 0.08s ease, background 0.08s ease;
+  gap: 12px;
+  transition: transform 0.1s ease, box-shadow 0.1s ease, background 0.1s ease;
 }
 
 .card:hover {
   background: #f8fbff;
   transform: translateY(-1px);
+  box-shadow: 0 14px 26px rgba(15, 23, 42, 0.08);
 }
 
 .cardTop {
   display: flex;
-  gap: 10px;
+  gap: 12px;
   align-items: center;
 }
 
 .avatar {
-  width: 42px;
-  height: 42px;
+  width: 44px;
+  height: 44px;
   border-radius: 999px;
   background: #eef4ff;
   border: 1px solid #dbe8ff;
   display: grid;
   place-items: center;
-  font-weight: 800;
+  font-weight: 1000;
   color: #2563eb;
 }
 
@@ -113,19 +190,25 @@
 }
 
 .name {
-  font-weight: 800;
+  font-weight: 900;
   font-size: 14px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.badge {
+.rightBadges {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.emergencyBadge {
   font-size: 14px;
 }
 
 .subRow {
-  margin-top: 4px;
+  margin-top: 6px;
   display: flex;
   gap: 6px;
   align-items: center;
@@ -137,12 +220,51 @@
   opacity: 0.8;
 }
 
-.cardBottom {
-  display: flex;
-  justify-content: flex-start;
+/* Status pill */
+.statusPill {
+  font-size: 11px;
+  font-weight: 900;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid #e5eaf0;
+  background: #f8fafc;
+  color: #334155;
 }
 
-.status {
+.status_pending {
+  border-color: #fed7aa;
+  background: #fff7ed;
+  color: #9a3412;
+}
+
+.status_confirmed {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+  color: #166534;
+}
+
+.status_unknown {
+  border-color: #e5eaf0;
+  background: #f8fafc;
+  color: #475569;
+}
+
+.cardBottom {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.linkHint {
   font-size: 12px;
-  color: #667085;
+  color: #2563eb;
+  font-weight: 800;
+}
+
+@media (max-width: 480px) {
+  .controls {
+    width: 100%;
+  }
+  .select {
+    flex: 1;
+  }
 }

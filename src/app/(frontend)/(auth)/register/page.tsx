@@ -21,7 +21,6 @@ export default function RegisterPage() {
   const router = useRouter()
 
   const API_BASE = useMemo(() => {
-    // chạy cùng origin thì NEXT_PUBLIC_PAYLOAD_URL có thể bỏ trống
     const base = process.env.NEXT_PUBLIC_PAYLOAD_URL
     const clean = base ? base.replace(/\/$/, '') : ''
     return clean ? `${clean}/api/${AUTH_COLLECTION}` : `/api/${AUTH_COLLECTION}`

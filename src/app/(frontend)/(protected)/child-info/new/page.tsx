@@ -1,8 +1,9 @@
 'use client'
 
+import React, { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { useMemo, useState } from 'react'
 import styles from './newChild.module.css'
+import { ArrowLeft, Plus } from 'lucide-react'
 
 const BLOOD_MAIN = ['A', 'B', 'AB', 'O'] as const
 const BLOOD_ALL = [
@@ -24,7 +25,13 @@ const BLOOD_ALL = [
 type Gender = 'na' | 'male' | 'female' | 'other'
 type Relation = 'mother' | 'father' | 'grandparent' | 'guardian' | 'other' | 'relative' | 'babysitter' | ''
 
-type AvatarSource = 'url' | 'upload'
+type Phone = { value: string }
+type EmergencyContact = {
+  name: string
+  relation: Relation
+  phones: Phone[]
+  isPrimary: boolean
+}
 
 function normalize11Digits(v: string) {
   return v.replace(/\s+/g, '')
@@ -38,44 +45,49 @@ function parseTags(input: string) {
     .map((value) => ({ value }))
 }
 
-function isLikelyHttpUrl(url: string) {
-  const u = url.trim()
-  if (!u) return false
-  return /^https?:\/\/.+/i.test(u)
+function isValidPhone(v: string) {
+  const s = v.trim()
+  if (!s) return false
+  return /^[+\d\s]{6,}$/.test(s)
 }
 
 export default function NewChildPage() {
   const router = useRouter()
 
-  // profile
-  const [avatarSource, setAvatarSource] = useState<AvatarSource>('url')
-  const [avatarURL, setAvatarURL] = useState('')
+  // Avatar upload only
   const [avatarFile, setAvatarFile] = useState<File | null>(null)
 
+  // Basic
   const [fullName, setFullName] = useState('')
   const [birthDate, setBirthDate] = useState('')
   const [gender, setGender] = useState<Gender>('na')
   const [nationalId, setNationalId] = useState('')
 
-  // school
+  // School
   const [schoolName, setSchoolName] = useState('')
   const [className, setClassName] = useState('')
   const [mainTeacher, setMainTeacher] = useState('')
 
-  // medical
+  // Medical
   const [bloodType, setBloodType] = useState<(typeof BLOOD_ALL)[number]>('unknown')
   const [allergyText, setAllergyText] = useState('')
   const [conditionsText, setConditionsText] = useState('')
   const [medicalShort, setMedicalShort] = useState('')
 
-  // emergency contact (single)
-  const [emName, setEmName] = useState('')
-  const [emPhone, setEmPhone] = useState('')
-  const [emRelation, setEmRelation] = useState<Relation>('')
+  // GP
+  const [gpName, setGpName] = useState('')
+  const [gpClinic, setGpClinic] = useState('')
+  const [gpPhones, setGpPhones] = useState<Phone[]>([{ value: '' }])
 
-  // governance
+  // Emergency contacts
+  const [emergencyContacts, setEmergencyContacts] = useState<EmergencyContact[]>([
+    { name: '', relation: '', phones: [{ value: '' }], isPrimary: true },
+  ])
+
+  // Agreement
   const [agree, setAgree] = useState(false)
 
+  // UI state
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -83,20 +95,14 @@ export default function NewChildPage() {
     return !!fullName.trim() && !!birthDate && agree && !loading
   }, [fullName, birthDate, agree, loading])
 
-  // Avatar preview
   const avatarLetter = (fullName.trim()?.[0] ?? 'C').toUpperCase()
   const filePreview = useMemo(() => {
     if (!avatarFile) return ''
     return URL.createObjectURL(avatarFile)
   }, [avatarFile])
-
-  const showAvatarImage =
-    avatarSource === 'upload'
-      ? !!filePreview
-      : !!avatarURL.trim() && isLikelyHttpUrl(avatarURL.trim())
+  const showAvatarImage = !!filePreview
 
   async function uploadToMedia(file: File) {
-    // Payload Media upload (typical)
     const form = new FormData()
     form.append('file', file)
 
@@ -108,9 +114,77 @@ export default function NewChildPage() {
 
     const j = await res.json().catch(() => ({}))
     if (!res.ok) throw new Error(j?.message || 'Could not upload image.')
-
-    // Expecting Payload Media doc back with id
     return j
+  }
+
+  function setPrimaryContact(index: number) {
+    setEmergencyContacts((prev) => prev.map((c, i) => ({ ...c, isPrimary: i === index })))
+  }
+
+  function addContact() {
+    setEmergencyContacts((prev) => [...prev, { name: '', relation: '', phones: [{ value: '' }], isPrimary: false }])
+  }
+
+  function removeContact(index: number) {
+    setEmergencyContacts((prev) => {
+      const next = prev.filter((_, i) => i !== index)
+      if (next.length && !next.some((c) => c.isPrimary)) next[0].isPrimary = true
+      return next.length ? next : [{ name: '', relation: '', phones: [{ value: '' }], isPrimary: true }]
+    })
+  }
+
+  function addPhoneToContact(contactIndex: number) {
+    setEmergencyContacts((prev) =>
+      prev.map((c, i) => (i === contactIndex ? { ...c, phones: [...c.phones, { value: '' }] } : c)),
+    )
+  }
+
+  function removePhoneFromContact(contactIndex: number, phoneIndex: number) {
+    setEmergencyContacts((prev) =>
+      prev.map((c, i) => {
+        if (i !== contactIndex) return c
+        const phones = c.phones.filter((_, p) => p !== phoneIndex)
+        return { ...c, phones: phones.length ? phones : [{ value: '' }] }
+      }),
+    )
+  }
+
+  function addGpPhone() {
+    setGpPhones((prev) => [...prev, { value: '' }])
+  }
+
+  function removeGpPhone(idx: number) {
+    setGpPhones((prev) => (prev.length === 1 ? prev : prev.filter((_, i) => i !== idx)))
+  }
+
+  function validateBeforeSubmit(): string | null {
+    const cleanNationalId = normalize11Digits(nationalId.trim())
+    if (cleanNationalId && !/^\d{11}$/.test(cleanNationalId)) return 'National ID must be exactly 11 digits.'
+
+    const normalized = emergencyContacts.map((c) => {
+      const name = c.name.trim()
+      const phones = c.phones.map((p) => p.value.trim()).filter(Boolean)
+      return { ...c, name, phones }
+    })
+
+    const hasAnyInput = normalized.filter((c) => c.name || c.phones.length)
+    if (!hasAnyInput.length) return 'Please add at least one emergency contact.'
+
+    const allValid = hasAnyInput.every((c) => c.name && c.phones.length && c.phones.every((p) => isValidPhone(p)))
+    if (!allValid) return 'Each emergency contact must have a name and at least one valid phone number.'
+
+    if (!hasAnyInput.some((c) => c.isPrimary)) return 'Please select one primary emergency contact.'
+
+    const gpHasAny = gpName.trim() || gpClinic.trim() || gpPhones.some((p) => p.value.trim())
+    if (gpHasAny) {
+      const ok = gpPhones
+        .map((p) => p.value.trim())
+        .filter(Boolean)
+        .every((p) => isValidPhone(p))
+      if (!ok) return 'Primary doctor phone number is invalid.'
+    }
+
+    return null
   }
 
   async function onSubmit(e: React.FormEvent) {
@@ -118,40 +192,26 @@ export default function NewChildPage() {
     if (!canSubmit) return
     setError('')
 
-    const cleanNationalId = normalize11Digits(nationalId.trim())
-
-    if (cleanNationalId && !/^\d{11}$/.test(cleanNationalId)) {
-      setError('National ID must be exactly 11 digits.')
-      return
-    }
-
-    if (avatarSource === 'url' && avatarURL.trim() && !isLikelyHttpUrl(avatarURL)) {
-      setError('Invalid avatar URL. Please use a link starting with http(s)://')
-      return
-    }
+    const preErr = validateBeforeSubmit()
+    if (preErr) return setError(preErr)
 
     setLoading(true)
     try {
+      const cleanNationalId = normalize11Digits(nationalId.trim())
+
       const body: any = {
         fullName: fullName.trim(),
         birthDate,
         gender,
       }
 
-      // Avatar (matches the new collection schema: avatar.source + avatar.url or avatar.upload)
-      if (avatarSource === 'url') {
-        const u = avatarURL.trim()
-        if (u) body.avatar = { source: 'url', url: u }
-      } else {
-        if (avatarFile) {
-          const mediaDoc = await uploadToMedia(avatarFile)
-          body.avatar = { source: 'upload', upload: mediaDoc?.id }
-        }
+      if (avatarFile) {
+        const mediaDoc = await uploadToMedia(avatarFile)
+        body.avatar = mediaDoc?.id
       }
 
       if (cleanNationalId) body.nationalId = cleanNationalId
 
-      // school group
       if (schoolName.trim() || className.trim() || mainTeacher.trim()) {
         body.school = {
           schoolName: schoolName.trim() || undefined,
@@ -160,27 +220,40 @@ export default function NewChildPage() {
         }
       }
 
-      // medical group
       const allergies = parseTags(allergyText)
       const conditions = parseTags(conditionsText)
       const notesShort = medicalShort.trim()
 
-      if (bloodType !== 'unknown' || allergies.length || conditions.length || notesShort) {
+      const hasMedical =
+        bloodType !== 'unknown' || allergies.length || conditions.length || notesShort || gpName.trim() || gpClinic.trim()
+
+      if (hasMedical) {
         body.medical = {}
         if (bloodType !== 'unknown') body.medical.bloodType = bloodType
         if (allergies.length) body.medical.allergies = allergies
         if (conditions.length) body.medical.conditions = conditions
         if (notesShort) body.medical.notesShort = notesShort.slice(0, 160)
-      }
 
-      // primaryEmergencyContact (if you kept old field name in backend, rename here accordingly)
-      if (emName.trim() || emPhone.trim() || emRelation) {
-        body.primaryEmergencyContact = {
-          name: emName.trim() || undefined,
-          phone: emPhone.trim() || undefined,
-          relation: emRelation || undefined,
+        const gpPhoneClean = gpPhones.map((p) => ({ value: p.value.trim() })).filter((p) => p.value)
+        if (gpName.trim() || gpClinic.trim() || gpPhoneClean.length) {
+          body.medical.gp = {
+            name: gpName.trim() || undefined,
+            clinic: gpClinic.trim() || undefined,
+            phones: gpPhoneClean.length ? gpPhoneClean : undefined,
+          }
         }
       }
+
+      const emergencyClean = emergencyContacts
+        .map((c) => ({
+          name: c.name.trim(),
+          relation: c.relation || undefined,
+          isPrimary: !!c.isPrimary,
+          phones: c.phones.map((p) => ({ value: p.value.trim() })).filter((p) => p.value),
+        }))
+        .filter((c) => c.name && c.phones.length)
+
+      body.emergencyContacts = emergencyClean
 
       const res = await fetch('/api/children', {
         method: 'POST',
@@ -190,7 +263,13 @@ export default function NewChildPage() {
       })
 
       const j = await res.json().catch(() => ({}))
-      if (!res.ok) throw new Error(j?.message || 'Could not create child profile.')
+      if (!res.ok) {
+        const msg =
+          j?.message ||
+          (Array.isArray(j?.errors) ? j.errors.map((x: any) => x?.message).filter(Boolean).join(', ') : '') ||
+          'Could not create child profile.'
+        throw new Error(msg)
+      }
 
       router.push('/child-info')
     } catch (err: any) {
@@ -203,115 +282,73 @@ export default function NewChildPage() {
   return (
     <div className={styles.screen}>
       <header className={styles.topbar}>
-        <button className={styles.backBtn} onClick={() => router.back()} aria-label="Back">
-          ←
+        <button type="button" onClick={() => router.back()} className={styles.backBtn} aria-label="Back">
+          <ArrowLeft size={30} strokeWidth={2.5} />
         </button>
-        <div>
-          <div className={styles.title}>Create child profile</div>
-          <div className={styles.subtitle}>This information will be shared with your family group.</div>
+
+        <div className={styles.topbarCenter}>
+          <h1 className={styles.topbarTitle}>Create Child Profile</h1>
+          <p className={styles.topbarHint}>This information will be shared with your family group.</p>
         </div>
-        <div className={styles.rightSpace} />
+
+        <div className={styles.topbarRight} />
       </header>
 
       <form onSubmit={onSubmit} className={styles.form}>
-        {/* Section: Identity */}
+        {/* Basic */}
         <section className={styles.section}>
           <div className={styles.sectionTop}>
             <div>
               <div className={styles.sectionTitle}>Basic information</div>
-              <div className={styles.sectionHint}>Used for calendars, messages, and notifications.</div>
+              <div className={styles.sectionHint}>Used for calendars, notifications, and structure.</div>
             </div>
-            <span className={styles.badge}>Shared</span>
           </div>
 
           <div className={styles.identityGrid}>
             <div className={styles.avatarBlock}>
-              <div className={styles.avatarCircle} aria-label="Avatar preview">
-                {showAvatarImage ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    className={styles.avatarImg}
-                    src={avatarSource === 'upload' ? filePreview : avatarURL.trim()}
-                    alt="Child avatar"
-                  />
-                ) : (
-                  <div className={styles.avatarPlaceholder}>{avatarLetter}</div>
-                )}
-              </div>
-              <div className={styles.avatarText}>Avatar (optional)</div>
+              <label className={styles.avatarPicker}>
+                <div className={styles.avatarCircle} aria-label="Avatar">
+                  {showAvatarImage ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img className={styles.avatarImg} src={filePreview} alt="Child avatar" />
+                  ) : (
+                    <div className={styles.avatarPlaceholder}>{avatarLetter}</div>
+                  )}
+
+                  <div className={styles.avatarOverlay}>
+                    <div className={styles.avatarOverlayIcon}>📷</div>
+                    <div className={styles.avatarOverlayText}>Add photo</div>
+                  </div>
+                </div>
+
+                <input
+                  className={styles.fileInputHidden}
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => setAvatarFile(e.target.files?.[0] ?? null)}
+                  disabled={loading}
+                />
+              </label>
+
+              <div className={styles.avatarText}>Avatar (optional) • PNG/JPG recommended.</div>
+
+              {avatarFile ? (
+                <button type="button" className={styles.smallDanger} onClick={() => setAvatarFile(null)} disabled={loading}>
+                  Remove photo
+                </button>
+              ) : null}
             </div>
 
             <div className={styles.fieldsCol}>
-              {/* Avatar source */}
-              <div className={styles.field}>
-                <label>Avatar source</label>
-                <div className={styles.segment}>
-                  <button
-                    type="button"
-                    className={`${styles.segmentBtn} ${avatarSource === 'url' ? styles.segmentActive : ''}`}
-                    onClick={() => setAvatarSource('url')}
-                    disabled={loading}
-                    aria-pressed={avatarSource === 'url'}
-                  >
-                    URL
-                  </button>
-                  <button
-                    type="button"
-                    className={`${styles.segmentBtn} ${avatarSource === 'upload' ? styles.segmentActive : ''}`}
-                    onClick={() => setAvatarSource('upload')}
-                    disabled={loading}
-                    aria-pressed={avatarSource === 'upload'}
-                  >
-                    Upload
-                  </button>
-                </div>
-                <div className={styles.helpText}>Choose one option. You can change it later.</div>
-              </div>
-
-              {/* Avatar URL */}
-              {avatarSource === 'url' ? (
-                <div className={styles.field}>
-                  <label>Image URL</label>
-                  <input
-                    placeholder="https://..."
-                    value={avatarURL}
-                    onChange={(e) => setAvatarURL(e.target.value)}
-                    disabled={loading}
-                  />
-                  <div className={styles.helpText}>Use a direct http(s) image URL. Leave empty if not needed.</div>
-                </div>
-              ) : (
-                <div className={styles.field}>
-                  <label>Upload image</label>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => setAvatarFile(e.target.files?.[0] ?? null)}
-                    disabled={loading}
-                  />
-                  <div className={styles.helpText}>PNG/JPG recommended. The image will be stored in Media.</div>
-                </div>
-              )}
-
               <div className={styles.field}>
                 <label>Full name</label>
-                <input
-                  placeholder="Enter full name"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  disabled={loading}
-                />
+                <input placeholder="Enter full name" value={fullName} onChange={(e) => setFullName(e.target.value)} disabled={loading} />
               </div>
 
               <div className={styles.row2}>
                 <div className={styles.field}>
                   <label>Date of birth</label>
-                  <input
-                    type="date"
-                    value={birthDate}
-                    onChange={(e) => setBirthDate(e.target.value)}
-                    disabled={loading}
-                  />
+                  <input type="date" value={birthDate} onChange={(e) => setBirthDate(e.target.value)} disabled={loading} />
                 </div>
 
                 <div className={styles.field}>
@@ -334,55 +371,40 @@ export default function NewChildPage() {
                   onChange={(e) => setNationalId(e.target.value)}
                   disabled={loading}
                 />
-                <div className={styles.helpText}>For administrative/medical paperwork. Spaces are removed automatically.</div>
+                <div className={styles.helpText}>Optional. Spaces are removed automatically.</div>
               </div>
             </div>
           </div>
         </section>
 
-        {/* Section: School */}
+        {/* School */}
         <section className={styles.section}>
           <div className={styles.sectionTop}>
             <div>
               <div className={styles.sectionTitle}>School / Kindergarten</div>
-              <div className={styles.sectionHint}>Helps keep contact info and schedules consistent.</div>
+              <div className={styles.sectionHint}>Helps keep schedules and contact info consistent.</div>
             </div>
           </div>
 
           <div className={styles.row2}>
             <div className={styles.field}>
               <label>School name</label>
-              <input
-                placeholder="Example: ABC Kindergarten"
-                value={schoolName}
-                onChange={(e) => setSchoolName(e.target.value)}
-                disabled={loading}
-              />
+              <input value={schoolName} onChange={(e) => setSchoolName(e.target.value)} disabled={loading} />
             </div>
 
             <div className={styles.field}>
               <label>Class</label>
-              <input
-                placeholder="Example: 2A"
-                value={className}
-                onChange={(e) => setClassName(e.target.value)}
-                disabled={loading}
-              />
+              <input value={className} onChange={(e) => setClassName(e.target.value)} disabled={loading} />
             </div>
           </div>
 
           <div className={styles.field}>
             <label>Main teacher (optional)</label>
-            <input
-              placeholder="Teacher name"
-              value={mainTeacher}
-              onChange={(e) => setMainTeacher(e.target.value)}
-              disabled={loading}
-            />
+            <input value={mainTeacher} onChange={(e) => setMainTeacher(e.target.value)} disabled={loading} />
           </div>
         </section>
 
-        {/* Section: Medical */}
+        {/* Medical */}
         <section className={styles.section}>
           <div className={styles.sectionTop}>
             <div>
@@ -406,12 +428,7 @@ export default function NewChildPage() {
                 </button>
               ))}
 
-              <select
-                className={styles.bloodMore}
-                value={bloodType}
-                onChange={(e) => setBloodType(e.target.value as any)}
-                disabled={loading}
-              >
+              <select className={styles.bloodMore} value={bloodType} onChange={(e) => setBloodType(e.target.value as any)} disabled={loading}>
                 {BLOOD_ALL.map((b) => (
                   <option key={b} value={b}>
                     {b === 'unknown' ? 'Unknown / Other' : b}
@@ -424,23 +441,13 @@ export default function NewChildPage() {
           <div className={styles.row2}>
             <div className={styles.field}>
               <label>Allergies (tags)</label>
-              <input
-                placeholder="Seafood, peanuts, pollen..."
-                value={allergyText}
-                onChange={(e) => setAllergyText(e.target.value)}
-                disabled={loading}
-              />
+              <input value={allergyText} onChange={(e) => setAllergyText(e.target.value)} disabled={loading} />
               <div className={styles.helpText}>Separate with commas or semicolons.</div>
             </div>
 
             <div className={styles.field}>
               <label>Conditions (tags)</label>
-              <input
-                placeholder="Asthma, eczema..."
-                value={conditionsText}
-                onChange={(e) => setConditionsText(e.target.value)}
-                disabled={loading}
-              />
+              <input value={conditionsText} onChange={(e) => setConditionsText(e.target.value)} disabled={loading} />
               <div className={styles.helpText}>Use short keywords only.</div>
             </div>
           </div>
@@ -449,76 +456,186 @@ export default function NewChildPage() {
             <label>Medical note (short) (optional)</label>
             <textarea
               className={styles.textarea}
-              placeholder="Example: Carries an EpiPen. Avoid medication X."
               value={medicalShort}
               onChange={(e) => setMedicalShort(e.target.value)}
               disabled={loading}
               maxLength={160}
+              placeholder="Example: Carries an EpiPen. Avoid medication X."
             />
-            <div className={styles.helpText}>
-              Max 160 characters ({medicalShort.length}/160).
-            </div>
+            <div className={styles.helpText}>Max 160 characters ({medicalShort.length}/160).</div>
           </div>
-        </section>
 
-        {/* Section: Emergency */}
-        <section className={styles.section}>
-          <div className={styles.sectionTop}>
-            <div>
-              <div className={styles.sectionTitle}>Emergency contact</div>
-              <div className={styles.sectionHint}>Used when we need to reach someone quickly.</div>
-            </div>
-            <span className={styles.iconPill}>🚨</span>
-          </div>
+          <div className={styles.divider} />
+          <div className={styles.sectionSubTitle}>Primary doctor (GP)</div>
 
           <div className={styles.row2}>
             <div className={styles.field}>
-              <label>Contact name</label>
-              <input
-                placeholder="Full name"
-                value={emName}
-                onChange={(e) => setEmName(e.target.value)}
-                disabled={loading}
-              />
+              <label>Doctor name</label>
+              <input value={gpName} onChange={(e) => setGpName(e.target.value)} disabled={loading} />
             </div>
 
             <div className={styles.field}>
-              <label>Phone number</label>
-              <input
-                placeholder="+47 123 45 678"
-                value={emPhone}
-                onChange={(e) => setEmPhone(e.target.value)}
-                disabled={loading}
-              />
+              <label>Clinic (optional)</label>
+              <input value={gpClinic} onChange={(e) => setGpClinic(e.target.value)} disabled={loading} />
             </div>
           </div>
 
+          {/* GP Phones */}
           <div className={styles.field}>
-            <label>Relation</label>
-            <select value={emRelation} onChange={(e) => setEmRelation(e.target.value as Relation)} disabled={loading}>
-              <option value="">Select</option>
-              <option value="guardian">Guardian</option>
-              <option value="grandparent">Grandparent</option>
-              <option value="mother">Mother</option>
-              <option value="father">Father</option>
-              <option value="relative">Relative</option>
-              <option value="babysitter">Babysitter</option>
-              <option value="other">Other</option>
-            </select>
+            <div className={styles.fieldRow}>
+
+              <button
+                type="button"
+                className={styles.iconCircleBtn}
+                onClick={addGpPhone}
+                disabled={loading}
+                aria-label="Add phone"
+                title="Add phone"
+              >
+                <Plus size={18} strokeWidth={2.5} />
+              </button>
+              <label> Add Phone numbers</label>
+            </div>
+
+            <div className={styles.phoneList}>
+              {gpPhones.map((p, i) => (
+                <div key={i} className={styles.phoneRow}>
+                  <input
+                    placeholder="phone numbers"
+                    value={p.value}
+                    onChange={(e) => setGpPhones((prev) => prev.map((x, idx) => (idx === i ? { value: e.target.value } : x)))}
+                    disabled={loading}
+                  />
+                  <button type="button" className={styles.smallBtn} onClick={() => removeGpPhone(i)} disabled={loading || gpPhones.length === 1}>
+                    −
+                  </button>
+                </div>
+              ))}
+            </div>
           </div>
         </section>
 
-        {/* Agreement + actions */}
-        <section className={styles.footerCard}>
-          <div className={styles.infoBox}>
-            <div className={styles.infoIcon}>ℹ️</div>
+        {/* Emergency */}
+        <section className={styles.section}>
+          <div className={styles.sectionTop}>
             <div>
-              <div className={styles.infoText}>
-                The profile information will be visible to both parents and changes are recorded.
-              </div>
+              <div className={styles.sectionTitle}>Emergency contacts</div>
+              <div className={styles.sectionHint}>Add at least one contact and select one primary.</div>
             </div>
+            <span className={styles.iconPill}>!</span>
           </div>
 
+          <div className={styles.stack}>
+            {emergencyContacts.map((c, idx) => (
+              <div key={idx} className={styles.cardInner}>
+                <div className={styles.rowBetween}>
+                  <label className={styles.primaryPick}>
+                    <input
+                      type="radio"
+                      name="primaryEmergency"
+                      checked={c.isPrimary}
+                      onChange={() => setPrimaryContact(idx)}
+                      disabled={loading}
+                    />
+                    <span>Primary</span>
+                  </label>
+
+                  {emergencyContacts.length > 1 ? (
+                    <button type="button" className={styles.smallDanger} onClick={() => removeContact(idx)} disabled={loading}>
+                      Remove
+                    </button>
+                  ) : null}
+                </div>
+
+                <div className={styles.row2}>
+                  <div className={styles.field}>
+                    <label>Contact name</label>
+                    <input
+                      value={c.name}
+                      onChange={(e) => setEmergencyContacts((prev) => prev.map((x, i) => (i === idx ? { ...x, name: e.target.value } : x)))}
+                      disabled={loading}
+                    />
+                  </div>
+
+                  <div className={styles.field}>
+                    <label>Relation</label>
+                    <select
+                      value={c.relation}
+                      onChange={(e) =>
+                        setEmergencyContacts((prev) => prev.map((x, i) => (i === idx ? { ...x, relation: e.target.value as Relation } : x)))
+                      }
+                      disabled={loading}
+                    >
+                      <option value="">Select</option>
+                      <option value="guardian">Guardian</option>
+                      <option value="grandparent">Grandparent</option>
+                      <option value="mother">Mother</option>
+                      <option value="father">Father</option>
+                      <option value="relative">Relative</option>
+                      <option value="babysitter">Babysitter</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Emergency Phones */}
+                <div className={styles.field}>
+                  <div className={styles.fieldRow}>
+                    
+
+                    <button
+                      type="button"
+                      className={styles.iconCircleBtn}
+                      onClick={() => addPhoneToContact(idx)}
+                      disabled={loading}
+                      aria-label="Add phone"
+                      title="Add phone"
+                    >
+                      <Plus size={18} strokeWidth={2.6} />
+                    </button>
+                    <label> Add phone numbers</label>
+                  </div>
+
+                  <div className={styles.phoneList}>
+                    {c.phones.map((p, pi) => (
+                      <div key={pi} className={styles.phoneRow}>
+                        <input
+                          placeholder="+47 123 45 678"
+                          value={p.value}
+                          onChange={(e) =>
+                            setEmergencyContacts((prev) =>
+                              prev.map((x, i) => {
+                                if (i !== idx) return x
+                                const phones = x.phones.map((pp, j) => (j === pi ? { value: e.target.value } : pp))
+                                return { ...x, phones }
+                              }),
+                            )
+                          }
+                          disabled={loading}
+                        />
+                        <button
+                          type="button"
+                          className={styles.smallBtn}
+                          onClick={() => removePhoneFromContact(idx, pi)}
+                          disabled={loading || c.phones.length === 1}
+                        >
+                          −
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ))}
+
+            <button type="button" className={styles.smallBtnAdd} onClick={addContact} disabled={loading}>
+              + Add emergency contact
+            </button>
+          </div>
+        </section>
+
+        {/* Footer */}
+        <section className={styles.footerCard}>
           <label className={styles.agree}>
             <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} disabled={loading} />
             <span>I understand this information is shared within my family group.</span>

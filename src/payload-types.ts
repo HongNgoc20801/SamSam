@@ -75,6 +75,8 @@ export interface Config {
     customers: Customer;
     families: Family;
     children: Child;
+    child_documents: ChildDocument;
+    audit_logs: AuditLog;
     'calendar-events': CalendarEvent;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
@@ -90,6 +92,8 @@ export interface Config {
     customers: CustomersSelect<false> | CustomersSelect<true>;
     families: FamiliesSelect<false> | FamiliesSelect<true>;
     children: ChildrenSelect<false> | ChildrenSelect<true>;
+    child_documents: ChildDocumentsSelect<false> | ChildDocumentsSelect<true>;
+    audit_logs: AuditLogsSelect<false> | AuditLogsSelect<true>;
     'calendar-events': CalendarEventsSelect<false> | CalendarEventsSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
@@ -176,7 +180,7 @@ export interface User {
  */
 export interface Media {
   id: number;
-  alt: string;
+  alt?: string | null;
   updatedAt: string;
   createdAt: string;
   url?: string | null;
@@ -401,17 +405,10 @@ export interface Child {
   fullName: string;
   birthDate: string;
   gender?: ('na' | 'male' | 'female' | 'other') | null;
-  avatar?: {
-    source?: ('upload' | 'url') | null;
-    /**
-     * Upload an image to Media.
-     */
-    upload?: (number | null) | Media;
-    /**
-     * MVP: store an image URL. Later switch to Upload or keep both.
-     */
-    url?: string | null;
-  };
+  /**
+   * Upload an image (JPG/PNG).
+   */
+  avatar?: (number | null) | Media;
   nationalId?: string | null;
   medical?: {
     bloodType?: ('unknown' | 'A' | 'B' | 'AB' | 'O' | 'A+' | 'A-' | 'B+' | 'B-' | 'AB+' | 'AB-' | 'O+' | 'O-') | null;
@@ -421,45 +418,103 @@ export interface Child {
           id?: string | null;
         }[]
       | null;
-    /**
-     * Bệnh nền / tình trạng sức khoẻ (nếu có).
-     */
     conditions?:
       | {
           value: string;
           id?: string | null;
         }[]
       | null;
-    medications?:
-      | {
-          name: string;
-          dose?: string | null;
-          notes?: string | null;
-          id?: string | null;
-        }[]
-      | null;
     notesShort?: string | null;
+    gp?: {
+      name?: string | null;
+      clinic?: string | null;
+      phones?:
+        | {
+            value: string;
+            id?: string | null;
+          }[]
+        | null;
+    };
   };
   school?: {
     schoolName?: string | null;
     className?: string | null;
     mainTeacher?: string | null;
   };
-  emergencyContact?: {
-    name?: string | null;
-    relation?: ('mother' | 'father' | 'grandparent' | 'guardian' | 'other') | null;
-    phone?: string | null;
-  };
   emergencyContacts?:
     | {
         name: string;
-        relation: 'mother' | 'father' | 'grandparent' | 'guardian' | 'babysitter' | 'relative' | 'other';
-        phone: string;
+        relation?: ('mother' | 'father' | 'grandparent' | 'guardian' | 'babysitter' | 'relative' | 'other') | null;
+        isPrimary?: boolean | null;
+        phones?:
+          | {
+              value: string;
+              id?: string | null;
+            }[]
+          | null;
         id?: string | null;
       }[]
     | null;
   status: 'pending' | 'confirmed';
   createdBy?: (number | null) | Customer;
+  confirmedBy?: (number | null) | Customer;
+  confirmedAt?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "child_documents".
+ */
+export interface ChildDocument {
+  id: number;
+  family: number | Family;
+  child: number | Child;
+  file: number | Media;
+  title: string;
+  category: 'agreement' | 'school' | 'health' | 'id' | 'other';
+  noteShort?: string | null;
+  uploadedBy: number | Customer;
+  version: number;
+  /**
+   * If this document replaces an older one, link it here.
+   */
+  replaces?: (number | null) | ChildDocument;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "audit_logs".
+ */
+export interface AuditLog {
+  id: number;
+  family: number | Family;
+  child?: (number | null) | Child;
+  actorId?: string | null;
+  actorType: 'customer' | 'admin' | 'system';
+  actorName?: string | null;
+  action: string;
+  entityType: 'child' | 'document' | 'event' | 'other';
+  entityId?: string | null;
+  summary?: string | null;
+  changes?:
+    | {
+        field: string;
+        from?: string | null;
+        to?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  meta?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -532,6 +587,14 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'children';
         value: number | Child;
+      } | null)
+    | ({
+        relationTo: 'child_documents';
+        value: number | ChildDocument;
+      } | null)
+    | ({
+        relationTo: 'audit_logs';
+        value: number | AuditLog;
       } | null)
     | ({
         relationTo: 'calendar-events';
@@ -869,13 +932,7 @@ export interface ChildrenSelect<T extends boolean = true> {
   fullName?: T;
   birthDate?: T;
   gender?: T;
-  avatar?:
-    | T
-    | {
-        source?: T;
-        upload?: T;
-        url?: T;
-      };
+  avatar?: T;
   nationalId?: T;
   medical?:
     | T
@@ -893,15 +950,19 @@ export interface ChildrenSelect<T extends boolean = true> {
               value?: T;
               id?: T;
             };
-        medications?:
+        notesShort?: T;
+        gp?:
           | T
           | {
               name?: T;
-              dose?: T;
-              notes?: T;
-              id?: T;
+              clinic?: T;
+              phones?:
+                | T
+                | {
+                    value?: T;
+                    id?: T;
+                  };
             };
-        notesShort?: T;
       };
   school?:
     | T
@@ -910,23 +971,67 @@ export interface ChildrenSelect<T extends boolean = true> {
         className?: T;
         mainTeacher?: T;
       };
-  emergencyContact?:
-    | T
-    | {
-        name?: T;
-        relation?: T;
-        phone?: T;
-      };
   emergencyContacts?:
     | T
     | {
         name?: T;
         relation?: T;
-        phone?: T;
+        isPrimary?: T;
+        phones?:
+          | T
+          | {
+              value?: T;
+              id?: T;
+            };
         id?: T;
       };
   status?: T;
   createdBy?: T;
+  confirmedBy?: T;
+  confirmedAt?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "child_documents_select".
+ */
+export interface ChildDocumentsSelect<T extends boolean = true> {
+  family?: T;
+  child?: T;
+  file?: T;
+  title?: T;
+  category?: T;
+  noteShort?: T;
+  uploadedBy?: T;
+  version?: T;
+  replaces?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "audit_logs_select".
+ */
+export interface AuditLogsSelect<T extends boolean = true> {
+  family?: T;
+  child?: T;
+  actorId?: T;
+  actorType?: T;
+  actorName?: T;
+  action?: T;
+  entityType?: T;
+  entityId?: T;
+  summary?: T;
+  changes?:
+    | T
+    | {
+        field?: T;
+        from?: T;
+        to?: T;
+        id?: T;
+      };
+  meta?: T;
   updatedAt?: T;
   createdAt?: T;
 }

@@ -71,6 +71,7 @@ export interface Config {
     users: User;
     media: Media;
     landingPage: LandingPage;
+    posts: Post;
     aboutPage: AboutPage;
     customers: Customer;
     families: Family;
@@ -88,6 +89,7 @@ export interface Config {
     users: UsersSelect<false> | UsersSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
     landingPage: LandingPageSelect<false> | LandingPageSelect<true>;
+    posts: PostsSelect<false> | PostsSelect<true>;
     aboutPage: AboutPageSelect<false> | AboutPageSelect<true>;
     customers: CustomersSelect<false> | CustomersSelect<true>;
     families: FamiliesSelect<false> | FamiliesSelect<true>;
@@ -296,57 +298,30 @@ export interface LandingPage {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "aboutPage".
+ * via the `definition` "posts".
  */
-export interface AboutPage {
+export interface Post {
   id: number;
-  title: string;
-  hero: {
-    title: string;
-    subtitle: string;
-    image?: (number | null) | Media;
-  };
-  intro: {
-    title: string;
-    content: string;
-  };
-  missionVision: {
-    missionTitle: string;
-    missionText: string;
-    visionTitle: string;
-    visionText: string;
-  };
-  values: {
-    title: string;
-    items?:
-      | {
-          title: string;
-          description: string;
-          id?: string | null;
-        }[]
-      | null;
-  };
-  story: {
-    title: string;
-    content: string;
-  };
-  commitment: {
-    title: string;
-    items?:
-      | {
-          text: string;
-          id?: string | null;
-        }[]
-      | null;
-  };
-  cta: {
-    title: string;
-    text: string;
-    button: {
-      label: string;
-      url: string;
-    };
-  };
+  family: number | Family;
+  author: number | Customer;
+  authorName: string;
+  type: 'general' | 'child-update';
+  child?: (number | null) | Child;
+  title?: string | null;
+  content: string;
+  important?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "families".
+ */
+export interface Family {
+  id: number;
+  name?: string | null;
+  inviteCode: string;
+  members: (number | Customer)[];
   updatedAt: string;
   createdAt: string;
 }
@@ -382,18 +357,6 @@ export interface Customer {
     | null;
   password?: string | null;
   collection: 'customers';
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "families".
- */
-export interface Family {
-  id: number;
-  name?: string | null;
-  inviteCode: string;
-  members: (number | Customer)[];
-  updatedAt: string;
-  createdAt: string;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -459,6 +422,62 @@ export interface Child {
   createdBy?: (number | null) | Customer;
   confirmedBy?: (number | null) | Customer;
   confirmedAt?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "aboutPage".
+ */
+export interface AboutPage {
+  id: number;
+  title: string;
+  hero: {
+    title: string;
+    subtitle: string;
+    image?: (number | null) | Media;
+  };
+  intro: {
+    title: string;
+    content: string;
+  };
+  missionVision: {
+    missionTitle: string;
+    missionText: string;
+    visionTitle: string;
+    visionText: string;
+  };
+  values: {
+    title: string;
+    items?:
+      | {
+          title: string;
+          description: string;
+          id?: string | null;
+        }[]
+      | null;
+  };
+  story: {
+    title: string;
+    content: string;
+  };
+  commitment: {
+    title: string;
+    items?:
+      | {
+          text: string;
+          id?: string | null;
+        }[]
+      | null;
+  };
+  cta: {
+    title: string;
+    text: string;
+    button: {
+      label: string;
+      url: string;
+    };
+  };
   updatedAt: string;
   createdAt: string;
 }
@@ -571,6 +590,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'landingPage';
         value: number | LandingPage;
+      } | null)
+    | ({
+        relationTo: 'posts';
+        value: number | Post;
       } | null)
     | ({
         relationTo: 'aboutPage';
@@ -808,6 +831,22 @@ export interface LandingPageSelect<T extends boolean = true> {
               url?: T;
             };
       };
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "posts_select".
+ */
+export interface PostsSelect<T extends boolean = true> {
+  family?: T;
+  author?: T;
+  authorName?: T;
+  type?: T;
+  child?: T;
+  title?: T;
+  content?: T;
+  important?: T;
   updatedAt?: T;
   createdAt?: T;
 }

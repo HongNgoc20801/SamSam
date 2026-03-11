@@ -15,6 +15,7 @@ import { CalendarEvents } from './collections/CalendarEvents'
 import { ChildDocuments } from './collections/ChildDocuments'
 import { AuditLogs } from './collections/AuditLogs'
 import { AboutPage } from './collections/AboutPage'
+import { Posts } from './collections/Posts'
 
 
 
@@ -28,7 +29,7 @@ export default buildConfig({
       baseDir: path.resolve(dirname),
     },
   },
-  collections: [Users, Media, LandingPage, AboutPage,Customers, Families, Children, ChildDocuments, AuditLogs, CalendarEvents],
+  collections: [Users, Media, LandingPage, Posts,AboutPage,Customers, Families, Children, ChildDocuments, AuditLogs, CalendarEvents],
   editor: lexicalEditor(),
   secret: process.env.PAYLOAD_SECRET || '',
   typescript: {

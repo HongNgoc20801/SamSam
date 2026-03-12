@@ -270,7 +270,7 @@ export const Children: CollectionConfig = {
         return next
       },
     ],
-    afterChange: [
+afterChange: [
   async ({ doc, previousDoc, operation, req }: any) => {
     if (!req?.user || !doc) return
 
@@ -286,7 +286,7 @@ export const Children: CollectionConfig = {
         entityId: String(doc?.id),
         summary: 'Created child profile',
         meta: {
-          fullName: doc?.fullName,
+          childName: doc?.fullName,
           status: doc?.status,
         },
       })
@@ -294,6 +294,30 @@ export const Children: CollectionConfig = {
     }
 
     if (operation === 'update') {
+      const prevStatus = previousDoc?.status
+      const nextStatus = doc?.status
+      const isConfirm = prevStatus === 'pending' && nextStatus === 'confirmed'
+
+      // 1) Confirm action: chỉ log ngắn gọn, KHÔNG kèm changes
+      if (isConfirm) {
+        await logAudit(req, {
+          familyId,
+          childId,
+          action: 'child.confirm',
+          entityType: 'child',
+          entityId: String(doc?.id),
+          summary: 'Confirmed child profile',
+          meta: {
+            childName: doc?.fullName,
+            previousStatus: prevStatus,
+            status: nextStatus,
+            confirmedAt: doc?.confirmedAt ?? null,
+          },
+        })
+        return
+      }
+
+      // 2) Update action: chỉ dùng cho update thật sự
       const changes: Array<{ field: string; from?: any; to?: any }> = []
 
       pushChange(changes, 'fullName', previousDoc?.fullName, doc?.fullName)
@@ -336,20 +360,24 @@ export const Children: CollectionConfig = {
 
       if (!changes.length) return
 
-      const prevStatus = previousDoc?.status
-      const nextStatus = doc?.status
-      const isConfirm = prevStatus === 'pending' && nextStatus === 'confirmed'
+      const wasResetToPending =
+        prevStatus === 'confirmed' &&
+        nextStatus === 'pending' &&
+        changes.some((c) => c.field === 'status')
 
       await logAudit(req, {
         familyId,
         childId,
-        action: isConfirm ? 'child.confirm' : 'child.update',
+        action: 'child.update',
         entityType: 'child',
         entityId: String(doc?.id),
-        summary: isConfirm ? 'Confirmed child profile' : 'Updated child profile',
+        summary: 'Updated child profile',
         changes,
         meta: {
-          fullName: doc?.fullName,
+          childName: doc?.fullName,
+          previousStatus: prevStatus,
+          status: nextStatus,
+          wasResetToPending,
         },
       })
     }

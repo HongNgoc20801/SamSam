@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import { ShieldCheck, Loader2, AlertCircle } from 'lucide-react'
 import styles from './childDetail.module.css'
 
 function getId(v: any): string | null {
@@ -24,19 +25,17 @@ export default function ConfirmChildButton({
 
   const createdById = useMemo(() => getId(createdBy), [createdBy])
 
-  // ✅ CHỈ cần pending là hiện nút
   const canConfirm = status === 'pending'
 
   async function fetchMeId(): Promise<string | null> {
-    // ✅ đổi endpoint đúng với auth collection của bạn
-    // Nếu bạn login là users -> dùng /api/users/me
-    // Nếu bạn login là customers -> dùng /api/customers/me
-    const res = await fetch('/api/customers/me', { credentials: 'include', cache: 'no-store' })
-    const j = await res.json().catch(() => ({}))
+    const res = await fetch('/api/customers/me', {
+      credentials: 'include',
+      cache: 'no-store',
+    })
 
+    const j = await res.json().catch(() => ({}))
     if (!res.ok) throw new Error(j?.message || `Could not load current user (${res.status})`)
 
-    // payload thường trả { user: {...} }
     const me = j?.user ?? j
     return getId(me?.id) ?? getId(me)
   }
@@ -44,11 +43,11 @@ export default function ConfirmChildButton({
   async function onConfirm() {
     setError('')
     setLoading(true)
+
     try {
       const myId = await fetchMeId()
       if (!myId) throw new Error('Missing current user id.')
 
-      // ✅ client-side guard (optional). backend đã guard rồi.
       if (createdById && myId === createdById) {
         throw new Error('You cannot confirm a child profile that you created. The other parent must confirm it.')
       }
@@ -74,7 +73,20 @@ export default function ConfirmChildButton({
   if (!canConfirm) return null
 
   return (
-    <div className={styles.confirmBox}>
+    <div className={styles.confirmCard}>
+      <div className={styles.confirmCardTop}>
+        <div className={styles.confirmIconWrap}>
+          <ShieldCheck size={18} />
+        </div>
+
+        <div className={styles.confirmText}>
+          <div className={styles.confirmTitle}>Confirm child profile</div>
+          <div className={styles.confirmHint}>
+            Review the profile and confirm that the information is correct.
+          </div>
+        </div>
+      </div>
+
       <button
         type="button"
         className={styles.confirmBtn}
@@ -82,10 +94,25 @@ export default function ConfirmChildButton({
         disabled={loading}
         aria-label="Confirm child profile"
       >
-        {loading ? 'Confirming…' : 'Confirm profile'}
+        {loading ? (
+          <>
+            <Loader2 size={16} className={styles.spin} />
+            Confirming...
+          </>
+        ) : (
+          <>
+            <ShieldCheck size={16} />
+            Confirm profile
+          </>
+        )}
       </button>
 
-      {error ? <div className={styles.confirmError}>{error}</div> : null}
+      {error ? (
+        <div className={styles.confirmError}>
+          <AlertCircle size={15} />
+          <span>{error}</span>
+        </div>
+      ) : null}
     </div>
   )
 }

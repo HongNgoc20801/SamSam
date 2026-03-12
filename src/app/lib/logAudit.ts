@@ -54,6 +54,20 @@ export async function logAudit(
       return
     }
 
+    const normalizedChanges =
+      Array.isArray(input.changes) && input.changes.length
+        ? input.changes.map((c) => ({
+            field: c.field,
+            from: toText(c.from),
+            to: toText(c.to),
+          }))
+        : undefined
+
+    const normalizedMeta = {
+      ...(input.meta ?? {}),
+      changedFields: normalizedChanges?.map((c) => c.field) ?? input?.meta?.changedFields ?? [],
+    }
+
     const payloadData = {
       family: familyId,
       child: input.childId ?? undefined,
@@ -64,18 +78,9 @@ export async function logAudit(
       entityType: input.entityType,
       entityId: input.entityId || undefined,
       summary: input.summary || undefined,
-      changes:
-        Array.isArray(input.changes) && input.changes.length
-          ? input.changes.map((c) => ({
-              field: c.field,
-              from: toText(c.from),
-              to: toText(c.to),
-            }))
-          : undefined,
-      meta: input.meta ?? undefined,
+      changes: normalizedChanges,
+      meta: normalizedMeta,
     }
-
-    console.log('[logAudit] creating audit log:', payloadData)
 
     const created = await req.payload.create({
       collection: 'audit_logs',

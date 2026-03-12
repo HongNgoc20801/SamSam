@@ -1,51 +1,78 @@
-import type { CollectionConfig } from "payload";
+import type { CollectionConfig } from 'payload'
 
-function getCollectionSlug(req: any){
-    return req?.user?.collection ?? req?.user?._collection
+function getCollectionSlug(req: any) {
+  return req?.user?.collection ?? req?.user?._collection
 }
 
-function isAdmin(req: any){
-    return getCollectionSlug(req) === 'users'
+function isAdmin(req: any) {
+  return getCollectionSlug(req) === 'users'
 }
 
-export const Customers: CollectionConfig ={
-    slug: 'customers',
-    auth: true,
-    admin:{useAsTitle:'email'},
+function isCustomer(req: any) {
+  const slug = getCollectionSlug(req)
+  if (slug === 'customers') return true
 
-    access: {
+  const u: any = req?.user
+  if (u?.role === 'customer') return true
+  if (u?.type === 'customer') return true
+
+  return false
+}
+
+function getFamilyIdFromUser(req: any) {
+  const u: any = req?.user
+  if (!u) return null
+  return typeof u.family === 'string' ? u.family : u.family?.id ?? null
+}
+
+export const Customers: CollectionConfig = {
+  slug: 'customers',
+  auth: true,
+  admin: { useAsTitle: 'email' },
+
+  access: {
     create: () => true,
 
     read: ({ req }) => {
       if (!req.user) return false
       if (isAdmin(req)) return true
-      return { id: { equals: req.user.id } }
+      if (!isCustomer(req)) return false
+
+      const familyId = getFamilyIdFromUser(req)
+      if (!familyId) {
+        return { id: { equals: req.user.id } }
+      }
+
+      return {
+        family: { equals: familyId },
+      }
     },
 
     update: ({ req }) => {
       if (!req.user) return false
       if (isAdmin(req)) return true
+
       return { id: { equals: req.user.id } }
     },
 
     delete: ({ req }) => {
       if (!req.user) return false
       if (isAdmin(req)) return true
+
       return { id: { equals: req.user.id } }
     },
   },
+
   hooks: {
     afterChange: [
       async ({ doc, req, operation }) => {
         if (operation !== 'create') return
-
         if ((doc as any)?.family) return
 
         const userId = (doc as any).id
         req.payload.logger.info(`Customers.afterChange(create): ${userId}`)
 
         try {
-        
           const family = await req.payload.create({
             collection: 'families',
             data: {
@@ -55,7 +82,6 @@ export const Customers: CollectionConfig ={
             overrideAccess: true,
           })
 
-          
           await req.payload.update({
             collection: 'customers',
             id: userId,
@@ -65,7 +91,6 @@ export const Customers: CollectionConfig ={
 
           req.payload.logger.info(`Family created & linked: family=${family.id}, customer=${userId}`)
         } catch (e) {
-         
           req.payload.logger.error(e)
         }
       },
@@ -101,11 +126,11 @@ export const Customers: CollectionConfig ={
         { label: 'Annet', value: 'other' },
       ],
     },
+
     {
       name: 'family',
       type: 'relationship',
       relationTo: 'families',
     },
   ],
-
 }

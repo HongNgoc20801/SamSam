@@ -251,12 +251,13 @@ afterChange: [
         entityId: String(doc?.id),
         summary: doc?.replaces ? 'Replaced document' : 'Uploaded document',
         meta: {
-          title: doc?.title,
-          category: doc?.category,
+          documentTitle: doc?.title,
+          documentCategory: doc?.category,
           version: doc?.version,
           replaces: doc?.replaces ? String(normalizeRelId(doc.replaces)) : null,
         },
       })
+      return
     }
 
     if (operation === 'update') {
@@ -277,13 +278,15 @@ afterChange: [
         summary: 'Updated document',
         changes,
         meta: {
-          title: doc?.title,
+          documentTitle: doc?.title,
+          documentCategory: doc?.category,
           version: doc?.version,
         },
       })
     }
   },
 ],
+
 afterDelete: [
   async ({ doc, req }: any) => {
     if (!req?.user || !doc) return
@@ -296,8 +299,8 @@ afterDelete: [
       entityId: String(doc?.id),
       summary: 'Deleted document',
       meta: {
-        title: doc?.title,
-        category: doc?.category,
+        documentTitle: doc?.title,
+        documentCategory: doc?.category,
         version: doc?.version,
         uploadedBy: normalizeRelId(doc?.uploadedBy),
       },

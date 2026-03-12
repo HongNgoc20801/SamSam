@@ -5,6 +5,7 @@ import { serverFetch } from '@/app/lib/serverFetch'
 import ConfirmChildButton from './ConfirmChildButton'
 
 import {
+  ArrowLeft,
   AlertTriangle,
   Calendar,
   ClipboardList,
@@ -22,6 +23,7 @@ import {
 
 const DOCS_SLUG = 'child_documents'
 const AUDIT_SLUG = 'audit_logs'
+const LATEST_AUDIT_LIMIT = 5
 
 type PhoneT = { value: string }
 
@@ -63,33 +65,34 @@ type Child = {
   emergencyContacts?: EmergencyContact[]
 }
 
-type Media = {
-  id: string
-  filename?: string
-  filesize?: number
-  url?: string
-  mimeType?: string
-}
-
 type ChildDoc = {
   id: string
   title: string
   category?: 'agreement' | 'school' | 'health' | 'id' | 'other'
   createdAt?: string
   version?: number
-  file?: string | Media
-  uploadedBy?: string | { id: string; fullName?: string; email?: string }
 }
 
 type AuditLog = {
   id: string
   action: string
   createdAt?: string
-  meta?: any
+  meta?: {
+    childName?: string
+    documentTitle?: string
+    documentCategory?: string
+    version?: number
+    status?: string
+    previousStatus?: string
+    wasResetToPending?: boolean
+    changedFields?: string[]
+    [key: string]: any
+  }
   actorId?: string
   actorName?: string
   actorType?: 'customer' | 'admin' | 'system'
   summary?: string
+  entityType?: 'child' | 'document' | 'event' | 'other'
   changes?: { field: string; from?: string; to?: string }[]
 }
 
@@ -105,10 +108,12 @@ function calcAge(birthDate?: string) {
   if (!birthDate) return null
   const d = new Date(birthDate)
   if (Number.isNaN(d.getTime())) return null
+
   const now = new Date()
   let age = now.getFullYear() - d.getFullYear()
   const m = now.getMonth() - d.getMonth()
   if (m < 0 || (m === 0 && now.getDate() < d.getDate())) age--
+
   return age
 }
 
@@ -145,101 +150,129 @@ function categoryLabel(c?: ChildDoc['category'] | string) {
   return 'Other'
 }
 
-function fileMeta(file?: string | Media) {
-  if (!file || typeof file === 'string') return null
-  const name = file.filename || 'file'
-  const size =
-    typeof file.filesize === 'number'
-      ? `${Math.max(1, Math.round(file.filesize / 1024))} KB`
-      : ''
-  return `${name}${size ? ` • ${size}` : ''}`
-}
-
 function actorDisplayName(a: AuditLog) {
   if (a?.actorName) return a.actorName
   if (a?.actorType === 'system') return 'System'
   return a?.actorId || 'Unknown user'
 }
 
+function actionTone(action?: string) {
+  const a = String(action || '').toLowerCase()
+  if (a.includes('confirm')) return 'confirm'
+  if (a.includes('create')) return 'create'
+  if (a.includes('upload')) return 'upload'
+  if (a.includes('replace')) return 'replace'
+  if (a.includes('delete')) return 'delete'
+  if (a.includes('update')) return 'update'
+  return 'default'
+}
+
+function actionLabel(action?: string) {
+  const a = String(action || '').toLowerCase()
+  if (a.includes('confirm')) return 'Confirmed'
+  if (a.includes('create')) return 'Created'
+  if (a.includes('upload')) return 'Uploaded'
+  if (a.includes('replace')) return 'Replaced'
+  if (a.includes('delete')) return 'Deleted'
+  if (a.includes('update')) return 'Updated'
+  return 'Activity'
+}
+
+function entityLabel(entityType?: string) {
+  if (entityType === 'child') return 'Child'
+  if (entityType === 'document') return 'Document'
+  if (entityType === 'event') return 'Event'
+  return 'Other'
+}
+
 function auditPretty(a: AuditLog) {
   const action = String(a.action || '').toLowerCase()
   const meta = a.meta || {}
+  const changes = Array.isArray(a.changes) ? a.changes : []
 
-  if (a.summary) {
-    return { title: a.summary, sub: '' }
-  }
-
-  if (action === 'child.create' || action.includes('child.create')) {
+  if (action === 'child.create') {
     return {
-      title: meta?.fullName ? `Created child profile: ${meta.fullName}` : 'Created child profile',
+      sentence: 'created child profile',
+      target: meta?.childName || '',
       sub: '',
+      tone: 'create',
     }
   }
 
-  if (action === 'child.confirm' || action.includes('child.confirm')) {
+  if (action === 'child.confirm') {
     return {
-      title: 'Confirmed child profile',
-      sub: meta?.confirmedAt ? `Confirmed at ${fmtDateTime(meta.confirmedAt)}` : '',
-    }
-  }
-
-  if (action === 'child.update' || action.includes('child.update')) {
-    return {
-      title: meta?.fullName ? `Updated child profile: ${meta.fullName}` : 'Updated child profile',
-      sub:
-        Array.isArray(meta?.fields) && meta.fields.length
-          ? `Fields: ${meta.fields.join(', ')}`
-          : '',
-    }
-  }
-
-  if (action === 'child.delete' || action.includes('child.delete')) {
-    return {
-      title: meta?.fullName ? `Deleted child profile: ${meta.fullName}` : 'Deleted child profile',
+      sentence: 'confirmed child profile',
+      target: meta?.childName || '',
       sub: '',
+      tone: 'confirm',
     }
   }
 
-  if (action === 'doc.upload' || action.includes('doc.upload')) {
+  if (action === 'child.update') {
+    const resetNotice = meta?.wasResetToPending
+      ? 'Confirmation reset because important information changed'
+      : `${changes.length} field(s) changed`
+
     return {
-      title: meta?.title ? `Uploaded document: ${meta.title}` : 'Uploaded document',
-      sub: meta?.category ? `Category: ${categoryLabel(meta.category)}` : '',
+      sentence: 'updated child profile',
+      target: meta?.childName || '',
+      sub: resetNotice,
+      tone: 'update',
     }
   }
 
-  if (action === 'doc.replace' || action.includes('doc.replace')) {
+  if (action === 'doc.upload') {
     return {
-      title: meta?.title ? `Replaced document: ${meta.title}` : 'Replaced document',
-      sub: meta?.category
-        ? `Category: ${categoryLabel(meta.category)} • v${meta?.version ?? 1}`
+      sentence: 'uploaded document',
+      target: meta?.documentTitle || '',
+      sub: meta?.documentCategory
+        ? `${categoryLabel(meta.documentCategory)} • v${meta?.version ?? 1}`
         : `v${meta?.version ?? 1}`,
+      tone: 'upload',
     }
   }
 
-  if (action === 'doc.update' || action.includes('doc.update')) {
+  if (action === 'doc.replace') {
     return {
-      title: meta?.title ? `Updated document: ${meta.title}` : 'Updated document',
+      sentence: 'replaced document',
+      target: meta?.documentTitle || '',
+      sub: meta?.documentCategory
+        ? `${categoryLabel(meta.documentCategory)} • v${meta?.version ?? 1}`
+        : `v${meta?.version ?? 1}`,
+      tone: 'replace',
+    }
+  }
+
+  if (action === 'doc.update') {
+    return {
+      sentence: 'updated document',
+      target: meta?.documentTitle || '',
       sub:
-        Array.isArray(meta?.fields) && meta.fields.length
-          ? `Fields: ${meta.fields.join(', ')}`
-          : meta?.category
-            ? `Category: ${categoryLabel(meta.category)}`
-            : '',
+        changes.length > 0
+          ? `${changes.length} field(s) changed`
+          : meta?.documentCategory
+            ? `${categoryLabel(meta.documentCategory)} • v${meta?.version ?? 1}`
+            : `v${meta?.version ?? 1}`,
+      tone: 'update',
     }
   }
 
-  if (action === 'doc.delete' || action.includes('doc.delete')) {
+  if (action === 'doc.delete') {
     return {
-      title: meta?.title ? `Deleted document: ${meta.title}` : 'Deleted document',
-      sub: meta?.category
-        ? `Category: ${categoryLabel(meta.category)} • v${meta?.version ?? 1}`
+      sentence: 'deleted document',
+      target: meta?.documentTitle || '',
+      sub: meta?.documentCategory
+        ? `${categoryLabel(meta.documentCategory)} • v${meta?.version ?? 1}`
         : `v${meta?.version ?? 1}`,
+      tone: 'delete',
     }
   }
 
   return {
-    title: a.action || 'Activity',
+    sentence: a.summary || a.action || 'did an activity',
+    target: '',
     sub: '',
+    tone: 'default',
   }
 }
 
@@ -277,6 +310,16 @@ function fieldLabel(field?: string) {
 function renderChangeValue(v?: string) {
   const value = String(v ?? '').trim()
   if (!value) return '—'
+
+  if (
+    value.startsWith('[{') ||
+    value.startsWith('{"') ||
+    value.startsWith('[') ||
+    value.startsWith('{')
+  ) {
+    if (value.length > 80) return 'Structured data updated'
+  }
+
   if (value.length > 120) return `${value.slice(0, 120)}…`
   return value
 }
@@ -293,8 +336,8 @@ export default async function ChildDetailPage({ params }: { params: Promise<{ id
   const nowISO = new Date().toISOString()
 
   const [docsRes, auditRes, eventsRes] = await Promise.all([
-    serverFetch(`/api/${DOCS_SLUG}?limit=500&sort=-createdAt&where[child][equals]=${id}`),
-    serverFetch(`/api/${AUDIT_SLUG}?limit=200&sort=-createdAt&where[child][equals]=${id}`),
+    serverFetch(`/api/${DOCS_SLUG}?limit=200&sort=-createdAt&where[child][equals]=${id}`),
+    serverFetch(`/api/${AUDIT_SLUG}?limit=${LATEST_AUDIT_LIMIT}&sort=-createdAt&where[child][equals]=${id}`),
     serverFetch(
       `/api/calendar-events?limit=200&sort=startAt&where[child][equals]=${id}&where[startAt][greater_than]=${encodeURIComponent(nowISO)}`,
     ),
@@ -324,21 +367,15 @@ export default async function ChildDetailPage({ params }: { params: Promise<{ id
     counts[k] = (counts[k] || 0) + 1
   }
 
-  const docsByCategory = {
-    school: docs.filter((d) => (d.category || 'other') === 'school'),
-    health: docs.filter((d) => (d.category || 'other') === 'health'),
-    agreement: docs.filter((d) => (d.category || 'other') === 'agreement'),
-    id: docs.filter((d) => (d.category || 'other') === 'id'),
-    other: docs.filter((d) => (d.category || 'other') === 'other'),
-  }
-
   return (
     <div className={styles.page}>
       <header className={styles.topbar}>
         <div className={styles.breadcrumb}>
-          <span className={styles.bcDim}>Dashboard</span>
-          <span className={styles.bcSep}>/</span>
-          <span className={styles.bcDim}>Students</span>
+          <Link href="/child-info" className={styles.backBtn}>
+            <ArrowLeft size={18} />
+            <span>Back</span>
+          </Link>
+
           <span className={styles.bcSep}>/</span>
           <span className={styles.bcStrong}>{child.fullName}</span>
         </div>
@@ -648,6 +685,13 @@ export default async function ChildDetailPage({ params }: { params: Promise<{ id
                 <FileText size={18} />
                 <div className={styles.cardTitle}>Documents</div>
               </div>
+                <Link
+                  className={styles.cardLink}
+                  href={`/child-info/${id}/documents`}
+                >
+                  View all
+                </Link>
+
               <Link className={styles.cardLink} href={`/child-info/${id}/documents/new`}>
                 Add New
               </Link>
@@ -695,41 +739,11 @@ export default async function ChildDetailPage({ params }: { params: Promise<{ id
               </Link>
             </div>
 
+            <div className={styles.docHint}>Select a category to view all files.</div>
+
             {docs.length === 0 ? (
               <div className={styles.empty}>No documents yet.</div>
-            ) : (
-              <div className={styles.docGroups}>
-                {(['school', 'health', 'agreement', 'id', 'other'] as const).map((key) => {
-                  const list = docsByCategory[key]
-                  if (!list.length) return null
-
-                  return (
-                    <div key={key} className={styles.docGroup}>
-                      <div className={styles.docGroupTitle}>
-                        {categoryLabel(key)} <span className={styles.docGroupCount}>({list.length})</span>
-                      </div>
-
-                      <div className={styles.docList}>
-                        {list.map((d) => (
-                          <Link key={String(d.id)} href={`/child-info/${id}/documents/${d.id}`} className={styles.docRow}>
-                            <div className={styles.docRowIcon}>
-                              <FileText size={16} />
-                            </div>
-                            <div className={styles.docRowBody}>
-                              <div className={styles.docRowTitle}>{d.title}</div>
-                              <div className={styles.docRowMeta}>
-                                {categoryLabel(d.category)} • v{d.version ?? 1} • {fmtDate(d.createdAt)}
-                                {fileMeta(d.file) ? ` • ${fileMeta(d.file)}` : ''}
-                              </div>
-                            </div>
-                          </Link>
-                        ))}
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
+            ) : null}
           </section>
 
           <section className={styles.card}>
@@ -738,6 +752,10 @@ export default async function ChildDetailPage({ params }: { params: Promise<{ id
                 <ClipboardList size={18} />
                 <div className={styles.cardTitle}>Audit Log</div>
               </div>
+
+              <Link className={styles.cardLink} href={`/child-info/${id}/audit-logs`}>
+                View all
+              </Link>
             </div>
 
             {audits.length === 0 ? (
@@ -747,21 +765,43 @@ export default async function ChildDetailPage({ params }: { params: Promise<{ id
                 {audits.map((a) => {
                   const who = actorDisplayName(a)
                   const pretty = auditPretty(a)
-                  const changes = Array.isArray(a.changes) ? a.changes : []
+                  const changes =
+                    a.action === 'child.confirm'
+                      ? []
+                      : Array.isArray(a.changes)
+                        ? a.changes
+                        : []
+
+                  const resetToPending =
+                    a.action === 'child.update' &&
+                    a.meta?.wasResetToPending
 
                   return (
-                    <div key={String(a.id)} className={styles.auditRow}>
+                    <div
+                      key={String(a.id)}
+                      className={`${styles.auditRow} ${styles[`auditRow--${actionTone(a.action)}`] || ''}`}
+                    >
                       <div className={styles.auditIcon}>
                         <ClipboardList size={16} />
                       </div>
 
                       <div className={styles.auditBody}>
-                        <div className={styles.auditAction}>{pretty.title}</div>
+                        <div className={styles.auditSentence}>
+                          <strong>{who}</strong> {pretty.sentence}
+                          {pretty.target ? (
+                            <>
+                              {' '}
+                              <strong>{pretty.target}</strong>
+                            </>
+                          ) : null}
+                        </div>
 
                         <div className={styles.auditMeta}>
-                          <span>{who}</span>
-                          <span className={styles.auditDot}>•</span>
                           <span>{fmtDateTime(a.createdAt)}</span>
+                          <span className={styles.auditDot}>•</span>
+                          <span>{entityLabel(a.entityType)}</span>
+                          <span className={styles.auditDot}>•</span>
+                          <span>{actionLabel(a.action)}</span>
                           {pretty.sub ? (
                             <>
                               <span className={styles.auditDot}>•</span>
@@ -770,15 +810,27 @@ export default async function ChildDetailPage({ params }: { params: Promise<{ id
                           ) : null}
                         </div>
 
+                        {resetToPending ? (
+                          <div className={styles.auditNotice}>
+                            Important profile information changed. Confirmation was reset and requires re-confirmation.
+                          </div>
+                        ) : null}
+
                         {changes.length > 0 ? (
                           <div className={styles.auditChanges}>
                             {changes.map((c, idx) => (
                               <div key={`${a.id}-change-${idx}`} className={styles.auditChangeRow}>
-                                <span className={styles.auditChangeField}>{fieldLabel(c.field)}</span>
-                                <span className={styles.auditChangeArrow}>:</span>
-                                <span className={styles.auditChangeFrom}>"{renderChangeValue(c.from)}"</span>
-                                <span className={styles.auditChangeArrow}>→</span>
-                                <span className={styles.auditChangeTo}>"{renderChangeValue(c.to)}"</span>
+                                <div className={styles.auditChangeField}>{fieldLabel(c.field)}</div>
+
+                                <div className={styles.auditChangeValues}>
+                                  <span className={styles.auditChangeFrom}>
+                                    {renderChangeValue(c.from)}
+                                  </span>
+                                  <span className={styles.auditChangeArrow}>→</span>
+                                  <span className={styles.auditChangeTo}>
+                                    {renderChangeValue(c.to)}
+                                  </span>
+                                </div>
                               </div>
                             ))}
                           </div>

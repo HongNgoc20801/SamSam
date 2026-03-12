@@ -14,6 +14,8 @@ import { Children } from './collections/Children'
 import { CalendarEvents } from './collections/CalendarEvents'
 import { ChildDocuments } from './collections/ChildDocuments'
 import { AuditLogs } from './collections/AuditLogs'
+import { AboutPage } from './collections/AboutPage'
+
 
 
 const filename = fileURLToPath(import.meta.url)
@@ -26,16 +28,14 @@ export default buildConfig({
       baseDir: path.resolve(dirname),
     },
   },
-  collections: [Users, Media, LandingPage, Customers, Families, Children, ChildDocuments, AuditLogs, CalendarEvents],
+  collections: [Users, Media, LandingPage, AboutPage,Customers, Families, Children, ChildDocuments, AuditLogs, CalendarEvents],
   editor: lexicalEditor(),
   secret: process.env.PAYLOAD_SECRET || '',
   typescript: {
     outputFile: path.resolve(dirname, 'payload-types.ts'),
   },
   db: sqliteAdapter({
-    client: {
-      url: process.env.DATABASE_URL || '',
-    },
+    client: { url: process.env.DATABASE_URL || '',},
   }),
   sharp,
   plugins: [],

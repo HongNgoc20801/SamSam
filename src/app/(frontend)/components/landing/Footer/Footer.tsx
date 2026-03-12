@@ -41,7 +41,7 @@ export default function FooterWelcome() {
               <Link href="#how-it-works">Slik fungerer det</Link>
               <Link href="#features">Funksjoner</Link>
               <Link href="#why-samsam">Hvorfor SamSam</Link>
-              <Link href="#about">Om oss</Link>
+              <Link href="/AboutUs">Om oss</Link>
               <Link href="#faq">Ofte stilte spørsmål</Link>
             </div>
           </div>

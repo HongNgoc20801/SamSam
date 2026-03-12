@@ -9,10 +9,41 @@ function isAdmin(req: any) {
 function isCustomer(req: any) {
   return getCollectionSlug(req) === 'customers'
 }
+
+function getRelId(v: any) {
+  if (v == null) return null
+  if (typeof v === 'string' || typeof v === 'number') return v
+  return v?.id ?? null
+}
+
 function getFamilyIdFromUser(req: any) {
   const u: any = req?.user
   if (!u) return null
-  return typeof u.family === 'string' ? u.family : u.family?.id ?? null
+  return getRelId(u.family)
+}
+
+// ✅ check quyền update/delete theo family (không dùng doc để khỏi lỗi TS)
+async function canMutateByFamily(req: any, id: string | number) {
+  if (!req?.user) return false
+  if (isAdmin(req)) return true
+
+  const familyId = getFamilyIdFromUser(req)
+  if (!familyId) return false
+
+  const eventDoc = await req.payload
+    .findByID({
+      collection: 'calendar-events',
+      id: id as any,
+      overrideAccess: true, // ✅ bắt buộc để đọc doc khi access đang check
+      depth: 0,
+    })
+    .catch(() => null)
+
+  if (!eventDoc) return false
+
+  const docFamilyId = getRelId((eventDoc as any).family)
+
+  return String(docFamilyId) === String(familyId)
 }
 
 export const CalendarEvents: CollectionConfig = {
@@ -30,20 +61,14 @@ export const CalendarEvents: CollectionConfig = {
       return { family: { equals: familyId } }
     },
 
-    update: ({ req }) => {
-      if (!req.user) return false
-      if (isAdmin(req)) return true
-      const familyId = getFamilyIdFromUser(req)
-      if (!familyId) return false
-      return { family: { equals: familyId } }
+    update: async ({ req, id }) => {
+      if (!id) return false
+      return canMutateByFamily(req, id as any)
     },
 
-    delete: ({ req }) => {
-      if (!req.user) return false
-      if (isAdmin(req)) return true
-      const familyId = getFamilyIdFromUser(req)
-      if (!familyId) return false
-      return { family: { equals: familyId } }
+    delete: async ({ req, id }) => {
+      if (!id) return false
+      return canMutateByFamily(req, id as any)
     },
   },
 
@@ -54,27 +79,22 @@ export const CalendarEvents: CollectionConfig = {
         if (operation !== 'create') return data
 
         const familyId = getFamilyIdFromUser(req)
-        const userId = (req.user as any)?.id
+        const userId = getRelId((req.user as any)?.id)
         if (!familyId || !userId) return data
 
-        // bảo vệ: child phải thuộc cùng family
         const childId = (data as any)?.child
-        if (!childId) {
-          throw new Error('Missing child')
-        }
+        if (!childId) throw new Error('Missing child')
 
         const child = await req.payload
           .findByID({
             collection: 'children',
             id: childId,
             overrideAccess: true,
+            depth: 0,
           })
           .catch(() => null)
 
-        const childFamilyId =
-          typeof (child as any)?.family === 'string'
-            ? (child as any).family
-            : (child as any)?.family?.id ?? null
+        const childFamilyId = getRelId((child as any)?.family)
 
         if (!childFamilyId || String(childFamilyId) !== String(familyId)) {
           throw new Error('Child does not belong to your family.')
@@ -104,10 +124,22 @@ export const CalendarEvents: CollectionConfig = {
       required: true,
       index: true,
     },
+
     { name: 'title', type: 'text', required: true },
     { name: 'notes', type: 'textarea' },
 
-    // payload date: lưu ISO string
+    {
+      name: 'status',
+      type: 'select',
+      defaultValue: 'admin',
+      options: [
+        { label: 'Admin', value: 'admin' },
+        { label: 'Personlig', value: 'personal' },
+        { label: 'Viktig', value: 'important' },
+        { label: 'Barn', value: 'child' },
+      ],
+    },
+
     { name: 'startAt', type: 'date', required: true },
     { name: 'endAt', type: 'date', required: true },
 

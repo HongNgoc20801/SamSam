@@ -164,7 +164,6 @@
   box-shadow: 0 10px 22px rgba(15, 23, 42, 0.10);
 }
 
-/* RIGHT image card */
 .imageCard {
   width: 100%;
   max-width: clamp(440px, 46vw, 680px);

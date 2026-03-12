@@ -71,6 +71,7 @@ export interface Config {
     users: User;
     media: Media;
     landingPage: LandingPage;
+    aboutPage: AboutPage;
     customers: Customer;
     families: Family;
     children: Child;
@@ -87,6 +88,7 @@ export interface Config {
     users: UsersSelect<false> | UsersSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
     landingPage: LandingPageSelect<false> | LandingPageSelect<true>;
+    aboutPage: AboutPageSelect<false> | AboutPageSelect<true>;
     customers: CustomersSelect<false> | CustomersSelect<true>;
     families: FamiliesSelect<false> | FamiliesSelect<true>;
     children: ChildrenSelect<false> | ChildrenSelect<true>;
@@ -294,6 +296,62 @@ export interface LandingPage {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "aboutPage".
+ */
+export interface AboutPage {
+  id: number;
+  title: string;
+  hero: {
+    title: string;
+    subtitle: string;
+    image?: (number | null) | Media;
+  };
+  intro: {
+    title: string;
+    content: string;
+  };
+  missionVision: {
+    missionTitle: string;
+    missionText: string;
+    visionTitle: string;
+    visionText: string;
+  };
+  values: {
+    title: string;
+    items?:
+      | {
+          title: string;
+          description: string;
+          id?: string | null;
+        }[]
+      | null;
+  };
+  story: {
+    title: string;
+    content: string;
+  };
+  commitment: {
+    title: string;
+    items?:
+      | {
+          text: string;
+          id?: string | null;
+        }[]
+      | null;
+  };
+  cta: {
+    title: string;
+    text: string;
+    button: {
+      label: string;
+      url: string;
+    };
+  };
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "customers".
  */
 export interface Customer {
@@ -470,6 +528,7 @@ export interface CalendarEvent {
   child: number | Child;
   title: string;
   notes?: string | null;
+  status?: ('admin' | 'personal' | 'important' | 'child') | null;
   startAt: string;
   endAt: string;
   allDay?: boolean | null;
@@ -512,6 +571,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'landingPage';
         value: number | LandingPage;
+      } | null)
+    | ({
+        relationTo: 'aboutPage';
+        value: number | AboutPage;
       } | null)
     | ({
         relationTo: 'customers';
@@ -750,6 +813,77 @@ export interface LandingPageSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "aboutPage_select".
+ */
+export interface AboutPageSelect<T extends boolean = true> {
+  title?: T;
+  hero?:
+    | T
+    | {
+        title?: T;
+        subtitle?: T;
+        image?: T;
+      };
+  intro?:
+    | T
+    | {
+        title?: T;
+        content?: T;
+      };
+  missionVision?:
+    | T
+    | {
+        missionTitle?: T;
+        missionText?: T;
+        visionTitle?: T;
+        visionText?: T;
+      };
+  values?:
+    | T
+    | {
+        title?: T;
+        items?:
+          | T
+          | {
+              title?: T;
+              description?: T;
+              id?: T;
+            };
+      };
+  story?:
+    | T
+    | {
+        title?: T;
+        content?: T;
+      };
+  commitment?:
+    | T
+    | {
+        title?: T;
+        items?:
+          | T
+          | {
+              text?: T;
+              id?: T;
+            };
+      };
+  cta?:
+    | T
+    | {
+        title?: T;
+        text?: T;
+        button?:
+          | T
+          | {
+              label?: T;
+              url?: T;
+            };
+      };
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "customers_select".
  */
 export interface CustomersSelect<T extends boolean = true> {
@@ -910,6 +1044,7 @@ export interface CalendarEventsSelect<T extends boolean = true> {
   child?: T;
   title?: T;
   notes?: T;
+  status?: T;
   startAt?: T;
   endAt?: T;
   allDay?: T;

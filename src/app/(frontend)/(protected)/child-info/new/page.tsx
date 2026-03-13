@@ -54,40 +54,33 @@ function isValidPhone(v: string) {
 export default function NewChildPage() {
   const router = useRouter()
 
-  // Avatar upload only
   const [avatarFile, setAvatarFile] = useState<File | null>(null)
 
-  // Basic
   const [fullName, setFullName] = useState('')
   const [birthDate, setBirthDate] = useState('')
   const [gender, setGender] = useState<Gender>('na')
   const [nationalId, setNationalId] = useState('')
 
-  // School
   const [schoolName, setSchoolName] = useState('')
   const [className, setClassName] = useState('')
   const [mainTeacher, setMainTeacher] = useState('')
 
-  // Medical
   const [bloodType, setBloodType] = useState<(typeof BLOOD_ALL)[number]>('unknown')
   const [allergyText, setAllergyText] = useState('')
   const [conditionsText, setConditionsText] = useState('')
   const [medicalShort, setMedicalShort] = useState('')
 
-  // GP
+  
   const [gpName, setGpName] = useState('')
   const [gpClinic, setGpClinic] = useState('')
   const [gpPhones, setGpPhones] = useState<Phone[]>([{ value: '' }])
 
-  // Emergency contacts
   const [emergencyContacts, setEmergencyContacts] = useState<EmergencyContact[]>([
     { name: '', relation: '', phones: [{ value: '' }], isPrimary: true },
   ])
 
-  // Agreement
   const [agree, setAgree] = useState(false)
 
-  // UI state
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -295,7 +288,6 @@ export default function NewChildPage() {
       </header>
 
       <form onSubmit={onSubmit} className={styles.form}>
-        {/* Basic */}
         <section className={styles.section}>
           <div className={styles.sectionTop}>
             <div>
@@ -309,7 +301,6 @@ export default function NewChildPage() {
               <label className={styles.avatarPicker}>
                 <div className={styles.avatarCircle} aria-label="Avatar">
                   {showAvatarImage ? (
-                    // eslint-disable-next-line @next/next/no-img-element
                     <img className={styles.avatarImg} src={filePreview} alt="Child avatar" />
                   ) : (
                     <div className={styles.avatarPlaceholder}>{avatarLetter}</div>
@@ -377,7 +368,6 @@ export default function NewChildPage() {
           </div>
         </section>
 
-        {/* School */}
         <section className={styles.section}>
           <div className={styles.sectionTop}>
             <div>
@@ -404,7 +394,6 @@ export default function NewChildPage() {
           </div>
         </section>
 
-        {/* Medical */}
         <section className={styles.section}>
           <div className={styles.sectionTop}>
             <div>
@@ -480,7 +469,6 @@ export default function NewChildPage() {
             </div>
           </div>
 
-          {/* GP Phones */}
           <div className={styles.field}>
             <div className={styles.fieldRow}>
 
@@ -515,7 +503,6 @@ export default function NewChildPage() {
           </div>
         </section>
 
-        {/* Emergency */}
         <section className={styles.section}>
           <div className={styles.sectionTop}>
             <div>
@@ -578,7 +565,6 @@ export default function NewChildPage() {
                   </div>
                 </div>
 
-                {/* Emergency Phones */}
                 <div className={styles.field}>
                   <div className={styles.fieldRow}>
                     
@@ -634,7 +620,6 @@ export default function NewChildPage() {
           </div>
         </section>
 
-        {/* Footer */}
         <section className={styles.footerCard}>
           <label className={styles.agree}>
             <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} disabled={loading} />

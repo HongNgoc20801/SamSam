@@ -20,16 +20,6 @@ function isCustomer(req: any) {
   return false
 }
 
-function getFamilyIdFromUser(req: any) {
-  const u: any = req?.user
-  if (!u) return null
-  return typeof u.family === 'string' ? u.family : u.family?.id ?? null
-}
-
-function getFamilyIdFromDoc(doc: any) {
-  return typeof doc?.family === 'string' ? doc.family : doc?.family?.id ?? null
-}
-
 function normalizeRelId(v: any): string | number | null {
   if (v === null || v === undefined || v === '') return null
 
@@ -46,6 +36,16 @@ function normalizeRelId(v: any): string | number | null {
   }
 
   return null
+}
+
+function getFamilyIdFromUser(req: any) {
+  const u: any = req?.user
+  if (!u) return null
+  return normalizeRelId(u.family)
+}
+
+function getFamilyIdFromDoc(doc: any) {
+  return normalizeRelId(doc?.family)
 }
 
 function cleanText(v: any, max = 5000) {
@@ -158,6 +158,12 @@ export const Posts: CollectionConfig = {
         if (next.title !== undefined) next.title = cleanText(next.title, 120)
         if (next.content !== undefined) next.content = cleanText(next.content, 5000)
 
+        if (Array.isArray(next.attachments)) {
+          next.attachments = next.attachments
+            .map((x: any) => normalizeRelId(x))
+            .filter(Boolean)
+        }
+
         const userId = normalizeRelId((req.user as any)?.id)
         const userFamilyId = getFamilyIdFromUser(req)
 
@@ -215,8 +221,7 @@ export const Posts: CollectionConfig = {
             depth: 0,
           })
 
-          const childFamilyId =
-            typeof childDoc?.family === 'string' ? childDoc.family : childDoc?.family?.id ?? null
+          const childFamilyId = normalizeRelId(childDoc?.family)
 
           if (!childFamilyId || String(childFamilyId) !== String(currentFamilyId)) {
             throw new Error('This child does not belong to your family.')
@@ -235,19 +240,27 @@ export const Posts: CollectionConfig = {
             child: finalChildId ?? undefined,
             content: resolvedContent,
             important: !!next.important,
+            attachments: Array.isArray(next.attachments) ? next.attachments : [],
           }
         }
 
         if (operation === 'update') {
-          if ('family' in next) delete next.family
-          if ('author' in next) delete next.author
-          if ('authorName' in next) delete next.authorName
-
           return {
             ...next,
+
+            // giữ nguyên các field required cũ
+            family: normalizeRelId(originalDoc?.family) ?? currentFamilyId,
+            author: normalizeRelId(originalDoc?.author) ?? userId,
+            authorName: originalDoc?.authorName ?? getAuthorName(req),
+
             type: resolvedType === 'child-update' ? 'child-update' : 'general',
             child: finalChildId ?? undefined,
             content: resolvedContent,
+            important: !!next.important,
+
+            attachments: Array.isArray(next.attachments)
+              ? next.attachments
+              : originalDoc?.attachments ?? [],
           }
         }
 
@@ -274,6 +287,7 @@ export const Posts: CollectionConfig = {
               title: doc?.title,
               type: doc?.type,
               important: !!doc?.important,
+              attachmentsCount: Array.isArray(doc?.attachments) ? doc.attachments.length : 0,
             },
           })
           return
@@ -292,6 +306,12 @@ export const Posts: CollectionConfig = {
             normalizeRelId(doc?.child),
           )
           pushChange(changes, 'important', !!previousDoc?.important, !!doc?.important)
+          pushChange(
+            changes,
+            'attachments',
+            JSON.stringify(previousDoc?.attachments ?? []),
+            JSON.stringify(doc?.attachments ?? []),
+          )
 
           if (!changes.length) return
 
@@ -307,6 +327,7 @@ export const Posts: CollectionConfig = {
               title: doc?.title,
               type: doc?.type,
               important: !!doc?.important,
+              attachmentsCount: Array.isArray(doc?.attachments) ? doc.attachments.length : 0,
             },
           })
         }
@@ -328,6 +349,7 @@ export const Posts: CollectionConfig = {
             title: doc?.title,
             type: doc?.type,
             important: !!doc?.important,
+            attachmentsCount: Array.isArray(doc?.attachments) ? doc.attachments.length : 0,
           },
         })
       },
@@ -397,6 +419,13 @@ export const Posts: CollectionConfig = {
       name: 'important',
       type: 'checkbox',
       defaultValue: false,
+    },
+    {
+      name: 'attachments',
+      type: 'relationship',
+      relationTo: 'media',
+      hasMany: true,
+      required: false,
     },
   ],
 }

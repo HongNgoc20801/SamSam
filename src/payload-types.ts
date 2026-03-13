@@ -310,6 +310,7 @@ export interface Post {
   title?: string | null;
   content: string;
   important?: boolean | null;
+  attachments?: (number | Media)[] | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -847,6 +848,7 @@ export interface PostsSelect<T extends boolean = true> {
   title?: T;
   content?: T;
   important?: T;
+  attachments?: T;
   updatedAt?: T;
   createdAt?: T;
 }

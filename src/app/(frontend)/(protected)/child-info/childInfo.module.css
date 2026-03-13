@@ -10,7 +10,6 @@
   color: #555;
 }
 
-/* Header */
 .header {
   display: flex;
   align-items: flex-start;
@@ -67,7 +66,6 @@
   border-radius: 12px;
 }
 
-/* Tools */
 .tools {
   margin-top: 14px;
   display: flex;
@@ -112,7 +110,6 @@
   color: #111;
 }
 
-/* Empty */
 .emptyCard {
   margin-top: 14px;
   padding: 16px;
@@ -220,7 +217,6 @@
   opacity: 0.8;
 }
 
-/* Status pill */
 .statusPill {
   font-size: 11px;
   font-weight: 900;

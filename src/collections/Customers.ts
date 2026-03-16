@@ -1,4 +1,5 @@
 import type { CollectionConfig } from 'payload'
+import type { Access, Where } from 'payload'
 
 function getCollectionSlug(req: any) {
   return req?.user?.collection ?? req?.user?._collection
@@ -33,20 +34,29 @@ export const Customers: CollectionConfig = {
   access: {
     create: () => true,
 
-    read: ({ req }) => {
-      if (!req.user) return false
-      if (isAdmin(req)) return true
-      if (!isCustomer(req)) return false
+   read: ({ req }) => {
+  if (!req.user) return false
+  if (isAdmin(req)) return true
+  if (!isCustomer(req)) return false
 
-      const familyId = getFamilyIdFromUser(req)
-      if (!familyId) {
-        return { id: { equals: req.user.id } }
-      }
+  let where: Where
 
-      return {
-        family: { equals: familyId },
-      }
-    },
+  if (req.user.id) {
+    where = {
+      id: {
+        equals: req.user.id,
+      },
+    }
+  } else {
+    where = {
+      family: {
+        equals: req.user.family,
+      },
+    }
+  }
+
+  return where
+},
 
     update: ({ req }) => {
       if (!req.user) return false

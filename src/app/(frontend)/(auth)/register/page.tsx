@@ -118,7 +118,6 @@ export default function RegisterPage() {
         throw new Error(msg)
       }
 
-      // ✅ giữ luồng: nếu user nhập invite code, lưu để login join
       const code = inviteCode.trim()
       if (code) sessionStorage.setItem('samsam_invite_code', code)
       else sessionStorage.removeItem('samsam_invite_code')

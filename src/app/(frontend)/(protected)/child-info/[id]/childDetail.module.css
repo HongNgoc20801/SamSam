@@ -1,16 +1,10 @@
-/* ===== Page ===== */
 .page {
   min-height: 100vh;
   background: #f5f7fb;
   color: #0f172a;
   padding: 18px;
 }
-.docHint {
-  margin-top: 10px;
-  font-size: 12px;
-  color: #64748b;
-}
-/* ===== Topbar ===== */
+
 .topbar {
   display: flex;
   justify-content: space-between;
@@ -95,6 +89,7 @@
   align-items: start;
 }
 
+
 .leftCol {
   position: sticky;
   top: 18px;
@@ -146,11 +141,7 @@
   text-decoration: none;
 }
 
-.cardLink:hover {
-  text-decoration: underline;
-}
 
-/* ===== Profile ===== */
 .profileCard {
   display: grid;
   justify-items: center;
@@ -267,103 +258,7 @@
   background: linear-gradient(180deg, #fffdf5 0%, #fffaf0 100%);
 }
 
-.confirmCardTop {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  text-align: left;
-}
 
-.confirmIconWrap {
-  width: 36px;
-  height: 36px;
-  flex: 0 0 36px;
-  display: grid;
-  place-items: center;
-  border-radius: 12px;
-  background: #fef3c7;
-  color: #b45309;
-  border: 1px solid #fcd34d;
-}
-
-.confirmText {
-  min-width: 0;
-  display: grid;
-  gap: 3px;
-}
-
-.confirmTitle {
-  font-size: 13px;
-  font-weight: 900;
-  color: #111827;
-  line-height: 1.3;
-}
-
-.confirmHint {
-  font-size: 12px;
-  line-height: 1.45;
-  color: #6b7280;
-}
-
-.confirmBtn {
-  width: 100%;
-  min-height: 42px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 0 14px;
-  border: 1px solid #16a34a;
-  border-radius: 12px;
-  background: #16a34a;
-  color: #ffffff;
-  font-size: 13px;
-  font-weight: 900;
-  cursor: pointer;
-  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease, border-color 0.15s ease;
-}
-
-.confirmBtn:hover:not(:disabled) {
-  transform: translateY(-1px);
-  background: #15803d;
-  border-color: #15803d;
-  box-shadow: 0 10px 20px rgba(21, 128, 61, 0.18);
-}
-
-.confirmBtn:disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
-  transform: none;
-  box-shadow: none;
-}
-
-.confirmError {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  padding: 10px 12px;
-  border: 1px solid #fecaca;
-  border-radius: 12px;
-  background: #fef2f2;
-  color: #b91c1c;
-  font-size: 12px;
-  line-height: 1.45;
-  text-align: left;
-}
-
-.spin {
-  animation: spin 0.9s linear infinite;
-}
-
-@keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-/* ===== Primary contact ===== */
 .contactBox {
   display: grid;
   gap: 8px;
@@ -419,7 +314,6 @@
   transform: translateY(-1px);
 }
 
-/* ===== Alerts ===== */
 .alertCard {
   background: #fff6eb;
   border-color: #fde3c7;
@@ -454,14 +348,13 @@
   line-height: 1.45;
 }
 
-/* ===== Two columns row ===== */
+
 .twoColRow {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 14px;
 }
 
-/* ===== KV Table ===== */
 .kvTable {
   display: grid;
   gap: 8px;
@@ -512,7 +405,7 @@
   color: #0f172a;
 }
 
-/* ===== Emergency contacts ===== */
+
 .emGrid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -572,7 +465,6 @@
   font-weight: 1000;
 }
 
-/* ===== Events ===== */
 .eventList {
   display: grid;
   gap: 10px;
@@ -634,7 +526,7 @@
   line-height: 1.5;
 }
 
-/* ===== Documents ===== */
+
 .docCats {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
@@ -765,7 +657,7 @@
   text-overflow: ellipsis;
 }
 
-/* ===== Audit Log ===== */
+
 .auditList {
   display: grid;
   gap: 12px;

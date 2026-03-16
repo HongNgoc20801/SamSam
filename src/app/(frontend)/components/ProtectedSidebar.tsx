@@ -130,7 +130,7 @@ export default function ProtectedSidebar({
   const links = [
     { href: '/dashboard', label: 'Dashboard / Hjem', icon: 'dash' as const },
     { href: '/calendar', label: 'Kalender', icon: 'cal' as const },
-    { href: '/posts', label: 'Oppdateringer (feed)', icon: 'posts' as const },
+    { href: '/oppdateringer', label: 'Oppdateringer (feed)', icon: 'posts' as const },
     { href: '/economy', label: 'Økonomi', icon: 'money' as const },
     { href: '/child-info', label: 'Barn-info', icon: 'child' as const },
     { href: '/profile', label: 'Profil', icon: 'profile' as const },

@@ -106,9 +106,9 @@ function isPdf(file?: Media | null) {
 export default async function DocumentDetailPage({
   params,
 }: {
-  params: { id: string; docId: string }
+  params: Promise<{ id: string; docId: string }>
 }) {
-  const { id, docId } = params
+  const { id, docId } = await params
 
   const res = await serverFetch(`/api/${DOCS_SLUG}/${docId}?depth=1`)
   if (!res.ok) return notFound()

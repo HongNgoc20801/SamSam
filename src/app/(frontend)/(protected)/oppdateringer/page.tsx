@@ -24,6 +24,13 @@ type MediaDoc = {
   mimeType?: string
 }
 
+type CommentDoc = {
+  author?: string | number | { id: string | number }
+  authorName?: string
+  content?: string
+  createdAt?: string
+}
+
 type PostDoc = {
   id: string | number
   title?: string
@@ -34,6 +41,8 @@ type PostDoc = {
   authorName?: string
   child?: string | number | { id: string | number; fullName?: string }
   attachments?: Array<string | number | MediaDoc>
+  likes?: Array<string | number | { id: string | number }>
+  comments?: CommentDoc[]
   createdAt?: string
 }
 
@@ -72,6 +81,21 @@ function normalizeMediaList(v: any): MediaDoc[] {
     .filter(Boolean) as MediaDoc[]
 }
 
+function normalizeComments(v: any): CommentDoc[] {
+  if (!Array.isArray(v)) return []
+  return v
+    .map((item) => {
+      if (!item || typeof item !== 'object') return null
+      return {
+        author: item.author,
+        authorName: item.authorName || '',
+        content: item.content || '',
+        createdAt: item.createdAt || '',
+      } as CommentDoc
+    })
+    .filter(Boolean) as CommentDoc[]
+}
+
 export default function OppdateringerPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -95,9 +119,14 @@ export default function OppdateringerPage() {
   const [newFiles, setNewFiles] = useState<File[]>([])
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null)
 
-  // viewer
   const [viewerImages, setViewerImages] = useState<MediaDoc[]>([])
   const [viewerIndex, setViewerIndex] = useState(0)
+
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null)
+
+  const [likeLoadingId, setLikeLoadingId] = useState<string | null>(null)
+  const [commentLoadingId, setCommentLoadingId] = useState<string | null>(null)
+  const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({})
 
   const myId = getId(me?.id)
   const viewerOpen = viewerImages.length > 0
@@ -137,6 +166,17 @@ export default function OppdateringerPage() {
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [viewerOpen, viewerImages.length])
+
+  useEffect(() => {
+    function handleOutsideClick(e: MouseEvent) {
+      const target = e.target as HTMLElement | null
+      if (target?.closest('[data-post-menu="true"]')) return
+      setOpenMenuId(null)
+    }
+
+    document.addEventListener('mousedown', handleOutsideClick)
+    return () => document.removeEventListener('mousedown', handleOutsideClick)
+  }, [])
 
   const canSubmit = useMemo(() => {
     if (saving) return false
@@ -389,6 +429,72 @@ export default function OppdateringerPage() {
     }
   }
 
+  async function onToggleLike(postId: string) {
+    setError('')
+    setLikeLoadingId(postId)
+
+    try {
+      const res = await fetch(`/api/posts/${postId}/like`, {
+        method: 'POST',
+        credentials: 'include',
+      })
+
+      const raw = await res.text()
+      let json: any = {}
+      try {
+        json = JSON.parse(raw)
+      } catch {}
+
+      if (!res.ok) {
+        throw new Error(json?.message || raw || 'Could not toggle like.')
+      }
+
+      await loadAll()
+    } catch (err: any) {
+      setError(err?.message || 'Could not toggle like.')
+    } finally {
+      setLikeLoadingId(null)
+    }
+  }
+
+  async function onAddComment(postId: string) {
+    const value = (commentDrafts[postId] || '').trim()
+    if (!value) return
+
+    setError('')
+    setCommentLoadingId(postId)
+
+    try {
+      const res = await fetch(`/api/posts/${postId}/comments`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: value }),
+      })
+
+      const raw = await res.text()
+      let json: any = {}
+      try {
+        json = JSON.parse(raw)
+      } catch {}
+
+      if (!res.ok) {
+        throw new Error(json?.message || raw || 'Could not add comment.')
+      }
+
+      setCommentDrafts((prev) => ({
+        ...prev,
+        [postId]: '',
+      }))
+
+      await loadAll()
+    } catch (err: any) {
+      setError(err?.message || 'Could not add comment.')
+    } finally {
+      setCommentLoadingId(null)
+    }
+  }
+
   function renderGallery(images: MediaDoc[], postId: string) {
     const validImages = images.filter((img) => !!img.url)
     if (!validImages.length) return null
@@ -508,6 +614,9 @@ export default function OppdateringerPage() {
                 (rawChildId ? childNameById.get(rawChildId) : '') || getChildName(post.child)
 
               const attachments = normalizeMediaList(post.attachments)
+              const likes = Array.isArray(post.likes) ? post.likes : []
+              const comments = normalizeComments(post.comments)
+              const likedByMe = likes.some((x) => getId(x) === myId)
 
               return (
                 <article key={postId} className={styles.postCard}>
@@ -533,22 +642,48 @@ export default function OppdateringerPage() {
                     </div>
 
                     {isMine ? (
-                      <div className={styles.postActions}>
+                      <div className={styles.postActions} data-post-menu="true">
                         <button
                           type="button"
-                          className={styles.ghostBtn}
-                          onClick={() => openEditModal(post)}
+                          className={styles.menuBtn}
+                          aria-label="Post options"
+                          onClick={() =>
+                            setOpenMenuId((prev) => (prev === postId ? null : postId))
+                          }
                         >
-                          Edit
+                          <span className={styles.menuDots} aria-hidden="true">
+                            <span></span>
+                            <span></span>
+                            <span></span>
+                          </span>
                         </button>
-                        <button
-                          type="button"
-                          className={styles.dangerBtn}
-                          onClick={() => onDeletePost(postId)}
-                          disabled={actionLoadingId === postId}
-                        >
-                          {actionLoadingId === postId ? 'Deleting…' : 'Delete'}
-                        </button>
+
+                        {openMenuId === postId ? (
+                          <div className={styles.menuDropdown}>
+                            <button
+                              type="button"
+                              className={styles.menuItem}
+                              onClick={() => {
+                                setOpenMenuId(null)
+                                openEditModal(post)
+                              }}
+                            >
+                              Edit
+                            </button>
+
+                            <button
+                              type="button"
+                              className={`${styles.menuItem} ${styles.menuItemDanger}`}
+                              onClick={() => {
+                                setOpenMenuId(null)
+                                onDeletePost(postId)
+                              }}
+                              disabled={actionLoadingId === postId}
+                            >
+                              {actionLoadingId === postId ? 'Deleting…' : 'Delete'}
+                            </button>
+                          </div>
+                        ) : null}
                       </div>
                     ) : null}
                   </div>
@@ -557,6 +692,68 @@ export default function OppdateringerPage() {
                   <div className={styles.postContent}>{post.content}</div>
 
                   {attachments.length > 0 ? renderGallery(attachments, postId) : null}
+
+                  <div className={styles.engagementBar}>
+                    <button
+                      type="button"
+                      className={`${styles.engagementBtn} ${likedByMe ? styles.engagementBtnActive : ''}`}
+                      onClick={() => onToggleLike(postId)}
+                      disabled={likeLoadingId === postId}
+                    >
+                      {likeLoadingId === postId
+                        ? '...'
+                        : likedByMe
+                          ? `Likt (${likes.length})`
+                          : `Lik (${likes.length})`}
+                    </button>
+
+                    <div className={styles.commentCount}>Kommentarer {comments.length}</div>
+                  </div>
+
+                  <div className={styles.commentSection}>
+                    {comments.length === 0 ? (
+                      <div className={styles.commentEmpty}>Ingen kommentarer ennå.</div>
+                    ) : (
+                      <div className={styles.commentList}>
+                        {comments.map((comment, index) => (
+                          <div key={`${postId}-comment-${index}`} className={styles.commentItem}>
+                            <div className={styles.commentMeta}>
+                              <span className={styles.commentAuthor}>
+                                {comment.authorName || 'Unknown user'}
+                              </span>
+                              <span className={styles.dot}>•</span>
+                              <span className={styles.commentTime}>
+                                {fmtDateTime(comment.createdAt)}
+                              </span>
+                            </div>
+                            <div className={styles.commentText}>{comment.content || ''}</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className={styles.commentComposer}>
+                      <input
+                        className={styles.commentInput}
+                        value={commentDrafts[postId] || ''}
+                        onChange={(e) =>
+                          setCommentDrafts((prev) => ({
+                            ...prev,
+                            [postId]: e.target.value,
+                          }))
+                        }
+                        placeholder="Skriv en kommentar..."
+                      />
+                      <button
+                        type="button"
+                        className={styles.commentSubmit}
+                        onClick={() => onAddComment(postId)}
+                        disabled={commentLoadingId === postId || !(commentDrafts[postId] || '').trim()}
+                      >
+                        {commentLoadingId === postId ? 'Sender…' : 'Send'}
+                      </button>
+                    </div>
+                  </div>
                 </article>
               )
             })}

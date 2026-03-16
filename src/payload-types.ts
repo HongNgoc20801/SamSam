@@ -311,6 +311,16 @@ export interface Post {
   content: string;
   important?: boolean | null;
   attachments?: (number | Media)[] | null;
+  likes?: (number | Customer)[] | null;
+  comments?:
+    | {
+        author: number | Customer;
+        authorName: string;
+        content: string;
+        createdAt: string;
+        id?: string | null;
+      }[]
+    | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -849,6 +859,16 @@ export interface PostsSelect<T extends boolean = true> {
   content?: T;
   important?: T;
   attachments?: T;
+  likes?: T;
+  comments?:
+    | T
+    | {
+        author?: T;
+        authorName?: T;
+        content?: T;
+        createdAt?: T;
+        id?: T;
+      };
   updatedAt?: T;
   createdAt?: T;
 }

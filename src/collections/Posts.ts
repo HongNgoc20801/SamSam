@@ -38,6 +38,30 @@ function normalizeRelId(v: any): string | number | null {
   return null
 }
 
+function normalizeRelArray(v: any): Array<string | number> {
+  if (!Array.isArray(v)) return []
+  return v
+    .map((item) => normalizeRelId(item))
+    .filter((item): item is string | number => item !== null)
+}
+
+function normalizeCommentsArray(v: any) {
+  if (!Array.isArray(v)) return []
+
+  return v
+    .map((item) => {
+      if (!item || typeof item !== 'object') return null
+
+      return {
+        author: normalizeRelId(item.author),
+        authorName: cleanText(item.authorName, 120),
+        content: cleanText(item.content, 2000),
+        createdAt: item.createdAt || new Date().toISOString(),
+      }
+    })
+    .filter(Boolean)
+}
+
 function getFamilyIdFromUser(req: any) {
   const u: any = req?.user
   if (!u) return null
@@ -78,6 +102,78 @@ function pushChange(
 ) {
   if (asText(from) !== asText(to)) {
     changes.push({ field, from, to })
+  }
+}
+
+function getRouteId(req: any) {
+  return req?.routeParams?.id ?? req?.params?.id ?? null
+}
+
+async function getBody(req: any) {
+  try {
+    if (typeof req?.json === 'function') {
+      return await req.json()
+    }
+  } catch {}
+
+  return req?.body ?? req?.data ?? {}
+}
+
+function ensureCanAccessPost(req: any, post: any) {
+  if (!req?.user) {
+    throw new Error('Unauthorized.')
+  }
+
+  if (isAdmin(req)) return true
+
+  if (!isCustomer(req)) {
+    throw new Error('Only customers can access posts.')
+  }
+
+  const userFamilyId = getFamilyIdFromUser(req)
+  const postFamilyId = getFamilyIdFromDoc(post)
+
+  if (!userFamilyId || !postFamilyId || String(userFamilyId) !== String(postFamilyId)) {
+    throw new Error('This post does not belong to your family.')
+  }
+
+  return true
+}
+
+function buildFullPostData(post: any, patch: any = {}) {
+  return {
+    family: normalizeRelId(post?.family),
+    author: normalizeRelId(post?.author),
+    authorName: cleanText(post?.authorName, 120),
+    type: patch?.type ?? post?.type ?? 'general',
+    child:
+      patch && Object.prototype.hasOwnProperty.call(patch, 'child')
+        ? normalizeRelId(patch.child)
+        : normalizeRelId(post?.child),
+    title:
+      patch && Object.prototype.hasOwnProperty.call(patch, 'title')
+        ? cleanText(patch.title, 120) || undefined
+        : cleanText(post?.title, 120) || undefined,
+    content: cleanText(
+      patch && Object.prototype.hasOwnProperty.call(patch, 'content') ? patch.content : post?.content,
+      5000,
+    ),
+    important:
+      patch && Object.prototype.hasOwnProperty.call(patch, 'important')
+        ? !!patch.important
+        : !!post?.important,
+    attachments:
+      patch && Object.prototype.hasOwnProperty.call(patch, 'attachments')
+        ? normalizeRelArray(patch.attachments)
+        : normalizeRelArray(post?.attachments),
+    likes:
+      patch && Object.prototype.hasOwnProperty.call(patch, 'likes')
+        ? normalizeRelArray(patch.likes)
+        : normalizeRelArray(post?.likes),
+    comments:
+      patch && Object.prototype.hasOwnProperty.call(patch, 'comments')
+        ? normalizeCommentsArray(patch.comments)
+        : normalizeCommentsArray(post?.comments),
   }
 }
 
@@ -147,6 +243,156 @@ export const Posts: CollectionConfig = {
     },
   },
 
+  endpoints: [
+    {
+      path: '/:id/like',
+      method: 'post',
+      handler: async (req: any) => {
+        try {
+          const postId = getRouteId(req)
+          const userId = normalizeRelId(req?.user?.id)
+
+          if (!postId) {
+            return Response.json({ message: 'Missing post id.' }, { status: 400 })
+          }
+
+          if (!req?.user || !userId) {
+            return Response.json({ message: 'Unauthorized.' }, { status: 401 })
+          }
+
+          const post = await req.payload.findByID({
+            collection: 'posts',
+            id: postId,
+            req,
+            overrideAccess: true,
+            depth: 1,
+          })
+
+          if (!post) {
+            return Response.json({ message: 'Post not found.' }, { status: 404 })
+          }
+
+          ensureCanAccessPost(req, post)
+
+          const currentLikes = normalizeRelArray(post?.likes)
+          const hasLiked = currentLikes.some((id) => String(id) === String(userId))
+
+          const nextLikes = hasLiked
+            ? currentLikes.filter((id) => String(id) !== String(userId))
+            : [...currentLikes, userId]
+
+          const updated = await req.payload.update({
+            collection: 'posts',
+            id: postId,
+            data: buildFullPostData(post, {
+              likes: nextLikes,
+            }),
+            req,
+            overrideAccess: true,
+            depth: 1,
+          })
+
+          await logAudit(req, {
+            familyId: getFamilyIdFromDoc(updated),
+            childId: normalizeRelId(updated?.child),
+            action: hasLiked ? 'post.unlike' : 'post.like',
+            entityType: 'other',
+            entityId: String(updated?.id),
+            summary: hasLiked ? 'Removed like from post' : 'Liked post',
+          })
+
+          return Response.json({ ok: true, doc: updated })
+        } catch (error: any) {
+          return Response.json(
+            { message: error?.message || 'Could not toggle like.' },
+            { status: 400 },
+          )
+        }
+      },
+    },
+    {
+      path: '/:id/comments',
+      method: 'post',
+      handler: async (req: any) => {
+        try {
+          const postId = getRouteId(req)
+          const userId = normalizeRelId(req?.user?.id)
+
+          if (!postId) {
+            return Response.json({ message: 'Missing post id.' }, { status: 400 })
+          }
+
+          if (!req?.user || !userId) {
+            return Response.json({ message: 'Unauthorized.' }, { status: 401 })
+          }
+
+          const body = await getBody(req)
+          const content = cleanText(body?.content, 2000)
+
+          if (!content) {
+            return Response.json({ message: 'Comment content is required.' }, { status: 400 })
+          }
+
+          const post = await req.payload.findByID({
+            collection: 'posts',
+            id: postId,
+            req,
+            overrideAccess: true,
+            depth: 1,
+          })
+
+          if (!post) {
+            return Response.json({ message: 'Post not found.' }, { status: 404 })
+          }
+
+          ensureCanAccessPost(req, post)
+
+          const currentComments = normalizeCommentsArray(post?.comments)
+
+          const nextComments = [
+            ...currentComments,
+            {
+              author: userId,
+              authorName: getAuthorName(req),
+              content,
+              createdAt: new Date().toISOString(),
+            },
+          ]
+
+          const updated = await req.payload.update({
+            collection: 'posts',
+            id: postId,
+            data: buildFullPostData(post, {
+              comments: nextComments,
+            }),
+            req,
+            overrideAccess: true,
+            depth: 1,
+          })
+
+          await logAudit(req, {
+            familyId: getFamilyIdFromDoc(updated),
+            childId: normalizeRelId(updated?.child),
+            action: 'post.comment.create',
+            entityType: 'other',
+            entityId: String(updated?.id),
+            summary: 'Added comment to post',
+            meta: {
+              commentLength: content.length,
+            },
+          })
+
+          return Response.json({ ok: true, doc: updated })
+        } catch (error: any) {
+          return Response.json(
+            { message: error?.message || 'Could not add comment.' },
+            { status: 400 },
+          )
+        }
+      },
+    },
+  ],
+
   hooks: {
     beforeValidate: [
       async (args: any) => {
@@ -157,12 +403,6 @@ export const Posts: CollectionConfig = {
 
         if (next.title !== undefined) next.title = cleanText(next.title, 120)
         if (next.content !== undefined) next.content = cleanText(next.content, 5000)
-
-        if (Array.isArray(next.attachments)) {
-          next.attachments = next.attachments
-            .map((x: any) => normalizeRelId(x))
-            .filter(Boolean)
-        }
 
         const userId = normalizeRelId((req.user as any)?.id)
         const userFamilyId = getFamilyIdFromUser(req)
@@ -237,30 +477,39 @@ export const Posts: CollectionConfig = {
             author: userId,
             authorName: getAuthorName(req),
             type: resolvedType === 'child-update' ? 'child-update' : 'general',
-            child: finalChildId ?? undefined,
+            child: finalChildId ?? null,
             content: resolvedContent,
             important: !!next.important,
-            attachments: Array.isArray(next.attachments) ? next.attachments : [],
+            attachments: normalizeRelArray(next.attachments),
+            likes: [],
+            comments: [],
           }
         }
 
         if (operation === 'update') {
           return {
             ...next,
-
-            // giữ nguyên các field required cũ
             family: normalizeRelId(originalDoc?.family) ?? currentFamilyId,
             author: normalizeRelId(originalDoc?.author) ?? userId,
-            authorName: originalDoc?.authorName ?? getAuthorName(req),
-
+            authorName: cleanText(originalDoc?.authorName ?? getAuthorName(req), 120),
             type: resolvedType === 'child-update' ? 'child-update' : 'general',
-            child: finalChildId ?? undefined,
+            child: finalChildId ?? (resolvedType === 'child-update' ? requestedChildId : null),
+            title:
+              'title' in next
+                ? cleanText(next.title, 120) || undefined
+                : cleanText(originalDoc?.title, 120) || undefined,
             content: resolvedContent,
-            important: !!next.important,
-
-            attachments: Array.isArray(next.attachments)
-              ? next.attachments
-              : originalDoc?.attachments ?? [],
+            important: 'important' in next ? !!next.important : !!originalDoc?.important,
+            attachments:
+              'attachments' in next
+                ? normalizeRelArray(next.attachments)
+                : normalizeRelArray(originalDoc?.attachments),
+            likes:
+              'likes' in next ? normalizeRelArray(next.likes) : normalizeRelArray(originalDoc?.likes),
+            comments:
+              'comments' in next
+                ? normalizeCommentsArray(next.comments)
+                : normalizeCommentsArray(originalDoc?.comments),
           }
         }
 
@@ -287,7 +536,6 @@ export const Posts: CollectionConfig = {
               title: doc?.title,
               type: doc?.type,
               important: !!doc?.important,
-              attachmentsCount: Array.isArray(doc?.attachments) ? doc.attachments.length : 0,
             },
           })
           return
@@ -306,12 +554,6 @@ export const Posts: CollectionConfig = {
             normalizeRelId(doc?.child),
           )
           pushChange(changes, 'important', !!previousDoc?.important, !!doc?.important)
-          pushChange(
-            changes,
-            'attachments',
-            JSON.stringify(previousDoc?.attachments ?? []),
-            JSON.stringify(doc?.attachments ?? []),
-          )
 
           if (!changes.length) return
 
@@ -327,7 +569,6 @@ export const Posts: CollectionConfig = {
               title: doc?.title,
               type: doc?.type,
               important: !!doc?.important,
-              attachmentsCount: Array.isArray(doc?.attachments) ? doc.attachments.length : 0,
             },
           })
         }
@@ -349,7 +590,6 @@ export const Posts: CollectionConfig = {
             title: doc?.title,
             type: doc?.type,
             important: !!doc?.important,
-            attachmentsCount: Array.isArray(doc?.attachments) ? doc.attachments.length : 0,
           },
         })
       },
@@ -426,6 +666,49 @@ export const Posts: CollectionConfig = {
       relationTo: 'media',
       hasMany: true,
       required: false,
+    },
+    {
+      name: 'likes',
+      type: 'relationship',
+      relationTo: 'customers',
+      hasMany: true,
+      required: false,
+      defaultValue: [],
+      admin: {
+        readOnly: true,
+      },
+    },
+    {
+      name: 'comments',
+      type: 'array',
+      required: false,
+      defaultValue: [],
+      admin: {
+        readOnly: true,
+      },
+      fields: [
+        {
+          name: 'author',
+          type: 'relationship',
+          relationTo: 'customers',
+          required: true,
+        },
+        {
+          name: 'authorName',
+          type: 'text',
+          required: true,
+        },
+        {
+          name: 'content',
+          type: 'textarea',
+          required: true,
+        },
+        {
+          name: 'createdAt',
+          type: 'date',
+          required: true,
+        },
+      ],
     },
   ],
 }

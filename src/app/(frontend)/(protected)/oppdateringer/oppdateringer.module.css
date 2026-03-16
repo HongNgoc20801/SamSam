@@ -202,17 +202,85 @@
 }
 
 .postActions {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
+  position: relative;
   flex: 0 0 auto;
+}
+
+.menuBtn {
+  border: none;
+  background: transparent;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+
+.menuBtn:hover .menuDots span {
+  background: #111827;
+}
+
+.menuDots {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.menuDots span {
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  background: #6b7280;
+  display: block;
+}
+
+.menuDropdown {
+  position: absolute;
+  top: 28px;
+  right: 0;
+  min-width: 160px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.14);
+  padding: 8px;
+  display: grid;
+  gap: 4px;
+  z-index: 20;
+}
+
+.menuItem {
+  height: 40px;
+  border: none;
+  background: transparent;
+  color: #111827;
+  border-radius: 10px;
+  text-align: left;
+  padding: 0 12px;
+  font-size: 14px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.menuItem:hover {
+  background: #f8fafc;
+}
+
+.menuItemDanger {
+  color: #be123c;
+}
+
+.menuItemDanger:hover {
+  background: #fff1f2;
 }
 
 .ghostBtn,
 .dangerBtn,
 .primaryBtn,
 .secondaryBtn,
-.removeImageBtn {
+.removeImageBtn,
+.engagementBtn,
+.commentSubmit {
   border-radius: 999px;
   font-weight: 1000;
   cursor: pointer;
@@ -272,7 +340,11 @@
 .primaryBtn:disabled,
 .secondaryBtn:disabled,
 .removeImageBtn:disabled,
-.plusBtn:disabled {
+.plusBtn:disabled,
+.menuItem:disabled,
+.menuBtn:disabled,
+.engagementBtn:disabled,
+.commentSubmit:disabled {
   opacity: 0.55;
   cursor: not-allowed;
 }
@@ -292,7 +364,6 @@
   white-space: pre-wrap;
   word-break: break-word;
 }
-
 
 .gallery {
   margin-top: 14px;
@@ -390,7 +461,123 @@
   grid-area: bottomRight;
 }
 
-/* Modal */
+.engagementBar {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid #edf2f7;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.engagementBtn {
+  height: 36px;
+  padding: 0 14px;
+  border: 1px solid #dbe2ea;
+  background: #fff;
+  color: #334155;
+  font-size: 13px;
+}
+
+.engagementBtn:hover {
+  background: #f8fafc;
+}
+
+.engagementBtnActive {
+  background: #eef2ff;
+  border-color: #c7d2fe;
+  color: #4338ca;
+}
+
+.commentCount {
+  font-size: 12px;
+  font-weight: 900;
+  color: #64748b;
+}
+
+.commentSection {
+  margin-top: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.commentEmpty {
+  font-size: 13px;
+  color: #94a3b8;
+}
+
+.commentList {
+  display: grid;
+  gap: 10px;
+}
+
+.commentItem {
+  border: 1px solid #edf2f7;
+  background: #fbfcfe;
+  border-radius: 14px;
+  padding: 10px 12px;
+}
+
+.commentMeta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.commentAuthor {
+  font-weight: 1000;
+  color: #111827;
+}
+
+.commentTime {
+  color: #64748b;
+}
+
+.commentText {
+  margin-top: 6px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #334155;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.commentComposer {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.commentInput {
+  flex: 1;
+  height: 42px;
+  border: 1px solid #dbe2ea;
+  border-radius: 999px;
+  padding: 0 14px;
+  outline: none;
+  font-size: 14px;
+  background: #fff;
+  color: #111827;
+}
+
+.commentInput:focus {
+  border-color: #93c5fd;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
+}
+
+.commentSubmit {
+  height: 42px;
+  padding: 0 16px;
+  border: 1px solid #111827;
+  background: #111827;
+  color: #fff;
+  font-size: 13px;
+}
 
 .modalBackdrop {
   position: fixed;
@@ -540,7 +727,6 @@
   margin-top: 6px;
 }
 
-
 .viewerBackdrop {
   position: fixed;
   inset: 0;
@@ -625,8 +811,6 @@
   font-weight: 800;
 }
 
-/* Mobile */
-
 @media (max-width: 760px) {
   .wrapper {
     padding: 16px;
@@ -688,5 +872,14 @@
     width: 52px;
     height: 52px;
     font-size: 30px;
+  }
+
+  .commentComposer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .commentSubmit {
+    width: 100%;
   }
 }

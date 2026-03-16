@@ -15,6 +15,8 @@ import FAQ from './components/landing/FAQ/FAQ'
 import FinalCTA from './components/landing/FinalCTA/FinalCTA'
 
 
+export const dynamic = 'force-dynamic'
+
 export default async function LandingPage() {
   const payload = await getPayload({ config })
 

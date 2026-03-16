@@ -139,16 +139,25 @@ export default async function DocumentDetailPage({
 
     <span className={styles.breadcrumbSep}>/</span>
 
-    <h1 className={styles.title}>{doc.title}</h1>
+    <h1 className={styles.title}>{doc.title}</h1> 
   </div>
 
+  <div className={styles.headerActions}>
   <Link
-    href={`/child-info/${id}/documents/${doc.id}?mode=edit`}
+    href={`/child-info/${id}/documents/${doc.id}/edit`}
     className={styles.editBtn}
   >
     <Pencil size={14} />
     Edit
   </Link>
+
+  <Link
+    href={`/child-info/${id}/documents/${doc.id}/replace`}
+    className={styles.replaceBtn}
+  >
+    Replace
+  </Link>
+</div>
 </header>
 
       <div className={styles.contentLayout}>

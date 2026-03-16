@@ -34,29 +34,36 @@ export const Customers: CollectionConfig = {
   access: {
     create: () => true,
 
-   read: ({ req }) => {
+ read: ({ req }) => {
   if (!req.user) return false
   if (isAdmin(req)) return true
   if (!isCustomer(req)) return false
 
   let where: Where
 
-  if (req.user.id) {
+  if ('id' in req.user && req.user.id) {
     where = {
       id: {
         equals: req.user.id,
       },
     }
-  } else {
-    where = {
-      family: {
-        equals: req.user.family,
-      },
-    }
+    return where
+  }
+
+  const familyId =
+    'family' in req.user ? req.user.family : undefined
+
+  if (!familyId) return false
+
+  where = {
+    family: {
+      equals: familyId,
+    },
   }
 
   return where
-},
+}
+  ,
 
     update: ({ req }) => {
       if (!req.user) return false

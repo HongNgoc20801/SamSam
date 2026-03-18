@@ -24,8 +24,18 @@ type MediaDoc = {
   mimeType?: string
 }
 
+type AuthorDoc = {
+  id: string | number
+  firstName?: string
+  lastName?: string
+  email?: string
+  fullName?: string
+  name?: string
+  avatar?: string | number | MediaDoc | null
+}
+
 type CommentDoc = {
-  author?: string | number | { id: string | number }
+  author?: string | number | AuthorDoc
   authorName?: string
   content?: string
   createdAt?: string
@@ -37,7 +47,7 @@ type PostDoc = {
   content: string
   type: PostType
   important?: boolean
-  author?: string | number | { id: string | number }
+  author?: string | number | AuthorDoc
   authorName?: string
   child?: string | number | { id: string | number; fullName?: string }
   attachments?: Array<string | number | MediaDoc>
@@ -96,6 +106,48 @@ function normalizeComments(v: any): CommentDoc[] {
     .filter(Boolean) as CommentDoc[]
 }
 
+function getDisplayName(explicitName?: string, author?: any) {
+  const direct = String(explicitName ?? '').trim()
+  if (direct) return direct
+
+  if (author && typeof author === 'object') {
+    const full = `${String(author?.firstName ?? '').trim()} ${String(author?.lastName ?? '').trim()}`.trim()
+    return full || author?.fullName || author?.name || author?.email || 'Unknown user'
+  }
+
+  return 'Unknown user'
+}
+
+function getInitials(name?: string) {
+  const parts = String(name ?? '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+
+  if (parts.length === 0) return 'U'
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+
+  return `${parts[0][0] ?? ''}${parts[1][0] ?? ''}`.toUpperCase()
+}
+
+function getAuthorAvatarUrl(author: any) {
+  if (!author || typeof author !== 'object') return ''
+
+  const avatar = author?.avatar
+  if (!avatar) return ''
+
+  if (typeof avatar === 'string') {
+    if (avatar.startsWith('/') || avatar.startsWith('http')) return avatar
+    return ''
+  }
+
+  if (typeof avatar === 'object' && avatar?.url) {
+    return String(avatar.url)
+  }
+
+  return ''
+}
+
 export default function OppdateringerPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -128,6 +180,11 @@ export default function OppdateringerPage() {
   const [commentLoadingId, setCommentLoadingId] = useState<string | null>(null)
   const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({})
 
+  const [filterType, setFilterType] = useState<'all' | PostType>('all')
+  const [filterChildId, setFilterChildId] = useState('all')
+
+  const [activeCommentPostId, setActiveCommentPostId] = useState<string | null>(null)
+
   const myId = getId(me?.id)
   const viewerOpen = viewerImages.length > 0
 
@@ -136,6 +193,20 @@ export default function OppdateringerPage() {
     children.forEach((c) => m.set(String(c.id), c.fullName))
     return m
   }, [children])
+
+  const filteredPosts = useMemo(() => {
+    return posts.filter((post) => {
+      const matchesType = filterType === 'all' ? true : post.type === filterType
+      const postChildId = getId(post.child)
+      const matchesChild = filterChildId === 'all' ? true : postChildId === filterChildId
+      return matchesType && matchesChild
+    })
+  }, [posts, filterType, filterChildId])
+
+  const activeCommentPost = useMemo(() => {
+    if (!activeCommentPostId) return null
+    return posts.find((post) => String(post.id) === activeCommentPostId) || null
+  }, [posts, activeCommentPostId])
 
   const filePreviews = useMemo(() => {
     return newFiles.map((file) => ({
@@ -178,6 +249,19 @@ export default function OppdateringerPage() {
     return () => document.removeEventListener('mousedown', handleOutsideClick)
   }, [])
 
+  useEffect(() => {
+    if (!activeCommentPostId) return
+
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        setActiveCommentPostId(null)
+      }
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [activeCommentPostId])
+
   const canSubmit = useMemo(() => {
     if (saving) return false
     if (!content.trim()) return false
@@ -199,7 +283,7 @@ export default function OppdateringerPage() {
           credentials: 'include',
           cache: 'no-store',
         }),
-        fetch('/api/posts?limit=100&sort=-createdAt&depth=1', {
+        fetch('/api/posts?limit=100&sort=-createdAt&depth=2', {
           credentials: 'include',
           cache: 'no-store',
         }),
@@ -237,6 +321,11 @@ export default function OppdateringerPage() {
   useEffect(() => {
     loadAll()
   }, [])
+
+  function resetFilters() {
+    setFilterType('all')
+    setFilterChildId('all')
+  }
 
   function resetForm() {
     setType('general')
@@ -298,6 +387,14 @@ export default function OppdateringerPage() {
       if (viewerImages.length <= 1) return prev
       return prev === viewerImages.length - 1 ? 0 : prev + 1
     })
+  }
+
+  function openCommentModal(postId: string) {
+    setActiveCommentPostId(postId)
+  }
+
+  function closeCommentModal() {
+    setActiveCommentPostId(null)
   }
 
   async function uploadFiles(files: File[]) {
@@ -419,6 +516,10 @@ export default function OppdateringerPage() {
 
       if (editingId === postId) {
         closeModal()
+      }
+
+      if (activeCommentPostId === postId) {
+        closeCommentModal()
       }
 
       await loadAll()
@@ -587,25 +688,79 @@ export default function OppdateringerPage() {
 
       <section className={styles.feedCard}>
         <div className={styles.feedHeader}>
-          <div className={styles.cardTitle}>Siste oppdateringer</div>
-          <div className={styles.feedCount}>{posts.length} innlegg</div>
+          <div className={styles.feedHeaderLeft}>
+            <div className={styles.cardTitle}>Siste oppdateringer</div>
+            <div className={styles.feedCount}>
+              {filteredPosts.length}
+              {filteredPosts.length !== posts.length ? ` av ${posts.length}` : ''} innlegg
+            </div>
+          </div>
+
+          <div className={styles.filterBar}>
+            <div className={styles.filterField}>
+              <select
+                className={styles.filterSelect}
+                value={filterType}
+                onChange={(e) => setFilterType(e.target.value as 'all' | PostType)}
+                aria-label="Filter posts by type"
+                title="Filter posts by type"
+              >
+                <option value="all">All posts</option>
+                <option value="general">General updates</option>
+                <option value="child-update">Child updates</option>
+              </select>
+            </div>
+
+            <div className={styles.filterField}>
+              <select
+                className={styles.filterSelect}
+                value={filterChildId}
+                onChange={(e) => setFilterChildId(e.target.value)}
+                aria-label="Filter posts by child"
+                title="Filter posts by child"
+              >
+                <option value="all">All children</option>
+                {children.map((child) => (
+                  <option key={String(child.id)} value={String(child.id)}>
+                    {child.fullName}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <button
+              type="button"
+              className={styles.clearFilterBtn}
+              onClick={resetFilters}
+            >
+              Reset filters
+            </button>
+          </div>
         </div>
 
-        {posts.length === 0 ? (
+        {filteredPosts.length === 0 ? (
           <div className={styles.emptyState}>
             <div className={styles.emptyIcon}>📝</div>
             <div className={styles.emptyTitle}>Ingen innlegg ennå</div>
             <div className={styles.emptyText}>
-              Trykk på pluss-knappen for å opprette familiens første innlegg.
+              {posts.length === 0
+                ? 'Trykk på pluss-knappen for å opprette familiens første innlegg.'
+                : 'Ingen innlegg matcher filteret ditt akkurat nå.'}
             </div>
 
-            <button type="button" className={styles.emptyAction} onClick={openCreateModal}>
-              + Nytt innlegg
-            </button>
+            {posts.length === 0 ? (
+              <button type="button" className={styles.emptyAction} onClick={openCreateModal}>
+                + Nytt innlegg
+              </button>
+            ) : (
+              <button type="button" className={styles.emptyAction} onClick={resetFilters}>
+                Fjern filter
+              </button>
+            )}
           </div>
         ) : (
           <div className={styles.feedList}>
-            {posts.map((post) => {
+            {filteredPosts.map((post) => {
               const postId = String(post.id)
               const authorId = getId(post.author)
               const isMine = myId && authorId ? myId === authorId : false
@@ -618,12 +773,30 @@ export default function OppdateringerPage() {
               const comments = normalizeComments(post.comments)
               const likedByMe = likes.some((x) => getId(x) === myId)
 
+              const displayAuthorName = getDisplayName(post.authorName, post.author)
+              const authorAvatarUrl = getAuthorAvatarUrl(post.author)
+
               return (
                 <article key={postId} className={styles.postCard}>
                   <div className={styles.postTop}>
                     <div>
                       <div className={styles.postAuthorRow}>
-                        <span className={styles.author}>{post.authorName || 'Unknown user'}</span>
+                        <div className={styles.authorMain}>
+                          {authorAvatarUrl ? (
+                            <img
+                              src={authorAvatarUrl}
+                              alt={displayAuthorName}
+                              className={styles.authorAvatarImage}
+                            />
+                          ) : (
+                            <div className={styles.authorAvatarFallback}>
+                              {getInitials(displayAuthorName)}
+                            </div>
+                          )}
+
+                          <span className={styles.author}>{displayAuthorName}</span>
+                        </div>
+
                         {isMine ? <span className={styles.mineBadge}>You</span> : null}
                         {post.important ? <span className={styles.importantBadge}>Important</span> : null}
                       </div>
@@ -707,52 +880,13 @@ export default function OppdateringerPage() {
                           : `Lik (${likes.length})`}
                     </button>
 
-                    <div className={styles.commentCount}>Kommentarer {comments.length}</div>
-                  </div>
-
-                  <div className={styles.commentSection}>
-                    {comments.length === 0 ? (
-                      <div className={styles.commentEmpty}>Ingen kommentarer ennå.</div>
-                    ) : (
-                      <div className={styles.commentList}>
-                        {comments.map((comment, index) => (
-                          <div key={`${postId}-comment-${index}`} className={styles.commentItem}>
-                            <div className={styles.commentMeta}>
-                              <span className={styles.commentAuthor}>
-                                {comment.authorName || 'Unknown user'}
-                              </span>
-                              <span className={styles.dot}>•</span>
-                              <span className={styles.commentTime}>
-                                {fmtDateTime(comment.createdAt)}
-                              </span>
-                            </div>
-                            <div className={styles.commentText}>{comment.content || ''}</div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    <div className={styles.commentComposer}>
-                      <input
-                        className={styles.commentInput}
-                        value={commentDrafts[postId] || ''}
-                        onChange={(e) =>
-                          setCommentDrafts((prev) => ({
-                            ...prev,
-                            [postId]: e.target.value,
-                          }))
-                        }
-                        placeholder="Skriv en kommentar..."
-                      />
-                      <button
-                        type="button"
-                        className={styles.commentSubmit}
-                        onClick={() => onAddComment(postId)}
-                        disabled={commentLoadingId === postId || !(commentDrafts[postId] || '').trim()}
-                      >
-                        {commentLoadingId === postId ? 'Sender…' : 'Send'}
-                      </button>
-                    </div>
+                    <button
+                      type="button"
+                      className={styles.commentOpenBtn}
+                      onClick={() => openCommentModal(postId)}
+                    >
+                      Kommentarer {comments.length}
+                    </button>
                   </div>
                 </article>
               )
@@ -952,6 +1086,154 @@ export default function OppdateringerPage() {
           </div>
         </div>
       ) : null}
+
+      {activeCommentPost ? (() => {
+        const postId = String(activeCommentPost.id)
+        const comments = normalizeComments(activeCommentPost.comments)
+        const likes = Array.isArray(activeCommentPost.likes) ? activeCommentPost.likes : []
+        const likedByMe = likes.some((x) => getId(x) === myId)
+        const attachments = normalizeMediaList(activeCommentPost.attachments)
+        const displayAuthorName = getDisplayName(activeCommentPost.authorName, activeCommentPost.author)
+        const authorAvatarUrl = getAuthorAvatarUrl(activeCommentPost.author)
+        const rawChildId = getId(activeCommentPost.child)
+        const childName =
+          (rawChildId ? childNameById.get(rawChildId) : '') || getChildName(activeCommentPost.child)
+
+        return (
+          <div className={styles.commentModalBackdrop} onMouseDown={closeCommentModal}>
+            <div className={styles.commentModal} onMouseDown={(e) => e.stopPropagation()}>
+              <div className={styles.commentModalHeader}>
+                <div className={styles.commentModalTitle}>Post</div>
+                <button
+                  type="button"
+                  className={styles.commentModalClose}
+                  onClick={closeCommentModal}
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className={styles.commentModalBody}>
+                <div className={styles.commentModalPost}>
+                  <div className={styles.postTop}>
+                    <div>
+                      <div className={styles.postAuthorRow}>
+                        <div className={styles.authorMain}>
+                          {authorAvatarUrl ? (
+                            <img
+                              src={authorAvatarUrl}
+                              alt={displayAuthorName}
+                              className={styles.authorAvatarImage}
+                            />
+                          ) : (
+                            <div className={styles.authorAvatarFallback}>
+                              {getInitials(displayAuthorName)}
+                            </div>
+                          )}
+                          <span className={styles.author}>{displayAuthorName}</span>
+                        </div>
+
+                        {String(getId(activeCommentPost.author) || '') === String(myId || '') ? (
+                          <span className={styles.mineBadge}>You</span>
+                        ) : null}
+                        {activeCommentPost.important ? (
+                          <span className={styles.importantBadge}>Important</span>
+                        ) : null}
+                      </div>
+
+                      <div className={styles.postMeta}>
+                        <span>{activeCommentPost.type === 'child-update' ? 'Child update' : 'General'}</span>
+                        {childName ? (
+                          <>
+                            <span className={styles.dot}>•</span>
+                            <span>{childName}</span>
+                          </>
+                        ) : null}
+                        <span className={styles.dot}>•</span>
+                        <span>{fmtDateTime(activeCommentPost.createdAt)}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {activeCommentPost.title ? (
+                    <h3 className={styles.postTitle}>{activeCommentPost.title}</h3>
+                  ) : null}
+
+                  <div className={styles.postContent}>{activeCommentPost.content}</div>
+
+                  {attachments.length > 0 ? renderGallery(attachments, postId) : null}
+
+                  <div className={styles.engagementBar}>
+                    <button
+                      type="button"
+                      className={`${styles.engagementBtn} ${likedByMe ? styles.engagementBtnActive : ''}`}
+                      onClick={() => onToggleLike(postId)}
+                      disabled={likeLoadingId === postId}
+                    >
+                      {likeLoadingId === postId
+                        ? '...'
+                        : likedByMe
+                          ? `Likt (${likes.length})`
+                          : `Lik (${likes.length})`}
+                    </button>
+
+                    <div className={styles.commentCount}>Kommentarer {comments.length}</div>
+                  </div>
+                </div>
+
+                <div className={styles.commentModalComments}>
+                  <div className={styles.commentModalCommentsHeader}>
+                    Kommentarer
+                  </div>
+
+                  {comments.length === 0 ? (
+                    <div className={styles.commentEmpty}>Ingen kommentarer ennå.</div>
+                  ) : (
+                    <div className={styles.commentList}>
+                      {comments.map((comment, index) => (
+                        <div key={`${postId}-comment-modal-${index}`} className={styles.commentItem}>
+                          <div className={styles.commentMeta}>
+                            <span className={styles.commentAuthor}>
+                              {comment.authorName || 'Unknown user'}
+                            </span>
+                            <span className={styles.dot}>•</span>
+                            <span className={styles.commentTime}>
+                              {fmtDateTime(comment.createdAt)}
+                            </span>
+                          </div>
+                          <div className={styles.commentText}>{comment.content || ''}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className={styles.commentComposer}>
+                    <input
+                      className={styles.commentInput}
+                      value={commentDrafts[postId] || ''}
+                      onChange={(e) =>
+                        setCommentDrafts((prev) => ({
+                          ...prev,
+                          [postId]: e.target.value,
+                        }))
+                      }
+                      placeholder="Skriv en kommentar..."
+                    />
+                    <button
+                      type="button"
+                      className={styles.commentSubmit}
+                      onClick={() => onAddComment(postId)}
+                      disabled={commentLoadingId === postId || !(commentDrafts[postId] || '').trim()}
+                    >
+                      {commentLoadingId === postId ? 'Sender…' : 'Send'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+      })() : null}
 
       {viewerOpen ? (
         <div className={styles.viewerBackdrop} onMouseDown={closeViewer}>

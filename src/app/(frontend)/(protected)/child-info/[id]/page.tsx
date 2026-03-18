@@ -25,6 +25,18 @@ const DOCS_SLUG = 'child_documents'
 const AUDIT_SLUG = 'audit_logs'
 const LATEST_AUDIT_LIMIT = 5
 
+type Media = {
+  id?: string
+  url?: string
+  filename?: string
+  thumbnailURL?: string
+  sizes?: {
+    thumbnail?: {
+      url?: string
+    }
+  }
+}
+
 type PhoneT = { value: string }
 
 type EmergencyContact = {
@@ -32,6 +44,7 @@ type EmergencyContact = {
   relation?: string
   isPrimary?: boolean
   phones?: PhoneT[]
+  note?: string
 }
 
 type Child = {
@@ -43,6 +56,7 @@ type Child = {
   status?: 'pending' | 'confirmed' | string
   createdBy?: any
   confirmedAt?: string | null
+  avatar?: Media | string | null
 
   school?: {
     schoolName?: string
@@ -54,7 +68,9 @@ type Child = {
     bloodType?: string
     allergies?: { value: string }[]
     conditions?: { value: string }[]
+    medications?: { value: string }[]
     notesShort?: string
+    emergencyInstruction?: string
     gp?: {
       name?: string
       clinic?: string
@@ -137,7 +153,10 @@ function normalizeStatus(s?: string) {
 }
 
 function renderPhones(phones?: PhoneT[]) {
-  const list = (phones || []).map((p) => String(p?.value || '').trim()).filter(Boolean)
+  const list = (phones || [])
+    .map((p) => String(p?.value || '').trim())
+    .filter(Boolean)
+
   if (!list.length) return '—'
   return list.join(' • ')
 }
@@ -295,8 +314,10 @@ function fieldLabel(field?: string) {
 
     'medical.bloodType': 'Blood type',
     'medical.notesShort': 'Medical note',
+    'medical.emergencyInstruction': 'Emergency instruction',
     'medical.allergies': 'Allergies',
     'medical.conditions': 'Conditions',
+    'medical.medications': 'Medications',
     'medical.gp': 'Doctor info',
 
     title: 'Title',
@@ -324,10 +345,43 @@ function renderChangeValue(v?: string) {
   return value
 }
 
-export default async function ChildDetailPage({ params }: { params: Promise<{ id: string }> }) {
+function normalizeMediaUrl(url: string) {
+  if (!url) return ''
+  if (url.startsWith('http://') || url.startsWith('https://')) return url
+  if (url.startsWith('/')) return url
+  return `/${url}`
+}
+
+function getAvatarUrl(avatar: Child['avatar']): string {
+  if (!avatar || typeof avatar === 'string') return ''
+
+  if (typeof avatar.url === 'string' && avatar.url.trim()) {
+    return normalizeMediaUrl(avatar.url)
+  }
+
+  if (typeof avatar.thumbnailURL === 'string' && avatar.thumbnailURL.trim()) {
+    return normalizeMediaUrl(avatar.thumbnailURL)
+  }
+
+  if (typeof avatar?.sizes?.thumbnail?.url === 'string' && avatar.sizes.thumbnail.url.trim()) {
+    return normalizeMediaUrl(avatar.sizes.thumbnail.url)
+  }
+
+  if (typeof avatar.filename === 'string' && avatar.filename.trim()) {
+    return `/api/media/file/${avatar.filename}`
+  }
+
+  return ''
+}
+
+export default async function ChildDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}) {
   const { id } = await params
 
-  const childRes = await serverFetch(`/api/children/${id}`)
+  const childRes = await serverFetch(`/api/children/${id}?depth=1`)
   if (!childRes.ok) return notFound()
 
   const child: Child | null = await childRes.json().catch(() => null)
@@ -337,7 +391,9 @@ export default async function ChildDetailPage({ params }: { params: Promise<{ id
 
   const [docsRes, auditRes, eventsRes] = await Promise.all([
     serverFetch(`/api/${DOCS_SLUG}?limit=200&sort=-createdAt&where[child][equals]=${id}`),
-    serverFetch(`/api/${AUDIT_SLUG}?limit=${LATEST_AUDIT_LIMIT}&sort=-createdAt&where[child][equals]=${id}`),
+    serverFetch(
+      `/api/${AUDIT_SLUG}?limit=${LATEST_AUDIT_LIMIT}&sort=-createdAt&where[child][equals]=${id}`,
+    ),
     serverFetch(
       `/api/calendar-events?limit=200&sort=startAt&where[child][equals]=${id}&where[startAt][greater_than]=${encodeURIComponent(nowISO)}`,
     ),
@@ -354,9 +410,11 @@ export default async function ChildDetailPage({ params }: { params: Promise<{ id
   const status = normalizeStatus(child.status)
   const age = calcAge(child.birthDate)
   const initial = (child.fullName?.trim()?.[0] || 'C').toUpperCase()
+  const avatarUrl = getAvatarUrl(child.avatar)
 
   const allergies = child?.medical?.allergies?.map((x) => x.value).filter(Boolean) ?? []
   const conditions = child?.medical?.conditions?.map((x) => x.value).filter(Boolean) ?? []
+  const medications = child?.medical?.medications?.map((x) => x.value).filter(Boolean) ?? []
 
   const emergency = Array.isArray(child.emergencyContacts) ? child.emergencyContacts : []
   const primary = emergency.find((c) => c.isPrimary) || emergency[0]
@@ -384,7 +442,11 @@ export default async function ChildDetailPage({ params }: { params: Promise<{ id
           <Link className={styles.iconBtn} href={`/child-info/${id}/edit`} aria-label="Edit">
             <Pencil size={18} />
           </Link>
-          <Link className={styles.iconBtn} href={`/child-info/${id}/documents/new`} aria-label="Upload document">
+          <Link
+            className={styles.iconBtn}
+            href={`/child-info/${id}/documents/new`}
+            aria-label="Upload document"
+          >
             <Upload size={18} />
           </Link>
         </div>
@@ -393,12 +455,26 @@ export default async function ChildDetailPage({ params }: { params: Promise<{ id
       <div className={styles.layout}>
         <aside className={styles.leftCol}>
           <section className={styles.profileCard}>
-            <div className={styles.avatarCircle}>{initial}</div>
+            <div className={styles.avatarCircle}>
+              {avatarUrl ? (
+                <img
+                  className={styles.avatarImg}
+                  src={avatarUrl}
+                  alt={child.fullName || 'Child avatar'}
+                />
+              ) : (
+                <span className={styles.avatarFallback}>{initial}</span>
+              )}
+            </div>
 
             <div className={styles.profileName}>{child.fullName}</div>
 
             <div className={styles.profileStatusRow}>
-              <span className={`${styles.statusPill} ${status === 'confirmed' ? styles.statusOk : styles.statusWarn}`}>
+              <span
+                className={`${styles.statusPill} ${
+                  status === 'confirmed' ? styles.statusOk : styles.statusWarn
+                }`}
+              >
                 {status === 'confirmed' ? (
                   <>
                     <ShieldCheck size={14} /> Confirmed
@@ -411,7 +487,9 @@ export default async function ChildDetailPage({ params }: { params: Promise<{ id
               </span>
 
               {child.confirmedAt ? (
-                <span className={styles.profileMetaDim}>Confirmed at {fmtDateTime(child.confirmedAt)}</span>
+                <span className={styles.profileMetaDim}>
+                  Confirmed at {fmtDateTime(child.confirmedAt)}
+                </span>
               ) : null}
             </div>
 
@@ -430,7 +508,11 @@ export default async function ChildDetailPage({ params }: { params: Promise<{ id
             </div>
 
             <div className={styles.confirmWrap}>
-              <ConfirmChildButton childId={child.id} status={child.status} createdBy={child.createdBy} />
+              <ConfirmChildButton
+                childId={child.id}
+                status={child.status}
+                createdBy={child.createdBy}
+              />
             </div>
           </section>
 
@@ -452,6 +534,8 @@ export default async function ChildDetailPage({ params }: { params: Promise<{ id
                   <Phone size={16} />
                   <span>{renderPhones(primary.phones)}</span>
                 </div>
+
+                {primary?.note ? <div className={styles.contactNote}>{primary.note}</div> : null}
 
                 <div className={styles.contactActions}>
                   <button className={styles.smallActionBtn} type="button">
@@ -481,23 +565,31 @@ export default async function ChildDetailPage({ params }: { params: Promise<{ id
               <div className={styles.alertItem}>
                 <div className={styles.alertK}>Blood Type</div>
                 <div className={styles.alertV}>
-                  {child.medical?.bloodType && child.medical.bloodType !== 'unknown' ? child.medical.bloodType : '—'}
+                  {child.medical?.bloodType && child.medical.bloodType !== 'unknown'
+                    ? child.medical.bloodType
+                    : '—'}
                 </div>
               </div>
 
               <div className={styles.alertItem}>
                 <div className={styles.alertK}>Allergies</div>
-                <div className={styles.alertV}>{allergies.length ? allergies.join(', ') : 'None reported'}</div>
+                <div className={styles.alertV}>
+                  {allergies.length ? allergies.join(', ') : 'None reported'}
+                </div>
               </div>
 
               <div className={styles.alertItem}>
                 <div className={styles.alertK}>Conditions</div>
-                <div className={styles.alertV}>{conditions.length ? conditions.join(', ') : 'None reported'}</div>
+                <div className={styles.alertV}>
+                  {conditions.length ? conditions.join(', ') : 'None reported'}
+                </div>
               </div>
 
               <div className={styles.alertItem}>
-                <div className={styles.alertK}>Note</div>
-                <div className={styles.alertV}>{child.medical?.notesShort || '—'}</div>
+                <div className={styles.alertK}>Emergency instruction</div>
+                <div className={styles.alertV}>
+                  {child.medical?.emergencyInstruction || child.medical?.notesShort || '—'}
+                </div>
               </div>
             </div>
           </section>
@@ -578,7 +670,9 @@ export default async function ChildDetailPage({ params }: { params: Promise<{ id
               <div className={styles.kvRow}>
                 <div className={styles.kvK}>Blood Type</div>
                 <div className={styles.kvV}>
-                  {child.medical?.bloodType && child.medical.bloodType !== 'unknown' ? child.medical.bloodType : '—'}
+                  {child.medical?.bloodType && child.medical.bloodType !== 'unknown'
+                    ? child.medical.bloodType
+                    : '—'}
                 </div>
               </div>
 
@@ -590,6 +684,16 @@ export default async function ChildDetailPage({ params }: { params: Promise<{ id
               <div className={styles.kvRow}>
                 <div className={styles.kvK}>Conditions</div>
                 <div className={styles.kvV}>{conditions.length ? conditions.join(', ') : '—'}</div>
+              </div>
+
+              <div className={styles.kvRow}>
+                <div className={styles.kvK}>Medications</div>
+                <div className={styles.kvV}>{medications.length ? medications.join(', ') : '—'}</div>
+              </div>
+
+              <div className={styles.kvRow}>
+                <div className={styles.kvK}>Emergency instruction</div>
+                <div className={styles.kvV}>{child.medical?.emergencyInstruction || '—'}</div>
               </div>
 
               <div className={styles.kvRow}>
@@ -628,7 +732,10 @@ export default async function ChildDetailPage({ params }: { params: Promise<{ id
             ) : (
               <div className={styles.emGrid}>
                 {emergency.map((c, idx) => (
-                  <div key={`${c.name}-${idx}`} className={`${styles.emCard} ${c.isPrimary ? styles.emPrimary : ''}`}>
+                  <div
+                    key={`${c.name}-${idx}`}
+                    className={`${styles.emCard} ${c.isPrimary ? styles.emPrimary : ''}`}
+                  >
                     <div className={styles.emTop}>
                       <div className={styles.emName}>{c.name || '—'}</div>
                       {c.isPrimary ? <span className={styles.badgePrimary}>Primary</span> : null}
@@ -638,6 +745,7 @@ export default async function ChildDetailPage({ params }: { params: Promise<{ id
                       <Phone size={16} />
                       <span>{renderPhones(c.phones)}</span>
                     </div>
+                    {c?.note ? <div className={styles.emNote}>{c.note}</div> : null}
                   </div>
                 ))}
               </div>
@@ -685,16 +793,15 @@ export default async function ChildDetailPage({ params }: { params: Promise<{ id
                 <FileText size={18} />
                 <div className={styles.cardTitle}>Documents</div>
               </div>
-                <Link
-                  className={styles.cardLink}
-                  href={`/child-info/${id}/documents`}
-                >
+
+              <div className={styles.headerLinks}>
+                <Link className={styles.cardLink} href={`/child-info/${id}/documents`}>
                   View all
                 </Link>
-
-              <Link className={styles.cardLink} href={`/child-info/${id}/documents/new`}>
-                Add New
-              </Link>
+                <Link className={styles.cardLink} href={`/child-info/${id}/documents/new`}>
+                  Add New
+                </Link>
+              </div>
             </div>
 
             <div className={styles.docCats}>
@@ -741,9 +848,7 @@ export default async function ChildDetailPage({ params }: { params: Promise<{ id
 
             <div className={styles.docHint}>Select a category to view all files.</div>
 
-            {docs.length === 0 ? (
-              <div className={styles.empty}>No documents yet.</div>
-            ) : null}
+            {docs.length === 0 ? <div className={styles.empty}>No documents yet.</div> : null}
           </section>
 
           <section className={styles.card}>
@@ -773,13 +878,14 @@ export default async function ChildDetailPage({ params }: { params: Promise<{ id
                         : []
 
                   const resetToPending =
-                    a.action === 'child.update' &&
-                    a.meta?.wasResetToPending
+                    a.action === 'child.update' && a.meta?.wasResetToPending
 
                   return (
                     <div
                       key={String(a.id)}
-                      className={`${styles.auditRow} ${styles[`auditRow--${actionTone(a.action)}`] || ''}`}
+                      className={`${styles.auditRow} ${
+                        styles[`auditRow--${actionTone(a.action)}`] || ''
+                      }`}
                     >
                       <div className={styles.auditIcon}>
                         <ClipboardList size={16} />
@@ -812,15 +918,21 @@ export default async function ChildDetailPage({ params }: { params: Promise<{ id
 
                         {resetToPending ? (
                           <div className={styles.auditNotice}>
-                            Important profile information changed. Confirmation was reset and requires re-confirmation.
+                            Important profile information changed. Confirmation was reset and
+                            requires re-confirmation.
                           </div>
                         ) : null}
 
                         {changes.length > 0 ? (
                           <div className={styles.auditChanges}>
                             {changes.map((c, idx) => (
-                              <div key={`${a.id}-change-${idx}`} className={styles.auditChangeRow}>
-                                <div className={styles.auditChangeField}>{fieldLabel(c.field)}</div>
+                              <div
+                                key={`${a.id}-change-${idx}`}
+                                className={styles.auditChangeRow}
+                              >
+                                <div className={styles.auditChangeField}>
+                                  {fieldLabel(c.field)}
+                                </div>
 
                                 <div className={styles.auditChangeValues}>
                                   <span className={styles.auditChangeFrom}>

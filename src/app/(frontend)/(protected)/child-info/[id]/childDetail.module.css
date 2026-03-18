@@ -12,20 +12,17 @@
   gap: 12px;
   margin-bottom: 14px;
 }
+
 .backBtn {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-
   font-weight: 700;
   font-size: 14px;
-
   text-decoration: none;
   color: #334155;
-
   padding: 6px 10px;
   border-radius: 8px;
-
   transition: all 0.15s ease;
 }
 
@@ -39,7 +36,6 @@
   align-items: center;
   flex-wrap: wrap;
   gap: 6px;
-
   font-size: 14px;
   color: #64748b;
 }
@@ -48,14 +44,11 @@
   opacity: 0.6;
 }
 
-.bcDim {
-  opacity: 0.85;
-}
-
 .bcStrong {
   color: #0f172a;
   font-weight: 800;
 }
+
 .topActions {
   display: flex;
   gap: 10px;
@@ -81,14 +74,12 @@
   box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
 }
 
-/* ===== Layout ===== */
 .layout {
   display: grid;
   grid-template-columns: 300px 1fr;
   gap: 16px;
   align-items: start;
 }
-
 
 .leftCol {
   position: sticky;
@@ -104,7 +95,6 @@
   gap: 14px;
 }
 
-/* ===== Card base ===== */
 .card,
 .profileCard {
   background: #ffffff;
@@ -141,6 +131,11 @@
   text-decoration: none;
 }
 
+.headerLinks {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
 
 .profileCard {
   display: grid;
@@ -157,14 +152,28 @@
   border-radius: 999px;
   background: #eaf2ff;
   color: #2563eb;
+  overflow: hidden;
+  border: 1px solid #dbe8ff;
+}
+
+.avatarImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.avatarFallback {
   font-size: 28px;
   font-weight: 1000;
+  line-height: 1;
 }
 
 .profileName {
   font-size: 18px;
   font-weight: 1000;
   line-height: 1.2;
+  word-break: break-word;
 }
 
 .profileStatusRow {
@@ -248,6 +257,7 @@
 .confirmWrap {
   width: 100%;
 }
+
 .confirmCard {
   width: 100%;
   display: grid;
@@ -258,6 +268,92 @@
   background: linear-gradient(180deg, #fffdf5 0%, #fffaf0 100%);
 }
 
+.confirmCardTop {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.confirmIconWrap {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+
+.confirmText {
+  display: grid;
+  gap: 4px;
+}
+
+.confirmTitle {
+  font-size: 13px;
+  font-weight: 1000;
+  color: #0f172a;
+}
+
+.confirmHint {
+  font-size: 12px;
+  color: #64748b;
+  line-height: 1.45;
+}
+
+.confirmBtn {
+  height: 40px;
+  border: none;
+  border-radius: 12px;
+  background: #2563eb;
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 900;
+  cursor: pointer;
+  box-shadow: 0 10px 20px rgba(37, 99, 235, 0.18);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+}
+
+.confirmBtn:hover {
+  transform: translateY(-1px);
+  filter: brightness(0.98);
+}
+
+.confirmBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
+
+.confirmError {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #fff1f2;
+  border: 1px solid #fecdd3;
+  color: #be123c;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.spin {
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
 
 .contactBox {
   display: grid;
@@ -283,6 +379,16 @@
   font-weight: 900;
   color: #0f172a;
   line-height: 1.4;
+}
+
+.contactNote {
+  font-size: 12px;
+  color: #475569;
+  line-height: 1.45;
+  background: #f8fafc;
+  border: 1px solid #eef2f7;
+  border-radius: 10px;
+  padding: 8px 10px;
 }
 
 .contactActions {
@@ -348,7 +454,6 @@
   line-height: 1.45;
 }
 
-
 .twoColRow {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -389,7 +494,8 @@
   font-weight: 800;
   color: #0f172a;
   word-break: break-word;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
+    'Courier New', monospace;
 }
 
 .hr {
@@ -404,7 +510,6 @@
   font-weight: 1000;
   color: #0f172a;
 }
-
 
 .emGrid {
   display: grid;
@@ -451,6 +556,13 @@
   font-size: 13px;
   font-weight: 900;
   line-height: 1.4;
+}
+
+.emNote {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #475569;
+  line-height: 1.45;
 }
 
 .badgePrimary {
@@ -526,7 +638,6 @@
   line-height: 1.5;
 }
 
-
 .docCats {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
@@ -551,11 +662,6 @@
   box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
 }
 
-.docCatAdd {
-  border-style: dashed;
-  background: #fbfdff;
-}
-
 .docCatIcon {
   width: 38px;
   height: 38px;
@@ -578,85 +684,11 @@
   color: #64748b;
 }
 
-.docGroups {
-  display: grid;
-  gap: 14px;
-}
-
-.docGroup {
-  display: grid;
-  gap: 8px;
-}
-
-.docGroupTitle {
-  margin-bottom: 2px;
-  font-size: 13px;
-  font-weight: 1000;
-}
-
-.docGroupCount {
-  margin-left: 6px;
-  color: #64748b;
-  font-weight: 900;
-}
-
-.docList {
-  display: grid;
-  gap: 10px;
-}
-
-.docRow {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px;
-  border: 1px solid #eef2f7;
-  border-radius: 14px;
-  background: #ffffff;
-  color: inherit;
-  text-decoration: none;
-  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
-}
-
-.docRow:hover {
-  transform: translateY(-1px);
-  border-color: #dbe5f0;
-  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.05);
-}
-
-.docRowIcon {
-  width: 36px;
-  height: 36px;
-  display: grid;
-  place-items: center;
-  border: 1px solid #dbeafe;
-  border-radius: 12px;
-  background: #eef4ff;
-  color: #2563eb;
-}
-
-.docRowBody {
-  min-width: 0;
-  flex: 1;
-}
-
-.docRowTitle {
-  font-size: 13px;
-  font-weight: 900;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.docRowMeta {
-  margin-top: 2px;
+.docHint {
   font-size: 12px;
   color: #64748b;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  line-height: 1.45;
 }
-
 
 .auditList {
   display: grid;
@@ -779,7 +811,6 @@
   font-weight: 600;
 }
 
-/* ===== Audit tones ===== */
 .auditRow--create {
   border-left: 4px solid #60a5fa;
 }
@@ -808,14 +839,12 @@
   border-left: 4px solid #cbd5e1;
 }
 
-/* ===== Empty ===== */
 .empty {
   font-size: 13px;
   color: #64748b;
   line-height: 1.45;
 }
 
-/* ===== Responsive ===== */
 @media (max-width: 980px) {
   .layout {
     grid-template-columns: 1fr;
@@ -890,5 +919,10 @@
     width: 34px;
     height: 34px;
     flex-basis: 34px;
+  }
+
+  .headerLinks {
+    width: 100%;
+    justify-content: flex-end;
   }
 }

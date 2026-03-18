@@ -26,6 +26,10 @@ function getFamilyIdFromUser(req: any) {
   return typeof u.family === 'string' ? u.family : u.family?.id ?? null
 }
 
+function getFamilyIdFromDoc(doc: any) {
+  return typeof doc?.family === 'string' ? doc.family : doc?.family?.id ?? null
+}
+
 function cleanText(v: any, max = 9999) {
   return String(v ?? '').trim().slice(0, max)
 }
@@ -47,9 +51,13 @@ function normalizeRelId(v: any): string | number | null {
 
   return null
 }
+
 function asText(v: any) {
   if (v === null || v === undefined) return ''
-  if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') return String(v)
+  if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') {
+    return String(v)
+  }
+
   try {
     return JSON.stringify(v)
   } catch {
@@ -68,13 +76,11 @@ function pushChange(
   }
 }
 
-function getFamilyIdFromDoc(doc: any) {
-  return typeof doc?.family === 'string' ? doc.family : doc?.family?.id ?? null
-}
-
 export const ChildDocuments: CollectionConfig = {
   slug: 'child_documents',
-  admin: { useAsTitle: 'title' },
+  admin: {
+    useAsTitle: 'title',
+  },
 
   access: {
     create: ({ req }) => !!req.user && isCustomer(req),
@@ -87,7 +93,9 @@ export const ChildDocuments: CollectionConfig = {
       const familyId = getFamilyIdFromUser(req)
       if (!familyId) return false
 
-      return { family: { equals: familyId } }
+      return {
+        family: { equals: familyId },
+      }
     },
 
     update: ({ req }) => {
@@ -98,10 +106,11 @@ export const ChildDocuments: CollectionConfig = {
       const familyId = getFamilyIdFromUser(req)
       if (!familyId) return false
 
-      return { family: { equals: familyId } }
+      return {
+        family: { equals: familyId },
+      }
     },
 
-    // Phương án B: chỉ xóa document do chính mình upload trong family của mình
     delete: ({ req }) => {
       if (!req.user) return false
       if (isAdmin(req)) return true
@@ -113,10 +122,7 @@ export const ChildDocuments: CollectionConfig = {
       if (!familyId || !userId) return false
 
       const where: Where = {
-        and: [
-          { family: { equals: familyId } },
-          { uploadedBy: { equals: userId } },
-        ],
+        and: [{ family: { equals: familyId } }, { uploadedBy: { equals: userId } }],
       }
 
       return where
@@ -125,195 +131,220 @@ export const ChildDocuments: CollectionConfig = {
 
   hooks: {
     beforeValidate: [
-  async (args: any) => {
-    const { data, req, operation, originalDoc, previousDoc, doc } = args
-    const oldDoc = originalDoc ?? previousDoc ?? doc ?? null
-    const next: any = { ...(data ?? {}) }
+      async (args: any) => {
+        const { data, req, operation, originalDoc, previousDoc, doc } = args
+        const oldDoc = originalDoc ?? previousDoc ?? doc ?? null
+        const next: any = { ...(data ?? {}) }
 
-    if (next.title) next.title = cleanText(next.title, 120)
-    if (next.noteShort) next.noteShort = cleanText(next.noteShort, 160)
+        if (next.title) next.title = cleanText(next.title, 120)
+        if (next.noteShort) next.noteShort = cleanText(next.noteShort, 160)
 
-    if (operation === 'create') {
-      const familyId = getFamilyIdFromUser(req)
-      const userId = normalizeRelId((req.user as any)?.id)
+        if (operation === 'create') {
+          const familyId = getFamilyIdFromUser(req)
+          const userId = normalizeRelId((req.user as any)?.id)
+          const user: any = req?.user
 
-      if (!familyId) {
-        throw new Error('Your account is not in a family group yet.')
-      }
-      if (!userId) {
-        throw new Error('Missing current user.')
-      }
-      if (!isCustomer(req)) {
-        throw new Error('Only customers can upload child documents.')
-      }
+          if (!familyId) {
+            throw new Error('Your account is not in a family group yet.')
+          }
 
-      const childId = normalizeRelId(next.child)
-      const mediaId = normalizeRelId(next.file)
+          if (!userId) {
+            throw new Error('Missing current user.')
+          }
 
-      if (!childId) throw new Error('Missing child.')
-      if (!mediaId) throw new Error('Missing uploaded file (media).')
+          if (!isCustomer(req)) {
+            throw new Error('Only customers can upload child documents.')
+          }
 
-      if (!next.category) next.category = 'other'
+          const childId = normalizeRelId(next.child)
+          const mediaId = normalizeRelId(next.file)
 
-      const childDoc = await req.payload.findByID({
-        collection: 'children',
-        id: childId,
-        req,
-        overrideAccess: true,
-      })
+          if (!childId) throw new Error('Missing child.')
+          if (!mediaId) throw new Error('Missing uploaded file (media).')
 
-      if (!childDoc?.id) {
-        throw new Error('Child not found.')
-      }
+          if (!next.category) next.category = 'other'
 
-      const childFamilyId =
-        typeof childDoc.family === 'string'
-          ? childDoc.family
-          : childDoc.family?.id ?? null
-
-      if (childFamilyId !== familyId) {
-        throw new Error('You do not have permission to upload documents for this child.')
-      }
-
-      const mediaDoc = await req.payload.findByID({
-        collection: 'media',
-        id: mediaId,
-        req,
-        overrideAccess: true,
-      })
-
-      if (!mediaDoc?.id) {
-        throw new Error('Uploaded media not found.')
-      }
-
-      let version = 1
-      if (next.replaces) {
-        try {
-          const prev = await req.payload.findByID({
-            collection: 'child_documents',
-            id: normalizeRelId(next.replaces),
+          const childDoc = await req.payload.findByID({
+            collection: 'children',
+            id: childId,
             req,
             overrideAccess: true,
           })
-          version = Number(prev?.version || 1) + 1
-        } catch {
-          version = 2
+
+          if (!childDoc?.id) {
+            throw new Error('Child not found.')
+          }
+
+          const childFamilyId =
+            typeof childDoc.family === 'string' ? childDoc.family : childDoc.family?.id ?? null
+
+          if (childFamilyId !== familyId) {
+            throw new Error('You do not have permission to upload documents for this child.')
+          }
+
+          const mediaDoc = await req.payload.findByID({
+            collection: 'media',
+            id: mediaId,
+            req,
+            overrideAccess: true,
+          })
+
+          if (!mediaDoc?.id) {
+            throw new Error('Uploaded media not found.')
+          }
+
+          let version = 1
+
+          if (next.replaces) {
+            try {
+              const prev = await req.payload.findByID({
+                collection: 'child_documents',
+                id: normalizeRelId(next.replaces),
+                req,
+                overrideAccess: true,
+              })
+
+              version = Number(prev?.version || 1) + 1
+            } catch {
+              version = 2
+            }
+          }
+
+          const uploadedByName =
+            cleanText(
+              user?.fullName ??
+                user?.name ??
+                user?.displayName ??
+                user?.email ??
+                'Family member',
+              120,
+            ) || 'Family member'
+
+          return {
+            ...next,
+            family: familyId,
+            uploadedBy: userId,
+            uploadedByName,
+            child: childId,
+            file: mediaId,
+            version,
+          }
         }
-      }
 
-      return {
-        ...next,
-        family: familyId,
-        uploadedBy: userId,
-        child: childId,
-        file: mediaId,
-        version,
-      }
-    }
+        if (operation === 'update') {
+          if (!oldDoc?.id) {
+            throw new Error('Original document not found.')
+          }
 
-    if (operation === 'update') {
-      if (!oldDoc?.id) {
-        throw new Error('Original document not found.')
-      }
+          next.family = oldDoc.family
+          next.uploadedBy = oldDoc.uploadedBy
+          next.uploadedByName = oldDoc.uploadedByName
+          next.version = oldDoc.version
+          next.child = oldDoc.child
+          next.file = oldDoc.file
+          next.replaces = oldDoc.replaces
 
-      next.family = oldDoc.family
-      next.uploadedBy = oldDoc.uploadedBy
-      next.version = oldDoc.version
-      next.child = oldDoc.child
-      next.file = oldDoc.file
-      next.replaces = oldDoc.replaces
+          if ('child' in data && normalizeRelId(data.child) !== normalizeRelId(oldDoc?.child)) {
+            throw new Error('Changing child is not allowed.')
+          }
 
-      if ('child' in data && normalizeRelId(data.child) !== normalizeRelId(oldDoc?.child)) {
-        throw new Error('Changing child is not allowed.')
-      }
+          if ('file' in data && normalizeRelId(data.file) !== normalizeRelId(oldDoc?.file)) {
+            throw new Error('Changing file is not allowed. Upload a new document instead.')
+          }
 
-      if ('file' in data && normalizeRelId(data.file) !== normalizeRelId(oldDoc?.file)) {
-        throw new Error('Changing file is not allowed. Upload a new document instead.')
-      }
+          if (
+            'replaces' in data &&
+            normalizeRelId(data.replaces) !== normalizeRelId(oldDoc?.replaces)
+          ) {
+            throw new Error(
+              'To replace a document, create a new document with replaces=<oldDocId>.',
+            )
+          }
 
-      if ('replaces' in data && normalizeRelId(data.replaces) !== normalizeRelId(oldDoc?.replaces)) {
-        throw new Error('To replace a document, create a new document with replaces=<oldDocId>.')
-      }
+          return next
+        }
 
-      return next
-    }
-
-    return next
-  },
-],
-
-afterChange: [
-  async ({ doc, previousDoc, operation, req }: any) => {
-    if (!req?.user || !doc) return
-
-    const childId = normalizeRelId(doc?.child)
-    const familyId = getFamilyIdFromDoc(doc)
-
-    if (operation === 'create') {
-      await logAudit(req, {
-        familyId,
-        childId,
-        action: doc?.replaces ? 'doc.replace' : 'doc.upload',
-        entityType: 'document',
-        entityId: String(doc?.id),
-        summary: doc?.replaces ? 'Replaced document' : 'Uploaded document',
-        meta: {
-          documentTitle: doc?.title,
-          documentCategory: doc?.category,
-          version: doc?.version,
-          replaces: doc?.replaces ? String(normalizeRelId(doc.replaces)) : null,
-        },
-      })
-      return
-    }
-
-    if (operation === 'update') {
-      const changes: Array<{ field: string; from?: any; to?: any }> = []
-
-      pushChange(changes, 'title', previousDoc?.title, doc?.title)
-      pushChange(changes, 'category', previousDoc?.category, doc?.category)
-      pushChange(changes, 'noteShort', previousDoc?.noteShort, doc?.noteShort)
-
-      if (!changes.length) return
-
-      await logAudit(req, {
-        familyId,
-        childId,
-        action: 'doc.update',
-        entityType: 'document',
-        entityId: String(doc?.id),
-        summary: 'Updated document',
-        changes,
-        meta: {
-          documentTitle: doc?.title,
-          documentCategory: doc?.category,
-          version: doc?.version,
-        },
-      })
-    }
-  },
-],
-
-afterDelete: [
-  async ({ doc, req }: any) => {
-    if (!req?.user || !doc) return
-
-    await logAudit(req, {
-      familyId: getFamilyIdFromDoc(doc),
-      childId: normalizeRelId(doc?.child),
-      action: 'doc.delete',
-      entityType: 'document',
-      entityId: String(doc?.id),
-      summary: 'Deleted document',
-      meta: {
-        documentTitle: doc?.title,
-        documentCategory: doc?.category,
-        version: doc?.version,
-        uploadedBy: normalizeRelId(doc?.uploadedBy),
+        return next
       },
-    })
-  },
-],
+    ],
+
+    afterChange: [
+      async ({ doc, previousDoc, operation, req }: any) => {
+        if (!req?.user || !doc) return
+
+        const childId = normalizeRelId(doc?.child)
+        const familyId = getFamilyIdFromDoc(doc)
+
+        if (operation === 'create') {
+          await logAudit(req, {
+            familyId,
+            childId,
+            action: doc?.replaces ? 'doc.replace' : 'doc.upload',
+            entityType: 'document',
+            entityId: String(doc?.id),
+            summary: doc?.replaces ? 'Replaced document' : 'Uploaded document',
+            meta: {
+              documentTitle: doc?.title,
+              documentCategory: doc?.category,
+              version: doc?.version,
+              replaces: doc?.replaces ? String(normalizeRelId(doc.replaces)) : null,
+              uploadedBy: normalizeRelId(doc?.uploadedBy),
+              uploadedByName: doc?.uploadedByName ?? null,
+            },
+          })
+          return
+        }
+
+        if (operation === 'update') {
+          const changes: Array<{ field: string; from?: any; to?: any }> = []
+
+          pushChange(changes, 'title', previousDoc?.title, doc?.title)
+          pushChange(changes, 'category', previousDoc?.category, doc?.category)
+          pushChange(changes, 'noteShort', previousDoc?.noteShort, doc?.noteShort)
+
+          if (!changes.length) return
+
+          await logAudit(req, {
+            familyId,
+            childId,
+            action: 'doc.update',
+            entityType: 'document',
+            entityId: String(doc?.id),
+            summary: 'Updated document',
+            changes,
+            meta: {
+              documentTitle: doc?.title,
+              documentCategory: doc?.category,
+              version: doc?.version,
+              uploadedBy: normalizeRelId(doc?.uploadedBy),
+              uploadedByName: doc?.uploadedByName ?? null,
+            },
+          })
+        }
+      },
+    ],
+
+    afterDelete: [
+      async ({ doc, req }: any) => {
+        if (!req?.user || !doc) return
+
+        await logAudit(req, {
+          familyId: getFamilyIdFromDoc(doc),
+          childId: normalizeRelId(doc?.child),
+          action: 'doc.delete',
+          entityType: 'document',
+          entityId: String(doc?.id),
+          summary: 'Deleted document',
+          meta: {
+            documentTitle: doc?.title,
+            documentCategory: doc?.category,
+            version: doc?.version,
+            uploadedBy: normalizeRelId(doc?.uploadedBy),
+            uploadedByName: doc?.uploadedByName ?? null,
+          },
+        })
+      },
+    ],
   },
 
   fields: [
@@ -368,6 +399,11 @@ afterDelete: [
       relationTo: 'customers',
       required: true,
       index: true,
+    },
+    {
+      name: 'uploadedByName', 
+      type: 'text',
+      required: false,
     },
     {
       name: 'version',

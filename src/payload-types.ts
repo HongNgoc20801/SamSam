@@ -505,6 +505,7 @@ export interface ChildDocument {
   category: 'agreement' | 'school' | 'health' | 'id' | 'other';
   noteShort?: string | null;
   uploadedBy: number | Customer;
+  uploadedByName?: string | null;
   version: number;
   /**
    * If this document replaces an older one, link it here.
@@ -1065,6 +1066,7 @@ export interface ChildDocumentsSelect<T extends boolean = true> {
   category?: T;
   noteShort?: T;
   uploadedBy?: T;
+  uploadedByName?: T;
   version?: T;
   replaces?: T;
   updatedAt?: T;

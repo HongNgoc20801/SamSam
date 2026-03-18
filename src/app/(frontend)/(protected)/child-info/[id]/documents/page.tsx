@@ -36,6 +36,8 @@ type UploadedBy =
       id: string
       fullName?: string
       email?: string
+      name?: string
+      displayName?: string
     }
 
 type ChildDoc = {
@@ -47,6 +49,7 @@ type ChildDoc = {
   version?: number
   file?: string | Media
   uploadedBy?: UploadedBy
+  uploadedByName?: string
 }
 
 const CATEGORY_TABS = [
@@ -75,15 +78,20 @@ function categoryLabel(c?: ChildDoc['category'] | string) {
 
 function fileMeta(file?: string | Media) {
   if (!file || typeof file === 'string') return ''
+
   const name = file.filename || 'file'
   const size =
     typeof file.filesize === 'number'
       ? `${Math.max(1, Math.round(file.filesize / 1024))} KB`
       : ''
+
   return `${name}${size ? ` • ${size}` : ''}`
 }
 
-function uploaderLabel(v?: UploadedBy) {
+function uploaderLabel(doc: ChildDoc) {
+  if (doc.uploadedByName) return doc.uploadedByName
+
+  const v = doc.uploadedBy
   if (!v) return 'Unknown user'
   if (typeof v === 'string') return 'Family member'
 
@@ -231,12 +239,10 @@ export default async function DocumentsPage({
                       <span className={styles.dot}>•</span>
                       <span>{fmtDate(doc.createdAt)}</span>
                       <span className={styles.dot}>•</span>
-                      <span>By {uploaderLabel(doc.uploadedBy)}</span>
+                      <span>By {uploaderLabel(doc)}</span>
                     </div>
 
-                    {doc.noteShort ? (
-                      <div className={styles.rowNote}>{doc.noteShort}</div>
-                    ) : null}
+                    {doc.noteShort ? <div className={styles.rowNote}>{doc.noteShort}</div> : null}
 
                     {fileMeta(doc.file) ? (
                       <div className={styles.rowFile}>{fileMeta(doc.file)}</div>

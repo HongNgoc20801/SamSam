@@ -9,11 +9,23 @@ const DOCS_SLUG = 'child_documents'
 
 type Category = 'agreement' | 'school' | 'health' | 'id' | 'other'
 
+type UserRef =
+  | string
+  | {
+      id: string
+      fullName?: string
+      name?: string
+      displayName?: string
+      email?: string
+    }
+
 type ChildDoc = {
   id: string
   title: string
   category?: Category
   noteShort?: string
+  uploadedBy?: UserRef
+  uploadedByName?: string
 }
 
 function safeJsonParse(raw: string) {
@@ -35,6 +47,25 @@ function extractErrorMessage(raw: string, parsed: any, fallback: string) {
   )
 }
 
+function getUploaderLabel(doc?: ChildDoc | null) {
+  if (!doc) return 'Family member'
+
+  if (doc.uploadedByName?.trim()) return doc.uploadedByName.trim()
+
+  const uploadedBy = doc.uploadedBy
+
+  if (!uploadedBy) return 'Family member'
+  if (typeof uploadedBy === 'string') return 'Family member'
+
+  return (
+    uploadedBy.fullName?.trim() ||
+    uploadedBy.name?.trim() ||
+    uploadedBy.displayName?.trim() ||
+    uploadedBy.email?.trim() ||
+    'Family member'
+  )
+}
+
 export default function EditChildDocPage() {
   const router = useRouter()
   const params = useParams<{ id: string; docId: string }>()
@@ -42,6 +73,7 @@ export default function EditChildDocPage() {
   const childId = params?.id
   const docId = params?.docId
 
+  const [doc, setDoc] = useState<ChildDoc | null>(null)
   const [title, setTitle] = useState('')
   const [category, setCategory] = useState<Category>('other')
   const [noteShort, setNoteShort] = useState('')
@@ -78,12 +110,13 @@ export default function EditChildDocPage() {
           )
         }
 
-        const doc = json as ChildDoc
+        const docData = json as ChildDoc
 
         if (!cancelled) {
-          setTitle(doc?.title || '')
-          setCategory(doc?.category || 'other')
-          setNoteShort(doc?.noteShort || '')
+          setDoc(docData)
+          setTitle(docData?.title || '')
+          setCategory(docData?.category || 'other')
+          setNoteShort(docData?.noteShort || '')
         }
       } catch (err: any) {
         if (!cancelled) {
@@ -118,9 +151,6 @@ export default function EditChildDocPage() {
     const raw = await res.text()
     const json = safeJsonParse(raw)
 
-    console.log('[updateChildDocument] status:', res.status)
-    console.log('[updateChildDocument] raw:', raw)
-
     if (!res.ok) {
       throw new Error(
         extractErrorMessage(raw, json, `Update document failed (${res.status})`)
@@ -144,14 +174,11 @@ export default function EditChildDocPage() {
         noteShort: noteShort.trim() || undefined,
       }
 
-      console.log('[EditChildDoc] payload:', payload)
-
       await updateChildDocument(payload)
 
       router.push(`/child-info/${childId}/documents/${docId}`)
       router.refresh()
     } catch (err: any) {
-      console.error('[EditChildDoc] ERROR', err)
       setError(err?.message || 'Something went wrong.')
     } finally {
       setLoading(false)
@@ -198,6 +225,11 @@ export default function EditChildDocPage() {
             <div className={styles.infoBox}>Loading document...</div>
           ) : (
             <>
+              <div className={styles.field}>
+                <label className={styles.label}>Uploaded by</label>
+                <div className={styles.infoBox}>{getUploaderLabel(doc)}</div>
+              </div>
+
               <div className={styles.field}>
                 <label className={styles.label}>Title</label>
                 <input

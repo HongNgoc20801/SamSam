@@ -32,6 +32,8 @@ type UploadedBy =
       firstName?: string
       lastName?: string
       fullName?: string
+      name?: string
+      displayName?: string
       email?: string
     }
 
@@ -44,6 +46,7 @@ type ChildDoc = {
   version?: number
   file?: string | Media
   uploadedBy?: UploadedBy
+  uploadedByName?: string
 }
 
 function fmtDate(v?: string | null) {
@@ -53,12 +56,23 @@ function fmtDate(v?: string | null) {
   return d.toISOString().slice(0, 10)
 }
 
-function uploaderLabel(v?: UploadedBy) {
+function uploaderLabel(doc?: ChildDoc | null) {
+  if (!doc) return 'Unknown user'
+
+  if (doc.uploadedByName?.trim()) {
+    return doc.uploadedByName.trim()
+  }
+
+  const v = doc.uploadedBy
+
   if (!v) return 'Unknown user'
   if (typeof v === 'string') return 'Family member'
 
   const fullName =
-    v.fullName || [v.firstName, v.lastName].filter(Boolean).join(' ').trim()
+    v.fullName ||
+    v.name ||
+    v.displayName ||
+    [v.firstName, v.lastName].filter(Boolean).join(' ').trim()
 
   return fullName || v.email || 'Unknown user'
 }
@@ -127,38 +141,35 @@ export default async function DocumentDetailPage({
 
   return (
     <div className={styles.page}>
-     <header className={styles.header}>
-  <div className={styles.headerLeft}>
-    <Link
-      href={`/child-info/${id}/documents`}
-      className={styles.backBtn}
-    >
-      <ArrowLeft size={16} />  
-      Documents
-    </Link>
+      <header className={styles.header}>
+        <div className={styles.headerLeft}>
+          <Link href={`/child-info/${id}/documents`} className={styles.backBtn}>
+            <ArrowLeft size={16} />
+            Documents
+          </Link>
 
-    <span className={styles.breadcrumbSep}>/</span>
+          <span className={styles.breadcrumbSep}>/</span>
 
-    <h1 className={styles.title}>{doc.title}</h1> 
-  </div>
+          <h1 className={styles.title}>{doc.title}</h1>
+        </div>
 
-  <div className={styles.headerActions}>
-  <Link
-    href={`/child-info/${id}/documents/${doc.id}/edit`}
-    className={styles.editBtn}
-  >
-    <Pencil size={14} />
-    Edit
-  </Link>
+        <div className={styles.headerActions}>
+          <Link
+            href={`/child-info/${id}/documents/${doc.id}/edit`}
+            className={styles.editBtn}
+          >
+            <Pencil size={14} />
+            Edit
+          </Link>
 
-  <Link
-    href={`/child-info/${id}/documents/${doc.id}/replace`}
-    className={styles.replaceBtn}
-  >
-    Replace
-  </Link>
-</div>
-</header>
+          <Link
+            href={`/child-info/${id}/documents/${doc.id}/replace`}
+            className={styles.replaceBtn}
+          >
+            Replace
+          </Link>
+        </div>
+      </header>
 
       <div className={styles.contentLayout}>
         <main className={styles.mainPane}>
@@ -209,9 +220,7 @@ export default async function DocumentDetailPage({
         <aside className={styles.sidebar}>
           <section className={styles.sideCard}>
             <div className={styles.sideTitle}>Document summary</div>
-            <div className={styles.sideSub}>
-              Quick overview of this document
-            </div>
+            <div className={styles.sideSub}>Quick overview of this document</div>
 
             <div className={styles.summaryList}>
               <div className={styles.summaryItem}>
@@ -262,9 +271,7 @@ export default async function DocumentDetailPage({
                 </div>
                 <div className={styles.summaryContent}>
                   <div className={styles.summaryLabel}>Uploaded by</div>
-                  <div className={styles.summaryValue}>
-                    {uploaderLabel(doc.uploadedBy)}
-                  </div>
+                  <div className={styles.summaryValue}>{uploaderLabel(doc)}</div>
                 </div>
               </div>
 

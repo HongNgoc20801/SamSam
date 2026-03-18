@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { ShieldCheck, Loader2, AlertCircle } from 'lucide-react'
 import styles from './childDetail.module.css'
 
@@ -20,11 +21,11 @@ export default function ConfirmChildButton({
   status?: string
   createdBy?: any
 }) {
+  const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
   const createdById = useMemo(() => getId(createdBy), [createdBy])
-
   const canConfirm = status === 'pending'
 
   async function fetchMeId(): Promise<string | null> {
@@ -34,7 +35,9 @@ export default function ConfirmChildButton({
     })
 
     const j = await res.json().catch(() => ({}))
-    if (!res.ok) throw new Error(j?.message || `Could not load current user (${res.status})`)
+    if (!res.ok) {
+      throw new Error(j?.message || `Could not load current user (${res.status})`)
+    }
 
     const me = j?.user ?? j
     return getId(me?.id) ?? getId(me)
@@ -49,7 +52,9 @@ export default function ConfirmChildButton({
       if (!myId) throw new Error('Missing current user id.')
 
       if (createdById && myId === createdById) {
-        throw new Error('You cannot confirm a child profile that you created. The other parent must confirm it.')
+        throw new Error(
+          'You cannot confirm a child profile that you created. The other parent must confirm it.',
+        )
       }
 
       const res = await fetch(`/api/children/${childId}`, {
@@ -60,9 +65,11 @@ export default function ConfirmChildButton({
       })
 
       const j = await res.json().catch(() => ({}))
-      if (!res.ok) throw new Error(j?.message || `Could not confirm (${res.status}).`)
+      if (!res.ok) {
+        throw new Error(j?.message || `Could not confirm (${res.status}).`)
+      }
 
-      window.location.reload()
+      router.refresh()
     } catch (e: any) {
       setError(e?.message || 'Could not confirm.')
     } finally {

@@ -37,7 +37,7 @@
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts"
-  ],
+, "src/collections/Economy"  ],
   "exclude": [
     "node_modules"
   ],

@@ -133,6 +133,7 @@ export default function ProtectedSidebar({
     { href: '/oppdateringer', label: 'Oppdateringer (feed)', icon: 'posts' as const },
     { href: '/economy', label: 'Økonomi', icon: 'money' as const },
     { href: '/child-info', label: 'Barn-info', icon: 'child' as const },
+    { href: '/audit-logs', label: 'Historikk', icon: 'posts' as const },
     { href: '/profile', label: 'Profil', icon: 'profile' as const },
     { href: '/settings', label: 'Innstillinger', icon: 'settings' as const },
   ]

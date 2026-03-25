@@ -76,10 +76,42 @@ function pushChange(
   }
 }
 
+async function getChildSnapshot(req: any, childValue: any) {
+  const childId = normalizeRelId(childValue)
+
+  if (!childId) {
+    return {
+      childId: null,
+      childName: undefined,
+    }
+  }
+
+  try {
+    const childDoc = await req.payload.findByID({
+      collection: 'children',
+      id: childId,
+      req,
+      overrideAccess: true,
+    })
+
+    return {
+      childId,
+      childName: childDoc?.fullName || childDoc?.name || undefined,
+    }
+  } catch {
+    return {
+      childId,
+      childName: undefined,
+    }
+  }
+}
+
 export const ChildDocuments: CollectionConfig = {
   slug: 'child_documents',
+
   admin: {
     useAsTitle: 'title',
+    defaultColumns: ['title', 'category', 'version', 'uploadedByName', 'updatedAt'],
   },
 
   access: {
@@ -244,15 +276,16 @@ export const ChildDocuments: CollectionConfig = {
           next.file = oldDoc.file
           next.replaces = oldDoc.replaces
 
-          if ('child' in data && normalizeRelId(data.child) !== normalizeRelId(oldDoc?.child)) {
+          if (data && 'child' in data && normalizeRelId(data.child) !== normalizeRelId(oldDoc?.child)) {
             throw new Error('Changing child is not allowed.')
           }
 
-          if ('file' in data && normalizeRelId(data.file) !== normalizeRelId(oldDoc?.file)) {
+          if (data && 'file' in data && normalizeRelId(data.file) !== normalizeRelId(oldDoc?.file)) {
             throw new Error('Changing file is not allowed. Upload a new document instead.')
           }
 
           if (
+            data &&
             'replaces' in data &&
             normalizeRelId(data.replaces) !== normalizeRelId(oldDoc?.replaces)
           ) {
@@ -272,24 +305,31 @@ export const ChildDocuments: CollectionConfig = {
       async ({ doc, previousDoc, operation, req }: any) => {
         if (!req?.user || !doc) return
 
-        const childId = normalizeRelId(doc?.child)
         const familyId = getFamilyIdFromDoc(doc)
+        const { childId, childName } = await getChildSnapshot(req, doc?.child)
 
         if (operation === 'create') {
           await logAudit(req, {
             familyId,
             childId,
+            childName,
             action: doc?.replaces ? 'doc.replace' : 'doc.upload',
             entityType: 'document',
             entityId: String(doc?.id),
+            scope: 'documents',
+            severity: 'important',
+            relatedToRole: 'both',
+            targetLabel: doc?.title,
             summary: doc?.replaces ? 'Replaced document' : 'Uploaded document',
             meta: {
+              childName,
               documentTitle: doc?.title,
               documentCategory: doc?.category,
               version: doc?.version,
               replaces: doc?.replaces ? String(normalizeRelId(doc.replaces)) : null,
               uploadedBy: normalizeRelId(doc?.uploadedBy),
               uploadedByName: doc?.uploadedByName ?? null,
+              noteShort: doc?.noteShort ?? null,
             },
           })
           return
@@ -307,12 +347,18 @@ export const ChildDocuments: CollectionConfig = {
           await logAudit(req, {
             familyId,
             childId,
+            childName,
             action: 'doc.update',
             entityType: 'document',
             entityId: String(doc?.id),
+            scope: 'documents',
+            severity: 'important',
+            relatedToRole: 'both',
+            targetLabel: doc?.title,
             summary: 'Updated document',
             changes,
             meta: {
+              childName,
               documentTitle: doc?.title,
               documentCategory: doc?.category,
               version: doc?.version,
@@ -328,14 +374,22 @@ export const ChildDocuments: CollectionConfig = {
       async ({ doc, req }: any) => {
         if (!req?.user || !doc) return
 
+        const { childId, childName } = await getChildSnapshot(req, doc?.child)
+
         await logAudit(req, {
           familyId: getFamilyIdFromDoc(doc),
-          childId: normalizeRelId(doc?.child),
+          childId,
+          childName,
           action: 'doc.delete',
           entityType: 'document',
           entityId: String(doc?.id),
+          scope: 'documents',
+          severity: 'important',
+          relatedToRole: 'both',
+          targetLabel: doc?.title,
           summary: 'Deleted document',
           meta: {
+            childName,
             documentTitle: doc?.title,
             documentCategory: doc?.category,
             version: doc?.version,
@@ -401,7 +455,7 @@ export const ChildDocuments: CollectionConfig = {
       index: true,
     },
     {
-      name: 'uploadedByName', 
+      name: 'uploadedByName',
       type: 'text',
       required: false,
     },

@@ -1,0 +1,250 @@
+.wrapper {
+  display: grid;
+  gap: 16px;
+}
+
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.title {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 800;
+}
+
+.subtitle {
+  margin: 6px 0 0;
+  color: #6b7280;
+  font-size: 14px;
+}
+
+.stats {
+  display: flex;
+  gap: 10px;
+}
+
+.statBox {
+  min-width: 90px;
+  padding: 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  background: #fff;
+}
+
+.statValue {
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.statLabel {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+}
+
+.filterItem {
+  display: grid;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.select {
+  min-width: 160px;
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid #dbe1ea;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.checkRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.groupList {
+  display: grid;
+  gap: 18px;
+}
+
+.group {
+  display: grid;
+  gap: 10px;
+}
+
+.groupTitle {
+  font-size: 14px;
+  font-weight: 800;
+  color: #374151;
+}
+
+.auditList {
+  display: grid;
+  gap: 14px;
+}
+
+.auditRow {
+  display: grid;
+  grid-template-columns: 52px 1fr;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid #e5e7eb;
+  border-left-width: 5px;
+  border-radius: 18px;
+  background: #fff;
+}
+
+.auditRow--create {
+  border-left-color: #60a5fa;
+}
+
+.auditRow--update {
+  border-left-color: #f59e0b;
+}
+
+.auditRow--delete {
+  border-left-color: #f87171;
+}
+
+.auditRow--confirm {
+  border-left-color: #34d399;
+}
+
+.auditRow--upload {
+  border-left-color: #a78bfa;
+}
+
+.auditRow--replace {
+  border-left-color: #fb923c;
+}
+
+.auditIcon {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  background: #f1f5f9;
+}
+
+.auditRow--create .auditIcon {
+  color: #2563eb;
+}
+
+.auditRow--update .auditIcon {
+  color: #f59e0b;
+}
+
+.auditRow--delete .auditIcon {
+  color: #ef4444;
+}
+
+.auditRow--confirm .auditIcon {
+  color: #10b981;
+}
+
+.auditRow--upload .auditIcon {
+  color: #8b5cf6;
+}
+
+.auditRow--replace .auditIcon {
+  color: #f97316;
+}
+
+.auditBody {
+  display: grid;
+  gap: 8px;
+}
+
+.auditSentence {
+  font-size: 16px;
+  line-height: 1.45;
+}
+
+.auditMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  color: #6b7280;
+  font-size: 14px;
+}
+
+.dot {
+  color: #9ca3af;
+}
+
+.expandBtn {
+  width: fit-content;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #2563eb;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.auditChanges {
+  display: grid;
+  gap: 10px;
+  margin-top: 8px;
+  padding-top: 12px;
+  border-top: 1px dashed #e5e7eb;
+}
+
+.auditChangeRow {
+  display: grid;
+  grid-template-columns: 180px 1fr;
+  gap: 12px;
+}
+
+.auditChangeField {
+  font-size: 14px;
+  font-weight: 700;
+  color: #374151;
+}
+
+.auditChangeValues {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.auditChangeFrom,
+.auditChangeTo {
+  padding: 6px 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #f8fafc;
+  font-size: 14px;
+}
+
+.auditChangeArrow {
+  color: #6b7280;
+  font-weight: 700;
+}
+
+.empty {
+  padding: 24px;
+  border: 1px dashed #d1d5db;
+  border-radius: 18px;
+  background: #fff;
+  text-align: center;
+  color: #6b7280;
+}

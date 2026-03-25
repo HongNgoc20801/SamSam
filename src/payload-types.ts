@@ -522,12 +522,19 @@ export interface AuditLog {
   id: number;
   family: number | Family;
   child?: (number | null) | Child;
+  childNameSnapshot?: string | null;
   actorId?: string | null;
   actorType: 'customer' | 'admin' | 'system';
+  actorRole?: ('mother' | 'father' | 'parent' | 'admin' | 'system') | null;
+  relatedToRole?: ('mother' | 'father' | 'both' | 'child' | 'system') | null;
   actorName?: string | null;
   action: string;
-  entityType: 'child' | 'document' | 'event' | 'other';
+  entityType: 'child' | 'document' | 'event' | 'post' | 'economy' | 'confirmation' | 'other';
+  scope?: ('calendar' | 'economy' | 'documents' | 'child_profile' | 'confirmation' | 'system' | 'other') | null;
+  severity?: ('info' | 'important' | 'critical') | null;
+  visibleInFamilyTimeline?: boolean | null;
   entityId?: string | null;
+  targetLabel?: string | null;
   summary?: string | null;
   changes?:
     | {
@@ -1079,12 +1086,19 @@ export interface ChildDocumentsSelect<T extends boolean = true> {
 export interface AuditLogsSelect<T extends boolean = true> {
   family?: T;
   child?: T;
+  childNameSnapshot?: T;
   actorId?: T;
   actorType?: T;
+  actorRole?: T;
+  relatedToRole?: T;
   actorName?: T;
   action?: T;
   entityType?: T;
+  scope?: T;
+  severity?: T;
+  visibleInFamilyTimeline?: T;
   entityId?: T;
+  targetLabel?: T;
   summary?: T;
   changes?:
     | T

@@ -876,7 +876,7 @@ export default function EditChildPage() {
               disabled={loading}
             >
               Cancel
-            </button>
+            </button>  
 
             <button className={styles.primary} type="submit" disabled={!canSubmit}>
               {loading ? 'Saving…' : 'Save changes'}

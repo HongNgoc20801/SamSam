@@ -93,6 +93,7 @@ type AuditLog = {
   id: string
   action: string
   createdAt?: string
+  targetLabel?: string
   meta?: {
     childName?: string
     documentTitle?: string
@@ -102,13 +103,15 @@ type AuditLog = {
     previousStatus?: string
     wasResetToPending?: boolean
     changedFields?: string[]
+    title?: string
+    type?: string
     [key: string]: any
   }
   actorId?: string
   actorName?: string
   actorType?: 'customer' | 'admin' | 'system'
   summary?: string
-  entityType?: 'child' | 'document' | 'event' | 'other'
+  entityType?: 'child' | 'document' | 'event' | 'post' | 'other'
   changes?: { field: string; from?: string; to?: string }[]
 }
 
@@ -135,16 +138,57 @@ function calcAge(birthDate?: string) {
 
 function fmtDate(v?: string | null) {
   if (!v) return '—'
+
   const d = new Date(v)
   if (Number.isNaN(d.getTime())) return '—'
-  return d.toISOString().slice(0, 10)
+
+  return d.toLocaleDateString('nb-NO', {
+    timeZone: 'Europe/Oslo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  })
 }
 
 function fmtDateTime(v?: string | null) {
   if (!v) return '—'
+
   const d = new Date(v)
   if (Number.isNaN(d.getTime())) return '—'
-  return d.toISOString().slice(0, 16).replace('T', ' ')
+
+  return d.toLocaleString('nb-NO', {
+    timeZone: 'Europe/Oslo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  })
+}
+
+function fmtMonth(v?: string | null) {
+  if (!v) return '—'
+
+  const d = new Date(v)
+  if (Number.isNaN(d.getTime())) return '—'
+
+  return d.toLocaleDateString('nb-NO', {
+    timeZone: 'Europe/Oslo',
+    month: '2-digit',
+  })
+}
+
+function fmtDay(v?: string | null) {
+  if (!v) return '—'
+
+  const d = new Date(v)
+  if (Number.isNaN(d.getTime())) return '—'
+
+  return d.toLocaleDateString('nb-NO', {
+    timeZone: 'Europe/Oslo',
+    day: '2-digit',
+  })
 }
 
 function normalizeStatus(s?: string) {
@@ -169,8 +213,26 @@ function categoryLabel(c?: ChildDoc['category'] | string) {
   return 'Other'
 }
 
+function eventStatusLabel(v?: string) {
+  const s = String(v || '').toLowerCase()
+
+  if (!s) return ''
+  if (s === 'admin') return 'Admin'
+  if (s === 'personal') return 'Personal'
+  if (s === 'important') return 'Important'
+  if (s === 'child') return 'Child'
+
+  return v || ''
+}
+
 function actorDisplayName(a: AuditLog) {
-  if (a?.actorName) return a.actorName
+  const raw = String(a?.actorName || '').trim()
+
+  if (raw) {
+    if (raw.includes('@')) return raw.split('@')[0]
+    return raw
+  }
+
   if (a?.actorType === 'system') return 'System'
   return a?.actorId || 'Unknown user'
 }
@@ -201,7 +263,40 @@ function entityLabel(entityType?: string) {
   if (entityType === 'child') return 'Child'
   if (entityType === 'document') return 'Document'
   if (entityType === 'event') return 'Event'
+  if (entityType === 'post') return 'Post'
   return 'Other'
+}
+
+function buildEventSub(meta: any, changesCount = 0) {
+  const parts: string[] = []
+
+  if (meta?.childName) {
+    parts.push(`for ${meta.childName}`)
+  }
+
+  if (meta?.startAt && meta?.endAt) {
+    parts.push(`${fmtDateTime(meta.startAt)} → ${fmtDateTime(meta.endAt)}`)
+  }
+
+  const status = eventStatusLabel(meta?.status)
+  const prevStatus = eventStatusLabel(meta?.previousStatus)
+
+  if (status && prevStatus && status !== prevStatus) {
+    parts.push(`${prevStatus} → ${status}`)
+  } else if (status) {
+    parts.push(status)
+  }
+
+  if (!parts.length && changesCount > 0) {
+    parts.push(`${changesCount} field(s) changed`)
+  }
+
+  return parts.join(' • ')
+}
+
+function getAuditPostTarget(a: AuditLog) {
+  const meta = a.meta || {}
+  return meta?.title || a.targetLabel || ''
 }
 
 function auditPretty(a: AuditLog) {
@@ -237,6 +332,33 @@ function auditPretty(a: AuditLog) {
       target: meta?.childName || '',
       sub: resetNotice,
       tone: 'update',
+    }
+  }
+
+  if (action === 'event.create') {
+    return {
+      sentence: 'created calendar event',
+      target: meta?.title || '',
+      sub: buildEventSub(meta),
+      tone: 'create',
+    }
+  }
+
+  if (action === 'event.update') {
+    return {
+      sentence: 'updated calendar event',
+      target: meta?.title || '',
+      sub: buildEventSub(meta, changes.length),
+      tone: 'update',
+    }
+  }
+
+  if (action === 'event.delete') {
+    return {
+      sentence: 'deleted calendar event',
+      target: meta?.title || '',
+      sub: buildEventSub(meta),
+      tone: 'delete',
     }
   }
 
@@ -287,9 +409,76 @@ function auditPretty(a: AuditLog) {
     }
   }
 
+  if (action === 'post.create') {
+    return {
+      sentence: 'created family post',
+      target: getAuditPostTarget(a),
+      sub: meta?.type === 'child-update' ? 'Child update' : 'General post',
+      tone: 'create',
+    }
+  }
+
+  if (action === 'post.update') {
+    const importantChanged = changes.some((c) => c.field === 'important')
+
+    return {
+      sentence: 'updated family post',
+      target: getAuditPostTarget(a),
+      sub: importantChanged
+        ? 'Importance changed'
+        : changes.length > 0
+          ? `${changes.length} field(s) changed`
+          : meta?.type === 'child-update'
+            ? 'Child update'
+            : 'General post',
+      tone: 'update',
+    }
+  }
+
+  if (action === 'post.delete') {
+    return {
+      sentence: 'deleted family post',
+      target: getAuditPostTarget(a),
+      sub: meta?.type === 'child-update' ? 'Child update' : 'General post',
+      tone: 'delete',
+    }
+  }
+
+  if (action === 'post.like') {
+    return {
+      sentence: 'liked post',
+      target: getAuditPostTarget(a),
+      sub: '',
+      tone: 'default',
+    }
+  }
+
+  if (action === 'post.unlike') {
+    return {
+      sentence: 'removed like from post',
+      target: getAuditPostTarget(a),
+      sub: '',
+      tone: 'default',
+    }
+  }
+
+  if (action === 'post.comment.create') {
+    return {
+      sentence: 'commented on post',
+      target: getAuditPostTarget(a),
+      sub: '',
+      tone: 'default',
+    }
+  }
+
   return {
     sentence: a.summary || a.action || 'did an activity',
-    target: '',
+    target:
+      meta?.title ||
+      a.targetLabel ||
+      meta?.documentTitle ||
+      meta?.childName ||
+      '',
     sub: '',
     tone: 'default',
   }
@@ -321,8 +510,17 @@ function fieldLabel(field?: string) {
     'medical.gp': 'Doctor info',
 
     title: 'Title',
+    content: 'Content',
+    important: 'Important',
+    type: 'Type',
+
     category: 'Category',
     noteShort: 'Short note',
+    child: 'Child',
+    startAt: 'Start time',
+    endAt: 'End time',
+    notes: 'Notes',
+    allDay: 'All day',
   }
 
   return map[f] || f || 'Field'
@@ -392,7 +590,7 @@ export default async function ChildDetailPage({
   const [docsRes, auditRes, eventsRes] = await Promise.all([
     serverFetch(`/api/${DOCS_SLUG}?limit=200&sort=-createdAt&where[child][equals]=${id}`),
     serverFetch(
-      `/api/${AUDIT_SLUG}?limit=${LATEST_AUDIT_LIMIT}&sort=-createdAt&where[child][equals]=${id}`,
+      `/api/${AUDIT_SLUG}?limit=${LATEST_AUDIT_LIMIT}&sort=-createdAt&where[child][equals]=${id}&where[visibleInFamilyTimeline][equals]=true`,
     ),
     serverFetch(
       `/api/calendar-events?limit=200&sort=startAt&where[child][equals]=${id}&where[startAt][greater_than]=${encodeURIComponent(nowISO)}`,
@@ -770,8 +968,8 @@ export default async function ChildDetailPage({
                 {events.map((e) => (
                   <div key={String(e.id)} className={styles.eventRow}>
                     <div className={styles.eventDate}>
-                      <div className={styles.eventMonth}>{fmtDate(e.startAt).slice(5, 7)}</div>
-                      <div className={styles.eventDay}>{fmtDate(e.startAt).slice(8, 10)}</div>
+                      <div className={styles.eventMonth}>{fmtMonth(e.startAt)}</div>
+                      <div className={styles.eventDay}>{fmtDay(e.startAt)}</div>
                     </div>
 
                     <div className={styles.eventBody}>

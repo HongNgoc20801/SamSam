@@ -1,0 +1,28 @@
+.page {
+  display: grid;
+  gap: 20px;
+  padding: 24px;
+}
+
+.header {
+  display: grid;
+  gap: 8px;
+}
+
+.backLink {
+  width: fit-content;
+  color: #2563eb;
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.title {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 800;
+}
+
+.subtitle {
+  margin: 4px 0 0;
+  color: #6b7280;
+}

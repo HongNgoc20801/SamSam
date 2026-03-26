@@ -21,7 +21,9 @@ export default async function ChildAuditLogsPage({
 
   const [childRes, auditRes] = await Promise.all([
     serverFetch(`/api/children/${id}?depth=0`),
-    serverFetch(`/api/${AUDIT_SLUG}?limit=100&sort=-createdAt&where[child][equals]=${id}`),
+    serverFetch(
+      `/api/${AUDIT_SLUG}?limit=100&sort=-createdAt&where[child][equals]=${id}&where[visibleInFamilyTimeline][equals]=true`,
+    ),
   ])
 
   if (!childRes.ok) return notFound()
@@ -34,24 +36,26 @@ export default async function ChildAuditLogsPage({
 
   return (
     <div className={styles.page}>
-      <div className={styles.header}>
-        <Link href={`/child-info/${id}`} className={styles.backLink}>
-          ← Back to child profile
-        </Link>
+     <div className={styles.header}>
+  <Link href={`/child-info/${id}`} className={styles.backLink}>
+    ← Back to child profile
+  </Link>
 
-        <div>
-          <h1 className={styles.title}>Historikk</h1>
-          <p className={styles.subtitle}>Endringshistorikk for {child.fullName}.</p>
-        </div>
-      </div>
+  <h1 className={styles.title}>Historikk</h1>
+  <p className={styles.subtitle}>
+    Activity history for <strong>{child.fullName}</strong>.
+  </p>
+</div>
 
-      <AuditLogList
-        audits={audits}
-        title="Child history"
-        compact={false}
-        allowFilter={true}
-        defaultImportantOnly={true}
-      />
+<AuditLogList
+  audits={audits}
+  title={undefined}
+  compact={false}
+  allowFilter={true}
+  defaultImportantOnly={true}
+/>
+
+     
     </div>
   )
 }

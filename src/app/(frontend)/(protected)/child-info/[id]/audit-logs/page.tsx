@@ -52,7 +52,7 @@ export default async function ChildAuditLogsPage({
   title={undefined}
   compact={false}
   allowFilter={true}
-  defaultImportantOnly={true}
+  defaultImportantOnly={false}
 />
 
      

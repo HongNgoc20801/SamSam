@@ -25,6 +25,18 @@ const DOCS_SLUG = 'child_documents'
 const AUDIT_SLUG = 'audit_logs'
 const LATEST_AUDIT_LIMIT = 5
 
+type Media = {
+  id?: string
+  url?: string
+  filename?: string
+  thumbnailURL?: string
+  sizes?: {
+    thumbnail?: {
+      url?: string
+    }
+  }
+}
+
 type PhoneT = { value: string }
 
 type EmergencyContact = {
@@ -32,6 +44,7 @@ type EmergencyContact = {
   relation?: string
   isPrimary?: boolean
   phones?: PhoneT[]
+  note?: string
 }
 
 type Child = {
@@ -43,6 +56,7 @@ type Child = {
   status?: 'pending' | 'confirmed' | string
   createdBy?: any
   confirmedAt?: string | null
+  avatar?: Media | string | null
 
   school?: {
     schoolName?: string
@@ -54,7 +68,9 @@ type Child = {
     bloodType?: string
     allergies?: { value: string }[]
     conditions?: { value: string }[]
+    medications?: { value: string }[]
     notesShort?: string
+    emergencyInstruction?: string
     gp?: {
       name?: string
       clinic?: string
@@ -77,6 +93,7 @@ type AuditLog = {
   id: string
   action: string
   createdAt?: string
+  targetLabel?: string
   meta?: {
     childName?: string
     documentTitle?: string
@@ -86,13 +103,15 @@ type AuditLog = {
     previousStatus?: string
     wasResetToPending?: boolean
     changedFields?: string[]
+    title?: string
+    type?: string
     [key: string]: any
   }
   actorId?: string
   actorName?: string
   actorType?: 'customer' | 'admin' | 'system'
   summary?: string
-  entityType?: 'child' | 'document' | 'event' | 'other'
+  entityType?: 'child' | 'document' | 'event' | 'post' | 'other'
   changes?: { field: string; from?: string; to?: string }[]
 }
 
@@ -119,16 +138,57 @@ function calcAge(birthDate?: string) {
 
 function fmtDate(v?: string | null) {
   if (!v) return '—'
+
   const d = new Date(v)
   if (Number.isNaN(d.getTime())) return '—'
-  return d.toISOString().slice(0, 10)
+
+  return d.toLocaleDateString('nb-NO', {
+    timeZone: 'Europe/Oslo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  })
 }
 
 function fmtDateTime(v?: string | null) {
   if (!v) return '—'
+
   const d = new Date(v)
   if (Number.isNaN(d.getTime())) return '—'
-  return d.toISOString().slice(0, 16).replace('T', ' ')
+
+  return d.toLocaleString('nb-NO', {
+    timeZone: 'Europe/Oslo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  })
+}
+
+function fmtMonth(v?: string | null) {
+  if (!v) return '—'
+
+  const d = new Date(v)
+  if (Number.isNaN(d.getTime())) return '—'
+
+  return d.toLocaleDateString('nb-NO', {
+    timeZone: 'Europe/Oslo',
+    month: '2-digit',
+  })
+}
+
+function fmtDay(v?: string | null) {
+  if (!v) return '—'
+
+  const d = new Date(v)
+  if (Number.isNaN(d.getTime())) return '—'
+
+  return d.toLocaleDateString('nb-NO', {
+    timeZone: 'Europe/Oslo',
+    day: '2-digit',
+  })
 }
 
 function normalizeStatus(s?: string) {
@@ -137,7 +197,10 @@ function normalizeStatus(s?: string) {
 }
 
 function renderPhones(phones?: PhoneT[]) {
-  const list = (phones || []).map((p) => String(p?.value || '').trim()).filter(Boolean)
+  const list = (phones || [])
+    .map((p) => String(p?.value || '').trim())
+    .filter(Boolean)
+
   if (!list.length) return '—'
   return list.join(' • ')
 }
@@ -150,8 +213,26 @@ function categoryLabel(c?: ChildDoc['category'] | string) {
   return 'Other'
 }
 
+function eventStatusLabel(v?: string) {
+  const s = String(v || '').toLowerCase()
+
+  if (!s) return ''
+  if (s === 'admin') return 'Admin'
+  if (s === 'personal') return 'Personal'
+  if (s === 'important') return 'Important'
+  if (s === 'child') return 'Child'
+
+  return v || ''
+}
+
 function actorDisplayName(a: AuditLog) {
-  if (a?.actorName) return a.actorName
+  const raw = String(a?.actorName || '').trim()
+
+  if (raw) {
+    if (raw.includes('@')) return raw.split('@')[0]
+    return raw
+  }
+
   if (a?.actorType === 'system') return 'System'
   return a?.actorId || 'Unknown user'
 }
@@ -182,7 +263,40 @@ function entityLabel(entityType?: string) {
   if (entityType === 'child') return 'Child'
   if (entityType === 'document') return 'Document'
   if (entityType === 'event') return 'Event'
+  if (entityType === 'post') return 'Post'
   return 'Other'
+}
+
+function buildEventSub(meta: any, changesCount = 0) {
+  const parts: string[] = []
+
+  if (meta?.childName) {
+    parts.push(`for ${meta.childName}`)
+  }
+
+  if (meta?.startAt && meta?.endAt) {
+    parts.push(`${fmtDateTime(meta.startAt)} → ${fmtDateTime(meta.endAt)}`)
+  }
+
+  const status = eventStatusLabel(meta?.status)
+  const prevStatus = eventStatusLabel(meta?.previousStatus)
+
+  if (status && prevStatus && status !== prevStatus) {
+    parts.push(`${prevStatus} → ${status}`)
+  } else if (status) {
+    parts.push(status)
+  }
+
+  if (!parts.length && changesCount > 0) {
+    parts.push(`${changesCount} field(s) changed`)
+  }
+
+  return parts.join(' • ')
+}
+
+function getAuditPostTarget(a: AuditLog) {
+  const meta = a.meta || {}
+  return meta?.title || a.targetLabel || ''
 }
 
 function auditPretty(a: AuditLog) {
@@ -218,6 +332,33 @@ function auditPretty(a: AuditLog) {
       target: meta?.childName || '',
       sub: resetNotice,
       tone: 'update',
+    }
+  }
+
+  if (action === 'event.create') {
+    return {
+      sentence: 'created calendar event',
+      target: meta?.title || '',
+      sub: buildEventSub(meta),
+      tone: 'create',
+    }
+  }
+
+  if (action === 'event.update') {
+    return {
+      sentence: 'updated calendar event',
+      target: meta?.title || '',
+      sub: buildEventSub(meta, changes.length),
+      tone: 'update',
+    }
+  }
+
+  if (action === 'event.delete') {
+    return {
+      sentence: 'deleted calendar event',
+      target: meta?.title || '',
+      sub: buildEventSub(meta),
+      tone: 'delete',
     }
   }
 
@@ -268,9 +409,76 @@ function auditPretty(a: AuditLog) {
     }
   }
 
+  if (action === 'post.create') {
+    return {
+      sentence: 'created family post',
+      target: getAuditPostTarget(a),
+      sub: meta?.type === 'child-update' ? 'Child update' : 'General post',
+      tone: 'create',
+    }
+  }
+
+  if (action === 'post.update') {
+    const importantChanged = changes.some((c) => c.field === 'important')
+
+    return {
+      sentence: 'updated family post',
+      target: getAuditPostTarget(a),
+      sub: importantChanged
+        ? 'Importance changed'
+        : changes.length > 0
+          ? `${changes.length} field(s) changed`
+          : meta?.type === 'child-update'
+            ? 'Child update'
+            : 'General post',
+      tone: 'update',
+    }
+  }
+
+  if (action === 'post.delete') {
+    return {
+      sentence: 'deleted family post',
+      target: getAuditPostTarget(a),
+      sub: meta?.type === 'child-update' ? 'Child update' : 'General post',
+      tone: 'delete',
+    }
+  }
+
+  if (action === 'post.like') {
+    return {
+      sentence: 'liked post',
+      target: getAuditPostTarget(a),
+      sub: '',
+      tone: 'default',
+    }
+  }
+
+  if (action === 'post.unlike') {
+    return {
+      sentence: 'removed like from post',
+      target: getAuditPostTarget(a),
+      sub: '',
+      tone: 'default',
+    }
+  }
+
+  if (action === 'post.comment.create') {
+    return {
+      sentence: 'commented on post',
+      target: getAuditPostTarget(a),
+      sub: '',
+      tone: 'default',
+    }
+  }
+
   return {
     sentence: a.summary || a.action || 'did an activity',
-    target: '',
+    target:
+      meta?.title ||
+      a.targetLabel ||
+      meta?.documentTitle ||
+      meta?.childName ||
+      '',
     sub: '',
     tone: 'default',
   }
@@ -295,13 +503,24 @@ function fieldLabel(field?: string) {
 
     'medical.bloodType': 'Blood type',
     'medical.notesShort': 'Medical note',
+    'medical.emergencyInstruction': 'Emergency instruction',
     'medical.allergies': 'Allergies',
     'medical.conditions': 'Conditions',
+    'medical.medications': 'Medications',
     'medical.gp': 'Doctor info',
 
     title: 'Title',
+    content: 'Content',
+    important: 'Important',
+    type: 'Type',
+
     category: 'Category',
     noteShort: 'Short note',
+    child: 'Child',
+    startAt: 'Start time',
+    endAt: 'End time',
+    notes: 'Notes',
+    allDay: 'All day',
   }
 
   return map[f] || f || 'Field'
@@ -324,10 +543,43 @@ function renderChangeValue(v?: string) {
   return value
 }
 
-export default async function ChildDetailPage({ params }: { params: Promise<{ id: string }> }) {
+function normalizeMediaUrl(url: string) {
+  if (!url) return ''
+  if (url.startsWith('http://') || url.startsWith('https://')) return url
+  if (url.startsWith('/')) return url
+  return `/${url}`
+}
+
+function getAvatarUrl(avatar: Child['avatar']): string {
+  if (!avatar || typeof avatar === 'string') return ''
+
+  if (typeof avatar.url === 'string' && avatar.url.trim()) {
+    return normalizeMediaUrl(avatar.url)
+  }
+
+  if (typeof avatar.thumbnailURL === 'string' && avatar.thumbnailURL.trim()) {
+    return normalizeMediaUrl(avatar.thumbnailURL)
+  }
+
+  if (typeof avatar?.sizes?.thumbnail?.url === 'string' && avatar.sizes.thumbnail.url.trim()) {
+    return normalizeMediaUrl(avatar.sizes.thumbnail.url)
+  }
+
+  if (typeof avatar.filename === 'string' && avatar.filename.trim()) {
+    return `/api/media/file/${avatar.filename}`
+  }
+
+  return ''
+}
+
+export default async function ChildDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}) {
   const { id } = await params
 
-  const childRes = await serverFetch(`/api/children/${id}`)
+  const childRes = await serverFetch(`/api/children/${id}?depth=1`)
   if (!childRes.ok) return notFound()
 
   const child: Child | null = await childRes.json().catch(() => null)
@@ -337,7 +589,9 @@ export default async function ChildDetailPage({ params }: { params: Promise<{ id
 
   const [docsRes, auditRes, eventsRes] = await Promise.all([
     serverFetch(`/api/${DOCS_SLUG}?limit=200&sort=-createdAt&where[child][equals]=${id}`),
-    serverFetch(`/api/${AUDIT_SLUG}?limit=${LATEST_AUDIT_LIMIT}&sort=-createdAt&where[child][equals]=${id}`),
+    serverFetch(
+      `/api/${AUDIT_SLUG}?limit=${LATEST_AUDIT_LIMIT}&sort=-createdAt&where[child][equals]=${id}&where[visibleInFamilyTimeline][equals]=true`,
+    ),
     serverFetch(
       `/api/calendar-events?limit=200&sort=startAt&where[child][equals]=${id}&where[startAt][greater_than]=${encodeURIComponent(nowISO)}`,
     ),
@@ -354,9 +608,11 @@ export default async function ChildDetailPage({ params }: { params: Promise<{ id
   const status = normalizeStatus(child.status)
   const age = calcAge(child.birthDate)
   const initial = (child.fullName?.trim()?.[0] || 'C').toUpperCase()
+  const avatarUrl = getAvatarUrl(child.avatar)
 
   const allergies = child?.medical?.allergies?.map((x) => x.value).filter(Boolean) ?? []
   const conditions = child?.medical?.conditions?.map((x) => x.value).filter(Boolean) ?? []
+  const medications = child?.medical?.medications?.map((x) => x.value).filter(Boolean) ?? []
 
   const emergency = Array.isArray(child.emergencyContacts) ? child.emergencyContacts : []
   const primary = emergency.find((c) => c.isPrimary) || emergency[0]
@@ -384,7 +640,11 @@ export default async function ChildDetailPage({ params }: { params: Promise<{ id
           <Link className={styles.iconBtn} href={`/child-info/${id}/edit`} aria-label="Edit">
             <Pencil size={18} />
           </Link>
-          <Link className={styles.iconBtn} href={`/child-info/${id}/documents/new`} aria-label="Upload document">
+          <Link
+            className={styles.iconBtn}
+            href={`/child-info/${id}/documents/new`}
+            aria-label="Upload document"
+          >
             <Upload size={18} />
           </Link>
         </div>
@@ -393,12 +653,26 @@ export default async function ChildDetailPage({ params }: { params: Promise<{ id
       <div className={styles.layout}>
         <aside className={styles.leftCol}>
           <section className={styles.profileCard}>
-            <div className={styles.avatarCircle}>{initial}</div>
+            <div className={styles.avatarCircle}>
+              {avatarUrl ? (
+                <img
+                  className={styles.avatarImg}
+                  src={avatarUrl}
+                  alt={child.fullName || 'Child avatar'}
+                />
+              ) : (
+                <span className={styles.avatarFallback}>{initial}</span>
+              )}
+            </div>
 
             <div className={styles.profileName}>{child.fullName}</div>
 
             <div className={styles.profileStatusRow}>
-              <span className={`${styles.statusPill} ${status === 'confirmed' ? styles.statusOk : styles.statusWarn}`}>
+              <span
+                className={`${styles.statusPill} ${
+                  status === 'confirmed' ? styles.statusOk : styles.statusWarn
+                }`}
+              >
                 {status === 'confirmed' ? (
                   <>
                     <ShieldCheck size={14} /> Confirmed
@@ -411,7 +685,9 @@ export default async function ChildDetailPage({ params }: { params: Promise<{ id
               </span>
 
               {child.confirmedAt ? (
-                <span className={styles.profileMetaDim}>Confirmed at {fmtDateTime(child.confirmedAt)}</span>
+                <span className={styles.profileMetaDim}>
+                  Confirmed at {fmtDateTime(child.confirmedAt)}
+                </span>
               ) : null}
             </div>
 
@@ -430,7 +706,11 @@ export default async function ChildDetailPage({ params }: { params: Promise<{ id
             </div>
 
             <div className={styles.confirmWrap}>
-              <ConfirmChildButton childId={child.id} status={child.status} createdBy={child.createdBy} />
+              <ConfirmChildButton
+                childId={child.id}
+                status={child.status}
+                createdBy={child.createdBy}
+              />
             </div>
           </section>
 
@@ -452,6 +732,8 @@ export default async function ChildDetailPage({ params }: { params: Promise<{ id
                   <Phone size={16} />
                   <span>{renderPhones(primary.phones)}</span>
                 </div>
+
+                {primary?.note ? <div className={styles.contactNote}>{primary.note}</div> : null}
 
                 <div className={styles.contactActions}>
                   <button className={styles.smallActionBtn} type="button">
@@ -481,23 +763,31 @@ export default async function ChildDetailPage({ params }: { params: Promise<{ id
               <div className={styles.alertItem}>
                 <div className={styles.alertK}>Blood Type</div>
                 <div className={styles.alertV}>
-                  {child.medical?.bloodType && child.medical.bloodType !== 'unknown' ? child.medical.bloodType : '—'}
+                  {child.medical?.bloodType && child.medical.bloodType !== 'unknown'
+                    ? child.medical.bloodType
+                    : '—'}
                 </div>
               </div>
 
               <div className={styles.alertItem}>
                 <div className={styles.alertK}>Allergies</div>
-                <div className={styles.alertV}>{allergies.length ? allergies.join(', ') : 'None reported'}</div>
+                <div className={styles.alertV}>
+                  {allergies.length ? allergies.join(', ') : 'None reported'}
+                </div>
               </div>
 
               <div className={styles.alertItem}>
                 <div className={styles.alertK}>Conditions</div>
-                <div className={styles.alertV}>{conditions.length ? conditions.join(', ') : 'None reported'}</div>
+                <div className={styles.alertV}>
+                  {conditions.length ? conditions.join(', ') : 'None reported'}
+                </div>
               </div>
 
               <div className={styles.alertItem}>
-                <div className={styles.alertK}>Note</div>
-                <div className={styles.alertV}>{child.medical?.notesShort || '—'}</div>
+                <div className={styles.alertK}>Emergency instruction</div>
+                <div className={styles.alertV}>
+                  {child.medical?.emergencyInstruction || child.medical?.notesShort || '—'}
+                </div>
               </div>
             </div>
           </section>
@@ -578,7 +868,9 @@ export default async function ChildDetailPage({ params }: { params: Promise<{ id
               <div className={styles.kvRow}>
                 <div className={styles.kvK}>Blood Type</div>
                 <div className={styles.kvV}>
-                  {child.medical?.bloodType && child.medical.bloodType !== 'unknown' ? child.medical.bloodType : '—'}
+                  {child.medical?.bloodType && child.medical.bloodType !== 'unknown'
+                    ? child.medical.bloodType
+                    : '—'}
                 </div>
               </div>
 
@@ -590,6 +882,16 @@ export default async function ChildDetailPage({ params }: { params: Promise<{ id
               <div className={styles.kvRow}>
                 <div className={styles.kvK}>Conditions</div>
                 <div className={styles.kvV}>{conditions.length ? conditions.join(', ') : '—'}</div>
+              </div>
+
+              <div className={styles.kvRow}>
+                <div className={styles.kvK}>Medications</div>
+                <div className={styles.kvV}>{medications.length ? medications.join(', ') : '—'}</div>
+              </div>
+
+              <div className={styles.kvRow}>
+                <div className={styles.kvK}>Emergency instruction</div>
+                <div className={styles.kvV}>{child.medical?.emergencyInstruction || '—'}</div>
               </div>
 
               <div className={styles.kvRow}>
@@ -628,7 +930,10 @@ export default async function ChildDetailPage({ params }: { params: Promise<{ id
             ) : (
               <div className={styles.emGrid}>
                 {emergency.map((c, idx) => (
-                  <div key={`${c.name}-${idx}`} className={`${styles.emCard} ${c.isPrimary ? styles.emPrimary : ''}`}>
+                  <div
+                    key={`${c.name}-${idx}`}
+                    className={`${styles.emCard} ${c.isPrimary ? styles.emPrimary : ''}`}
+                  >
                     <div className={styles.emTop}>
                       <div className={styles.emName}>{c.name || '—'}</div>
                       {c.isPrimary ? <span className={styles.badgePrimary}>Primary</span> : null}
@@ -638,6 +943,7 @@ export default async function ChildDetailPage({ params }: { params: Promise<{ id
                       <Phone size={16} />
                       <span>{renderPhones(c.phones)}</span>
                     </div>
+                    {c?.note ? <div className={styles.emNote}>{c.note}</div> : null}
                   </div>
                 ))}
               </div>
@@ -662,8 +968,8 @@ export default async function ChildDetailPage({ params }: { params: Promise<{ id
                 {events.map((e) => (
                   <div key={String(e.id)} className={styles.eventRow}>
                     <div className={styles.eventDate}>
-                      <div className={styles.eventMonth}>{fmtDate(e.startAt).slice(5, 7)}</div>
-                      <div className={styles.eventDay}>{fmtDate(e.startAt).slice(8, 10)}</div>
+                      <div className={styles.eventMonth}>{fmtMonth(e.startAt)}</div>
+                      <div className={styles.eventDay}>{fmtDay(e.startAt)}</div>
                     </div>
 
                     <div className={styles.eventBody}>
@@ -685,16 +991,15 @@ export default async function ChildDetailPage({ params }: { params: Promise<{ id
                 <FileText size={18} />
                 <div className={styles.cardTitle}>Documents</div>
               </div>
-                <Link
-                  className={styles.cardLink}
-                  href={`/child-info/${id}/documents`}
-                >
+
+              <div className={styles.headerLinks}>
+                <Link className={styles.cardLink} href={`/child-info/${id}/documents`}>
                   View all
                 </Link>
-
-              <Link className={styles.cardLink} href={`/child-info/${id}/documents/new`}>
-                Add New
-              </Link>
+                <Link className={styles.cardLink} href={`/child-info/${id}/documents/new`}>
+                  Add New
+                </Link>
+              </div>
             </div>
 
             <div className={styles.docCats}>
@@ -741,9 +1046,7 @@ export default async function ChildDetailPage({ params }: { params: Promise<{ id
 
             <div className={styles.docHint}>Select a category to view all files.</div>
 
-            {docs.length === 0 ? (
-              <div className={styles.empty}>No documents yet.</div>
-            ) : null}
+            {docs.length === 0 ? <div className={styles.empty}>No documents yet.</div> : null}
           </section>
 
           <section className={styles.card}>
@@ -773,13 +1076,14 @@ export default async function ChildDetailPage({ params }: { params: Promise<{ id
                         : []
 
                   const resetToPending =
-                    a.action === 'child.update' &&
-                    a.meta?.wasResetToPending
+                    a.action === 'child.update' && a.meta?.wasResetToPending
 
                   return (
                     <div
                       key={String(a.id)}
-                      className={`${styles.auditRow} ${styles[`auditRow--${actionTone(a.action)}`] || ''}`}
+                      className={`${styles.auditRow} ${
+                        styles[`auditRow--${actionTone(a.action)}`] || ''
+                      }`}
                     >
                       <div className={styles.auditIcon}>
                         <ClipboardList size={16} />
@@ -812,15 +1116,21 @@ export default async function ChildDetailPage({ params }: { params: Promise<{ id
 
                         {resetToPending ? (
                           <div className={styles.auditNotice}>
-                            Important profile information changed. Confirmation was reset and requires re-confirmation.
+                            Important profile information changed. Confirmation was reset and
+                            requires re-confirmation.
                           </div>
                         ) : null}
 
                         {changes.length > 0 ? (
                           <div className={styles.auditChanges}>
                             {changes.map((c, idx) => (
-                              <div key={`${a.id}-change-${idx}`} className={styles.auditChangeRow}>
-                                <div className={styles.auditChangeField}>{fieldLabel(c.field)}</div>
+                              <div
+                                key={`${a.id}-change-${idx}`}
+                                className={styles.auditChangeRow}
+                              >
+                                <div className={styles.auditChangeField}>
+                                  {fieldLabel(c.field)}
+                                </div>
 
                                 <div className={styles.auditChangeValues}>
                                   <span className={styles.auditChangeFrom}>

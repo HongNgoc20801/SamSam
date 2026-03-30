@@ -1,0 +1,96 @@
+.page {
+  display: grid;
+  gap: 20px;
+  padding: 24px;
+}
+
+.header {
+  display: grid;
+  gap: 14px;
+}
+
+.backLink {
+  width: fit-content;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #2563eb;
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.backLink:hover {
+  color: #1d4ed8;
+}
+
+.headerMain {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.headerText {
+  display: grid;
+  gap: 8px;
+}
+
+.title {
+  margin: 0;
+  font-size: 32px;
+  line-height: 1.05;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #0f172a;
+}
+
+.subtitle {
+  margin: 0;
+  color: #64748b;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.subtitle strong {
+  color: #334155;
+}
+
+.countBadge {
+  display: grid;
+  place-items: center;
+  min-width: 88px;
+  padding: 12px 14px;
+  border: 1px solid #e5e7eb;
+  border-radius: 18px;
+  background: #fff;
+}
+
+.countBadge span {
+  font-size: 22px;
+  line-height: 1;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.countBadge small {
+  margin-top: 4px;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+@media (max-width: 768px) {
+  .headerMain {
+    flex-direction: column;
+  }
+
+  .countBadge {
+    width: fit-content;
+  }
+
+  .title {
+    font-size: 28px;
+  }
+}

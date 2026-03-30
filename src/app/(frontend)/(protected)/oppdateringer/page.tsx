@@ -71,11 +71,20 @@ function getChildName(v: any) {
 
 function fmtDateTime(v?: string) {
   if (!v) return '—'
+
   const d = new Date(v)
   if (Number.isNaN(d.getTime())) return '—'
-  return d.toLocaleString()
-}
 
+  return d.toLocaleString('nb-NO', {
+    timeZone: 'Europe/Oslo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  })
+}
 function normalizeMediaList(v: any): MediaDoc[] {
   if (!Array.isArray(v)) return []
   return v

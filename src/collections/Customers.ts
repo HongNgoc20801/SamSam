@@ -42,6 +42,7 @@ export const Customers: CollectionConfig = {
  access: {
   create: () => true,
 
+
  read: ({ req }) => {
   if (!req.user) return false
   if (isAdmin(req)) return true
@@ -57,6 +58,7 @@ export const Customers: CollectionConfig = {
 
     return where
   }
+
 
   const where: Where = {
     or: [

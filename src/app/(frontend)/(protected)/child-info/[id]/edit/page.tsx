@@ -1,0 +1,889 @@
+'use client'
+
+import React, { useEffect, useMemo, useState } from 'react'
+import { useParams, useRouter } from 'next/navigation'
+import styles from './editChild.module.css'
+import { ArrowLeft, Plus, AlertTriangle } from 'lucide-react'
+
+const BLOOD_MAIN = ['A', 'B', 'AB', 'O'] as const
+const BLOOD_ALL = [
+  'unknown',
+  'A',
+  'B',
+  'AB',
+  'O',
+  'A+',
+  'A-',
+  'B+',
+  'B-',
+  'AB+',
+  'AB-',
+  'O+',
+  'O-',
+] as const
+
+type Gender = 'na' | 'male' | 'female' | 'other'
+type Relation =
+  | 'mother'
+  | 'father'
+  | 'grandparent'
+  | 'guardian'
+  | 'other'
+  | 'relative'
+  | 'babysitter'
+  | ''
+
+type Phone = { value: string }
+
+type EmergencyContact = {
+  name: string
+  relation: Relation
+  phones: Phone[]
+  isPrimary: boolean
+}
+
+function normalize11Digits(v: string) {
+  return v.replace(/\s+/g, '')
+}
+
+function parseTags(input: string) {
+  return input
+    .split(/[,;]+/g)
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .map((value) => ({ value }))
+}
+
+function stringifyTags(arr?: { value: string }[]) {
+  if (!Array.isArray(arr)) return ''
+  return arr
+    .map((x) => String(x?.value || '').trim())
+    .filter(Boolean)
+    .join(', ')
+}
+
+function isValidPhone(v: string) {
+  const s = v.trim()
+  if (!s) return false
+  return /^[+\d\s]{6,}$/.test(s)
+}
+
+function getAvatarUrl(avatar: any): string {
+  if (!avatar) return ''
+  if (typeof avatar === 'string') return ''
+  if (typeof avatar?.url === 'string') return avatar.url
+  if (typeof avatar?.filename === 'string') return `/api/media/file/${avatar.filename}`
+  return ''
+}
+
+export default function EditChildPage() {
+  const router = useRouter()
+  const params = useParams()
+  const id = String(params?.id || '')
+
+  const [initialLoading, setInitialLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [status, setStatus] = useState<'pending' | 'confirmed' | string>('pending')
+
+  const [avatarFile, setAvatarFile] = useState<File | null>(null)
+  const [existingAvatarUrl, setExistingAvatarUrl] = useState('')
+
+  const [fullName, setFullName] = useState('')
+  const [birthDate, setBirthDate] = useState('')
+  const [gender, setGender] = useState<Gender>('na')
+  const [nationalId, setNationalId] = useState('')
+
+  const [schoolName, setSchoolName] = useState('')
+  const [className, setClassName] = useState('')
+  const [mainTeacher, setMainTeacher] = useState('')
+
+  const [bloodType, setBloodType] = useState<(typeof BLOOD_ALL)[number]>('unknown')
+  const [allergyText, setAllergyText] = useState('')
+  const [conditionsText, setConditionsText] = useState('')
+  const [medicalShort, setMedicalShort] = useState('')
+
+  const [gpName, setGpName] = useState('')
+  const [gpClinic, setGpClinic] = useState('')
+  const [gpPhones, setGpPhones] = useState<Phone[]>([{ value: '' }])
+
+  const [emergencyContacts, setEmergencyContacts] = useState<EmergencyContact[]>([
+    { name: '', relation: '', phones: [{ value: '' }], isPrimary: true },
+  ])
+
+  useEffect(() => {
+    if (!id) return
+
+    let ignore = false
+
+    ;(async () => {
+      try {
+        setInitialLoading(true)
+        setError('')
+
+        const res = await fetch(`/api/children/${id}`, {
+          credentials: 'include',
+          cache: 'no-store',
+        })
+
+        const j = await res.json().catch(() => ({}))
+        if (!res.ok) {
+          throw new Error(j?.message || `Could not load child profile (${res.status})`)
+        }
+
+        if (ignore) return
+
+        setStatus(j?.status || 'pending')
+        setFullName(j?.fullName || '')
+        setBirthDate(j?.birthDate ? String(j.birthDate).slice(0, 10) : '')
+        setGender((j?.gender || 'na') as Gender)
+        setNationalId(j?.nationalId || '')
+
+        setSchoolName(j?.school?.schoolName || '')
+        setClassName(j?.school?.className || '')
+        setMainTeacher(j?.school?.mainTeacher || '')
+
+        setBloodType((j?.medical?.bloodType || 'unknown') as (typeof BLOOD_ALL)[number])
+        setAllergyText(stringifyTags(j?.medical?.allergies))
+        setConditionsText(stringifyTags(j?.medical?.conditions))
+        setMedicalShort(j?.medical?.notesShort || '')
+
+        setGpName(j?.medical?.gp?.name || '')
+        setGpClinic(j?.medical?.gp?.clinic || '')
+        setGpPhones(
+          Array.isArray(j?.medical?.gp?.phones) && j.medical.gp.phones.length
+            ? j.medical.gp.phones.map((p: any) => ({ value: String(p?.value || '') }))
+            : [{ value: '' }],
+        )
+
+        setEmergencyContacts(
+          Array.isArray(j?.emergencyContacts) && j.emergencyContacts.length
+            ? j.emergencyContacts.map((c: any) => ({
+                name: c?.name || '',
+                relation: (c?.relation || '') as Relation,
+                isPrimary: !!c?.isPrimary,
+                phones:
+                  Array.isArray(c?.phones) && c.phones.length
+                    ? c.phones.map((p: any) => ({ value: String(p?.value || '') }))
+                    : [{ value: '' }],
+              }))
+            : [{ name: '', relation: '', phones: [{ value: '' }], isPrimary: true }],
+        )
+
+        setExistingAvatarUrl(getAvatarUrl(j?.avatar))
+      } catch (e: any) {
+        if (!ignore) setError(e?.message || 'Failed to load profile.')
+      } finally {
+        if (!ignore) setInitialLoading(false)
+      }
+    })()
+
+    return () => {
+      ignore = true
+    }
+  }, [id])
+
+  useEffect(() => {
+    return () => {
+      if (avatarFile) {
+        URL.revokeObjectURL(URL.createObjectURL(avatarFile))
+      }
+    }
+  }, [avatarFile])
+
+  const filePreview = useMemo(() => {
+    if (!avatarFile) return ''
+    return URL.createObjectURL(avatarFile)
+  }, [avatarFile])
+
+  const avatarLetter = (fullName.trim()?.[0] ?? 'C').toUpperCase()
+  const avatarSrc = filePreview || existingAvatarUrl || ''
+
+  const canSubmit = useMemo(() => {
+    return !!fullName.trim() && !!birthDate && !loading && !initialLoading
+  }, [fullName, birthDate, loading, initialLoading])
+
+  async function uploadToMedia(file: File) {
+    const form = new FormData()
+    form.append('file', file)
+
+    const res = await fetch('/api/media', {
+      method: 'POST',
+      credentials: 'include',
+      body: form,
+    })
+
+    const j = await res.json().catch(() => ({}))
+    if (!res.ok) throw new Error(j?.message || 'Could not upload image.')
+    return j
+  }
+
+  function setPrimaryContact(index: number) {
+    setEmergencyContacts((prev) => prev.map((c, i) => ({ ...c, isPrimary: i === index })))
+  }
+
+  function addContact() {
+    setEmergencyContacts((prev) => [
+      ...prev,
+      { name: '', relation: '', phones: [{ value: '' }], isPrimary: false },
+    ])
+  }
+
+  function removeContact(index: number) {
+    setEmergencyContacts((prev) => {
+      const next = prev.filter((_, i) => i !== index)
+      if (next.length && !next.some((c) => c.isPrimary)) next[0].isPrimary = true
+      return next.length
+        ? next
+        : [{ name: '', relation: '', phones: [{ value: '' }], isPrimary: true }]
+    })
+  }
+
+  function addPhoneToContact(contactIndex: number) {
+    setEmergencyContacts((prev) =>
+      prev.map((c, i) =>
+        i === contactIndex ? { ...c, phones: [...c.phones, { value: '' }] } : c,
+      ),
+    )
+  }
+
+  function removePhoneFromContact(contactIndex: number, phoneIndex: number) {
+    setEmergencyContacts((prev) =>
+      prev.map((c, i) => {
+        if (i !== contactIndex) return c
+        const phones = c.phones.filter((_, p) => p !== phoneIndex)
+        return { ...c, phones: phones.length ? phones : [{ value: '' }] }
+      }),
+    )
+  }
+
+  function addGpPhone() {
+    setGpPhones((prev) => [...prev, { value: '' }])
+  }
+
+  function removeGpPhone(idx: number) {
+    setGpPhones((prev) => (prev.length === 1 ? prev : prev.filter((_, i) => i !== idx)))
+  }
+
+  function validateBeforeSubmit(): string | null {
+    const cleanNationalId = normalize11Digits(nationalId.trim())
+    if (cleanNationalId && !/^\d{11}$/.test(cleanNationalId)) {
+      return 'National ID must be exactly 11 digits.'
+    }
+
+    const normalized = emergencyContacts.map((c) => {
+      const name = c.name.trim()
+      const phones = c.phones.map((p) => p.value.trim()).filter(Boolean)
+      return { ...c, name, phones }
+    })
+
+    const hasAnyInput = normalized.filter((c) => c.name || c.phones.length)
+    if (!hasAnyInput.length) return 'Please add at least one emergency contact.'
+
+    const allValid = hasAnyInput.every(
+      (c) => c.name && c.phones.length && c.phones.every((p) => isValidPhone(p)),
+    )
+    if (!allValid) {
+      return 'Each emergency contact must have a name and at least one valid phone number.'
+    }
+
+    if (!hasAnyInput.some((c) => c.isPrimary)) {
+      return 'Please select one primary emergency contact.'
+    }
+
+    const gpHasAny = gpName.trim() || gpClinic.trim() || gpPhones.some((p) => p.value.trim())
+    if (gpHasAny) {
+      const ok = gpPhones
+        .map((p) => p.value.trim())
+        .filter(Boolean)
+        .every((p) => isValidPhone(p))
+      if (!ok) return 'Primary doctor phone number is invalid.'
+    }
+
+    return null
+  }
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!canSubmit) return
+
+    setError('')
+
+    const preErr = validateBeforeSubmit()
+    if (preErr) {
+      setError(preErr)
+      return
+    }
+
+    setLoading(true)
+
+    try {
+      const cleanNationalId = normalize11Digits(nationalId.trim())
+
+      const body: any = {
+        fullName: fullName.trim(),
+        birthDate,
+        gender,
+        nationalId: cleanNationalId || '',
+      }
+
+      if (avatarFile) {
+        const mediaDoc = await uploadToMedia(avatarFile)
+        body.avatar = mediaDoc?.id
+      }
+
+      body.school = {
+        schoolName: schoolName.trim() || undefined,
+        className: className.trim() || undefined,
+        mainTeacher: mainTeacher.trim() || undefined,
+      }
+
+      const allergies = parseTags(allergyText)
+      const conditions = parseTags(conditionsText)
+      const notesShort = medicalShort.trim()
+
+      body.medical = {
+        bloodType,
+        allergies,
+        conditions,
+        notesShort: notesShort ? notesShort.slice(0, 160) : undefined,
+      }
+
+      const gpPhoneClean = gpPhones
+        .map((p) => ({ value: p.value.trim() }))
+        .filter((p) => p.value)
+
+      if (gpName.trim() || gpClinic.trim() || gpPhoneClean.length) {
+        body.medical.gp = {
+          name: gpName.trim() || undefined,
+          clinic: gpClinic.trim() || undefined,
+          phones: gpPhoneClean.length ? gpPhoneClean : undefined,
+        }
+      }
+
+      const emergencyClean = emergencyContacts
+        .map((c) => ({
+          name: c.name.trim(),
+          relation: c.relation || undefined,
+          isPrimary: !!c.isPrimary,
+          phones: c.phones.map((p) => ({ value: p.value.trim() })).filter((p) => p.value),
+        }))
+        .filter((c) => c.name && c.phones.length)
+
+      body.emergencyContacts = emergencyClean
+
+      const res = await fetch(`/api/children/${id}`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        const msg =
+          j?.message ||
+          (Array.isArray(j?.errors)
+            ? j.errors.map((x: any) => x?.message).filter(Boolean).join(', ')
+            : '') ||
+          'Could not update child profile.'
+        throw new Error(msg)
+      }
+
+      router.push(`/child-info/${id}`)
+    } catch (err: any) {
+      setError(err?.message || 'Something went wrong.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (initialLoading) {
+    return <div className={styles.loadingScreen}>Loading child profile…</div>
+  }
+
+  return (
+    <div className={styles.screen}>
+      <header className={styles.topbar}>
+        <button
+          type="button"
+          onClick={() => router.push(`/child-info/${id}`)}
+          className={styles.backBtn}
+          aria-label="Back"
+        >
+          <ArrowLeft size={30} strokeWidth={2.5} />
+        </button>
+
+        <div className={styles.topbarCenter}>
+          <h1 className={styles.topbarTitle}>Edit Child Profile</h1>
+          <p className={styles.topbarHint}>
+            Update profile information for this child.
+          </p>
+        </div>
+
+        <div className={styles.topbarRight} />
+      </header>
+
+      <form onSubmit={onSubmit} className={styles.form}>
+        {status === 'confirmed' ? (
+          <section className={styles.warningBox}>
+            <div className={styles.warningTop}>
+              <AlertTriangle size={18} />
+              <strong>Important notice</strong>
+            </div>
+            <div className={styles.warningText}>
+              This profile is currently <strong>confirmed</strong>. Editing important
+              information will reset the status to <strong>pending</strong> and require
+              confirmation again.
+            </div>
+          </section>
+        ) : null}
+
+        <section className={styles.section}>
+          <div className={styles.sectionTop}>
+            <div>
+              <div className={styles.sectionTitle}>Basic information</div>
+              <div className={styles.sectionHint}>
+                Used for calendars, notifications, and structure.
+              </div>
+            </div>
+          </div>
+
+          <div className={styles.identityGrid}>
+            <div className={styles.avatarBlock}>
+              <label className={styles.avatarPicker}>
+                <div className={styles.avatarCircle} aria-label="Avatar">
+                  {avatarSrc ? (
+                    <img className={styles.avatarImg} src={avatarSrc} alt="Child avatar" />
+                  ) : (
+                    <div className={styles.avatarPlaceholder}>{avatarLetter}</div>
+                  )}
+
+                  <div className={styles.avatarOverlay}>
+                    <div className={styles.avatarOverlayIcon}>📷</div>
+                    <div className={styles.avatarOverlayText}>Change photo</div>
+                  </div>
+                </div>
+
+                <input
+                  className={styles.fileInputHidden}
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => setAvatarFile(e.target.files?.[0] ?? null)}
+                  disabled={loading}
+                />
+              </label>
+
+              <div className={styles.avatarText}>
+                Avatar (optional) • PNG/JPG recommended.
+              </div>
+
+              {avatarFile ? (
+                <button
+                  type="button"
+                  className={styles.smallDanger}
+                  onClick={() => setAvatarFile(null)}
+                  disabled={loading}
+                >
+                  Remove new photo
+                </button>
+              ) : null}
+            </div>
+
+            <div className={styles.fieldsCol}>
+              <div className={styles.field}>
+                <label>Full name</label>
+                <input
+                  placeholder="Enter full name"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  disabled={loading}
+                />
+              </div>
+
+              <div className={styles.row2}>
+                <div className={styles.field}>
+                  <label>Date of birth</label>
+                  <input
+                    type="date"
+                    value={birthDate}
+                    onChange={(e) => setBirthDate(e.target.value)}
+                    disabled={loading}
+                  />
+                </div>
+
+                <div className={styles.field}>
+                  <label>Gender</label>
+                  <select
+                    value={gender}
+                    onChange={(e) => setGender(e.target.value as Gender)}
+                    disabled={loading}
+                  >
+                    <option value="na">Prefer not to say</option>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className={styles.field}>
+                <label>National ID (11 digits) (optional)</label>
+                <input
+                  inputMode="numeric"
+                  placeholder="Example: 12345678901"
+                  value={nationalId}
+                  onChange={(e) => setNationalId(e.target.value)}
+                  disabled={loading}
+                />
+                <div className={styles.helpText}>
+                  Optional. Spaces are removed automatically.
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className={styles.section}>
+          <div className={styles.sectionTop}>
+            <div>
+              <div className={styles.sectionTitle}>School / Kindergarten</div>
+              <div className={styles.sectionHint}>
+                Helps keep schedules and contact info consistent.
+              </div>
+            </div>
+          </div>
+
+          <div className={styles.row2}>
+            <div className={styles.field}>
+              <label>School name</label>
+              <input
+                value={schoolName}
+                onChange={(e) => setSchoolName(e.target.value)}
+                disabled={loading}
+              />
+            </div>
+
+            <div className={styles.field}>
+              <label>Class</label>
+              <input
+                value={className}
+                onChange={(e) => setClassName(e.target.value)}
+                disabled={loading}
+              />
+            </div>
+          </div>
+
+          <div className={styles.field}>
+            <label>Main teacher (optional)</label>
+            <input
+              value={mainTeacher}
+              onChange={(e) => setMainTeacher(e.target.value)}
+              disabled={loading}
+            />
+          </div>
+        </section>
+
+        <section className={styles.section}>
+          <div className={styles.sectionTop}>
+            <div>
+              <div className={styles.sectionTitle}>Medical (emergency)</div>
+              <div className={styles.sectionHint}>Keep it short and specific.</div>
+            </div>
+          </div>
+
+          <div className={styles.field}>
+            <label>Blood type</label>
+            <div className={styles.bloodRow}>
+              {BLOOD_MAIN.map((b) => (
+                <button
+                  key={b}
+                  type="button"
+                  className={`${styles.bloodBtn} ${bloodType === b ? styles.bloodActive : ''}`}
+                  onClick={() => setBloodType(b)}
+                  disabled={loading}
+                >
+                  {b}
+                </button>
+              ))}
+
+              <select
+                className={styles.bloodMore}
+                value={bloodType}
+                onChange={(e) => setBloodType(e.target.value as any)}
+                disabled={loading}
+              >
+                {BLOOD_ALL.map((b) => (
+                  <option key={b} value={b}>
+                    {b === 'unknown' ? 'Unknown / Other' : b}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className={styles.row2}>
+            <div className={styles.field}>
+              <label>Allergies (tags)</label>
+              <input
+                value={allergyText}
+                onChange={(e) => setAllergyText(e.target.value)}
+                disabled={loading}
+              />
+              <div className={styles.helpText}>Separate with commas or semicolons.</div>
+            </div>
+
+            <div className={styles.field}>
+              <label>Conditions (tags)</label>
+              <input
+                value={conditionsText}
+                onChange={(e) => setConditionsText(e.target.value)}
+                disabled={loading}
+              />
+              <div className={styles.helpText}>Use short keywords only.</div>
+            </div>
+          </div>
+
+          <div className={styles.field}>
+            <label>Medical note (short) (optional)</label>
+            <textarea
+              className={styles.textarea}
+              value={medicalShort}
+              onChange={(e) => setMedicalShort(e.target.value)}
+              disabled={loading}
+              maxLength={160}
+              placeholder="Example: Carries an EpiPen. Avoid medication X."
+            />
+            <div className={styles.helpText}>
+              Max 160 characters ({medicalShort.length}/160).
+            </div>
+          </div>
+
+          <div className={styles.divider} />
+          <div className={styles.sectionSubTitle}>Primary doctor (GP)</div>
+
+          <div className={styles.row2}>
+            <div className={styles.field}>
+              <label>Doctor name</label>
+              <input value={gpName} onChange={(e) => setGpName(e.target.value)} disabled={loading} />
+            </div>
+
+            <div className={styles.field}>
+              <label>Clinic (optional)</label>
+              <input
+                value={gpClinic}
+                onChange={(e) => setGpClinic(e.target.value)}
+                disabled={loading}
+              />
+            </div>
+          </div>
+
+          <div className={styles.field}>
+            <div className={styles.fieldRow}>
+              <button
+                type="button"
+                className={styles.iconCircleBtn}
+                onClick={addGpPhone}
+                disabled={loading}
+                aria-label="Add phone"
+                title="Add phone"
+              >
+                <Plus size={18} strokeWidth={2.5} />
+              </button>
+              <label>Add phone numbers</label>
+            </div>
+
+            <div className={styles.phoneList}>
+              {gpPhones.map((p, i) => (
+                <div key={i} className={styles.phoneRow}>
+                  <input
+                    placeholder="phone numbers"
+                    value={p.value}
+                    onChange={(e) =>
+                      setGpPhones((prev) =>
+                        prev.map((x, idx) => (idx === i ? { value: e.target.value } : x)),
+                      )
+                    }
+                    disabled={loading}
+                  />
+                  <button
+                    type="button"
+                    className={styles.smallBtn}
+                    onClick={() => removeGpPhone(i)}
+                    disabled={loading || gpPhones.length === 1}
+                  >
+                    −
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className={styles.section}>
+          <div className={styles.sectionTop}>
+            <div>
+              <div className={styles.sectionTitle}>Emergency contacts</div>
+              <div className={styles.sectionHint}>
+                Add at least one contact and select one primary.
+              </div>
+            </div>
+            <span className={styles.iconPill}>!</span>
+          </div>
+
+          <div className={styles.stack}>
+            {emergencyContacts.map((c, idx) => (
+              <div key={idx} className={styles.cardInner}>
+                <div className={styles.rowBetween}>
+                  <label className={styles.primaryPick}>
+                    <input
+                      type="radio"
+                      name="primaryEmergency"
+                      checked={c.isPrimary}
+                      onChange={() => setPrimaryContact(idx)}
+                      disabled={loading}
+                    />
+                    <span>Primary</span>
+                  </label>
+
+                  {emergencyContacts.length > 1 ? (
+                    <button
+                      type="button"
+                      className={styles.smallDanger}
+                      onClick={() => removeContact(idx)}
+                      disabled={loading}
+                    >
+                      Remove
+                    </button>
+                  ) : null}
+                </div>
+
+                <div className={styles.row2}>
+                  <div className={styles.field}>
+                    <label>Contact name</label>
+                    <input
+                      value={c.name}
+                      onChange={(e) =>
+                        setEmergencyContacts((prev) =>
+                          prev.map((x, i) =>
+                            i === idx ? { ...x, name: e.target.value } : x,
+                          ),
+                        )
+                      }
+                      disabled={loading}
+                    />
+                  </div>
+
+                  <div className={styles.field}>
+                    <label>Relation</label>
+                    <select
+                      value={c.relation}
+                      onChange={(e) =>
+                        setEmergencyContacts((prev) =>
+                          prev.map((x, i) =>
+                            i === idx
+                              ? { ...x, relation: e.target.value as Relation }
+                              : x,
+                          ),
+                        )
+                      }
+                      disabled={loading}
+                    >
+                      <option value="">Select</option>
+                      <option value="guardian">Guardian</option>
+                      <option value="grandparent">Grandparent</option>
+                      <option value="mother">Mother</option>
+                      <option value="father">Father</option>
+                      <option value="relative">Relative</option>
+                      <option value="babysitter">Babysitter</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className={styles.field}>
+                  <div className={styles.fieldRow}>
+                    <button
+                      type="button"
+                      className={styles.iconCircleBtn}
+                      onClick={() => addPhoneToContact(idx)}
+                      disabled={loading}
+                      aria-label="Add phone"
+                      title="Add phone"
+                    >
+                      <Plus size={18} strokeWidth={2.6} />
+                    </button>
+                    <label>Add phone numbers</label>
+                  </div>
+
+                  <div className={styles.phoneList}>
+                    {c.phones.map((p, pi) => (
+                      <div key={pi} className={styles.phoneRow}>
+                        <input
+                          placeholder="+47 123 45 678"
+                          value={p.value}
+                          onChange={(e) =>
+                            setEmergencyContacts((prev) =>
+                              prev.map((x, i) => {
+                                if (i !== idx) return x
+                                const phones = x.phones.map((pp, j) =>
+                                  j === pi ? { value: e.target.value } : pp,
+                                )
+                                return { ...x, phones }
+                              }),
+                            )
+                          }
+                          disabled={loading}
+                        />
+                        <button
+                          type="button"
+                          className={styles.smallBtn}
+                          onClick={() => removePhoneFromContact(idx, pi)}
+                          disabled={loading || c.phones.length === 1}
+                        >
+                          −
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ))}
+
+            <button
+              type="button"
+              className={styles.smallBtnAdd}
+              onClick={addContact}
+              disabled={loading}
+            >
+              + Add emergency contact
+            </button>
+          </div>
+        </section>
+
+        <section className={styles.footerCard}>
+          {error ? (
+            <p role="alert" className={styles.error}>
+              {error}
+            </p>
+          ) : null}
+
+          <div className={styles.actions}>
+            <button
+              type="button"
+              className={styles.secondary}
+              onClick={() => router.push(`/child-info/${id}`)}
+              disabled={loading}
+            >
+              Cancel
+            </button>  
+
+            <button className={styles.primary} type="submit" disabled={!canSubmit}>
+              {loading ? 'Saving…' : 'Save changes'}
+            </button>
+          </div>
+        </section>
+      </form>
+    </div>
+  )
+}

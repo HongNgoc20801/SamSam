@@ -1,13 +1,23 @@
 import type { CollectionConfig } from 'payload'
+import { logAudit } from '@/app/lib/logAudit'
 
 function getCollectionSlug(req: any) {
   return req?.user?.collection ?? req?.user?._collection
 }
+
 function isAdmin(req: any) {
   return getCollectionSlug(req) === 'users'
 }
+
 function isCustomer(req: any) {
-  return getCollectionSlug(req) === 'customers'
+  const slug = getCollectionSlug(req)
+  if (slug === 'customers') return true
+
+  const u: any = req?.user
+  if (u?.role === 'customer') return true
+  if (u?.type === 'customer') return true
+
+  return false
 }
 
 function getRelId(v: any) {
@@ -22,7 +32,30 @@ function getFamilyIdFromUser(req: any) {
   return getRelId(u.family)
 }
 
-// ✅ check quyền update/delete theo family (không dùng doc để khỏi lỗi TS)
+function asText(v: any) {
+  if (v === null || v === undefined) return ''
+  if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') {
+    return String(v)
+  }
+
+  try {
+    return JSON.stringify(v)
+  } catch {
+    return String(v)
+  }
+}
+
+function pushChange(
+  changes: Array<{ field: string; from?: any; to?: any }>,
+  field: string,
+  from: any,
+  to: any,
+) {
+  if (asText(from) !== asText(to)) {
+    changes.push({ field, from, to })
+  }
+}
+
 async function canMutateByFamily(req: any, id: string | number) {
   if (!req?.user) return false
   if (isAdmin(req)) return true
@@ -34,7 +67,7 @@ async function canMutateByFamily(req: any, id: string | number) {
     .findByID({
       collection: 'calendar-events',
       id: id as any,
-      overrideAccess: true, // ✅ bắt buộc để đọc doc khi access đang check
+      overrideAccess: true,
       depth: 0,
     })
     .catch(() => null)
@@ -44,6 +77,31 @@ async function canMutateByFamily(req: any, id: string | number) {
   const docFamilyId = getRelId((eventDoc as any).family)
 
   return String(docFamilyId) === String(familyId)
+}
+
+async function getChildSnapshot(req: any, childValue: any) {
+  const childId = getRelId(childValue)
+
+  if (!childId) {
+    return {
+      childId: null,
+      childName: '',
+    }
+  }
+
+  const child = await req.payload
+    .findByID({
+      collection: 'children',
+      id: childId,
+      overrideAccess: true,
+      depth: 0,
+    })
+    .catch(() => null)
+
+  return {
+    childId,
+    childName: child?.fullName || child?.name || '',
+  }
 }
 
 export const CalendarEvents: CollectionConfig = {
@@ -56,8 +114,10 @@ export const CalendarEvents: CollectionConfig = {
     read: ({ req }) => {
       if (!req.user) return false
       if (isAdmin(req)) return true
+
       const familyId = getFamilyIdFromUser(req)
       if (!familyId) return false
+
       return { family: { equals: familyId } }
     },
 
@@ -75,15 +135,17 @@ export const CalendarEvents: CollectionConfig = {
   hooks: {
     beforeChange: [
       async ({ data, req, operation }) => {
-        // chỉ set auto khi create
         if (operation !== 'create') return data
 
         const familyId = getFamilyIdFromUser(req)
         const userId = getRelId((req.user as any)?.id)
+
         if (!familyId || !userId) return data
 
         const childId = (data as any)?.child
-        if (!childId) throw new Error('Missing child')
+        if (!childId) {
+          throw new Error('Missing child')
+        }
 
         const child = await req.payload
           .findByID({
@@ -105,6 +167,119 @@ export const CalendarEvents: CollectionConfig = {
           family: (data as any)?.family ?? familyId,
           createdBy: (data as any)?.createdBy ?? userId,
         }
+      },
+    ],
+
+    afterChange: [
+      async ({ doc, previousDoc, operation, req }: any) => {
+        if (!req?.user || !doc) return
+
+        const familyId = getRelId(doc?.family)
+        const currentChild = await getChildSnapshot(req, doc?.child)
+
+        if (operation === 'create') {
+          await logAudit(req, {
+            familyId,
+            childId: currentChild.childId,
+            childName: currentChild.childName,
+            action: 'event.create',
+            entityType: 'event',
+            entityId: String(doc?.id),
+            scope: 'calendar',
+            severity: doc?.status === 'important' ? 'important' : 'info',
+            relatedToRole: 'both',
+            summary: 'Created calendar event',
+            targetLabel: doc?.title,
+            meta: {
+              title: doc?.title,
+              childName: currentChild.childName,
+              status: doc?.status,
+              previousStatus: null,
+              startAt: doc?.startAt,
+              endAt: doc?.endAt,
+              notes: doc?.notes || '',
+              allDay: !!doc?.allDay,
+            },
+          })
+          return
+        }
+
+        if (operation === 'update') {
+          const changes: Array<{ field: string; from?: any; to?: any }> = []
+
+          pushChange(changes, 'title', previousDoc?.title, doc?.title)
+          pushChange(changes, 'child', getRelId(previousDoc?.child), getRelId(doc?.child))
+          pushChange(changes, 'status', previousDoc?.status, doc?.status)
+          pushChange(changes, 'startAt', previousDoc?.startAt, doc?.startAt)
+          pushChange(changes, 'endAt', previousDoc?.endAt, doc?.endAt)
+          pushChange(changes, 'notes', previousDoc?.notes, doc?.notes)
+          pushChange(changes, 'allDay', !!previousDoc?.allDay, !!doc?.allDay)
+
+          if (!changes.length) return
+
+          const previousChild = await getChildSnapshot(req, previousDoc?.child)
+
+          await logAudit(req, {
+            familyId,
+            childId: currentChild.childId,
+            childName: currentChild.childName,
+            action: 'event.update',
+            entityType: 'event',
+            entityId: String(doc?.id),
+            scope: 'calendar',
+            severity:
+              doc?.status === 'important' || previousDoc?.status === 'important'
+                ? 'important'
+                : 'info',
+            relatedToRole: 'both',
+            summary: 'Updated calendar event',
+            targetLabel: doc?.title,
+            changes,
+            meta: {
+              title: doc?.title,
+              childName: currentChild.childName,
+              previousChildName: previousChild.childName || null,
+              status: doc?.status,
+              previousStatus: previousDoc?.status || null,
+              startAt: doc?.startAt,
+              endAt: doc?.endAt,
+              notes: doc?.notes || '',
+              allDay: !!doc?.allDay,
+            },
+          })
+        }
+      },
+    ],
+
+    afterDelete: [
+      async ({ doc, req }: any) => {
+        if (!req?.user || !doc) return
+
+        const childSnapshot = await getChildSnapshot(req, doc?.child)
+
+        await logAudit(req, {
+          familyId: getRelId(doc?.family),
+          childId: childSnapshot.childId,
+          childName: childSnapshot.childName,
+          action: 'event.delete',
+          entityType: 'event',
+          entityId: String(doc?.id),
+          scope: 'calendar',
+          severity: doc?.status === 'important' ? 'important' : 'important',
+          relatedToRole: 'both',
+          summary: 'Deleted calendar event',
+          targetLabel: doc?.title,
+          meta: {
+            title: doc?.title,
+            childName: childSnapshot.childName,
+            status: doc?.status,
+            previousStatus: null,
+            startAt: doc?.startAt,
+            endAt: doc?.endAt,
+            notes: doc?.notes || '',
+            allDay: !!doc?.allDay,
+          },
+        })
       },
     ],
   },

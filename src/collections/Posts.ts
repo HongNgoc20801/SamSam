@@ -45,6 +45,10 @@ function normalizeRelArray(v: any): Array<string | number> {
     .filter((item): item is string | number => item !== null)
 }
 
+function cleanText(v: any, max = 5000) {
+  return String(v ?? '').trim().slice(0, max)
+}
+
 function normalizeCommentsArray(v: any) {
   if (!Array.isArray(v)) return []
 
@@ -70,10 +74,6 @@ function getFamilyIdFromUser(req: any) {
 
 function getFamilyIdFromDoc(doc: any) {
   return normalizeRelId(doc?.family)
-}
-
-function cleanText(v: any, max = 5000) {
-  return String(v ?? '').trim().slice(0, max)
 }
 
 function getAuthorName(req: any) {
@@ -177,6 +177,64 @@ function buildFullPostData(post: any, patch: any = {}) {
   }
 }
 
+async function getChildSnapshot(req: any, childValue: any) {
+  const childId = normalizeRelId(childValue)
+
+  if (!childId) {
+    return {
+      childId: null,
+      childName: '',
+    }
+  }
+
+  const childDoc = await req.payload
+    .findByID({
+      collection: 'children',
+      id: childId,
+      req,
+      overrideAccess: true,
+      depth: 0,
+    })
+    .catch(() => null)
+
+  return {
+    childId,
+    childName: childDoc?.fullName || childDoc?.name || '',
+  }
+}
+
+function getPostAuditLabel(post: any) {
+  const title = cleanText(post?.title, 120)
+  if (title) return title
+
+  const content = cleanText(post?.content, 5000)
+  if (!content) return 'Untitled post'
+
+  return content.length > 60 ? `${content.slice(0, 60)}…` : content
+}
+
+async function buildPostAuditMeta(req: any, post: any) {
+  const { childId, childName } = await getChildSnapshot(req, post?.child)
+  const postLabel = getPostAuditLabel(post)
+  const isChildUpdate = String(post?.type || '') === 'child-update'
+
+  return {
+    childId,
+    childName,
+    postLabel,
+    isChildUpdate,
+    meta: {
+      title: postLabel,
+      type: post?.type,
+      important: !!post?.important,
+      childId: childId || undefined,
+      childName: childName || undefined,
+      isChildUpdate,
+      audienceLabel: isChildUpdate && childName ? `For ${childName}` : 'Family',
+    },
+  }
+}
+
 export const Posts: CollectionConfig = {
   slug: 'posts',
   admin: {
@@ -213,10 +271,7 @@ export const Posts: CollectionConfig = {
       if (!familyId || !userId) return false
 
       const where: Where = {
-        and: [
-          { family: { equals: familyId } },
-          { author: { equals: userId } },
-        ],
+        and: [{ family: { equals: familyId } }, { author: { equals: userId } }],
       }
 
       return where
@@ -233,10 +288,7 @@ export const Posts: CollectionConfig = {
       if (!familyId || !userId) return false
 
       const where: Where = {
-        and: [
-          { family: { equals: familyId } },
-          { author: { equals: userId } },
-        ],
+        and: [{ family: { equals: familyId } }, { author: { equals: userId } }],
       }
 
       return where
@@ -292,13 +344,22 @@ export const Posts: CollectionConfig = {
             depth: 1,
           })
 
+          const { childId, childName, postLabel, meta } = await buildPostAuditMeta(req, updated)
+
           await logAudit(req, {
             familyId: getFamilyIdFromDoc(updated),
-            childId: normalizeRelId(updated?.child),
+            childId,
+            childName,
             action: hasLiked ? 'post.unlike' : 'post.like',
-            entityType: 'other',
+            entityType: 'post',
             entityId: String(updated?.id),
+            scope: 'other',
+            severity: 'info',
+            visibleInFamilyTimeline: false,
+            relatedToRole: 'both',
+            targetLabel: postLabel,
             summary: hasLiked ? 'Removed like from post' : 'Liked post',
+            meta,
           })
 
           return Response.json({ ok: true, doc: updated })
@@ -370,14 +431,23 @@ export const Posts: CollectionConfig = {
             depth: 1,
           })
 
+          const { childId, childName, postLabel, meta } = await buildPostAuditMeta(req, updated)
+
           await logAudit(req, {
             familyId: getFamilyIdFromDoc(updated),
-            childId: normalizeRelId(updated?.child),
+            childId,
+            childName,
             action: 'post.comment.create',
-            entityType: 'other',
+            entityType: 'post',
             entityId: String(updated?.id),
+            scope: 'other',
+            severity: 'info',
+            visibleInFamilyTimeline: false,
+            relatedToRole: 'both',
+            targetLabel: postLabel,
             summary: 'Added comment to post',
             meta: {
+              ...meta,
               commentLength: content.length,
             },
           })
@@ -522,21 +592,24 @@ export const Posts: CollectionConfig = {
         if (!req?.user || !doc) return
 
         const familyId = getFamilyIdFromDoc(doc)
-        const childId = normalizeRelId(doc?.child)
+        const { childId, childName, postLabel, meta, isChildUpdate } =
+          await buildPostAuditMeta(req, doc)
 
         if (operation === 'create') {
           await logAudit(req, {
             familyId,
             childId,
+            childName,
             action: 'post.create',
-            entityType: 'other',
+            entityType: 'post',
             entityId: String(doc?.id),
-            summary: 'Created family post',
-            meta: {
-              title: doc?.title,
-              type: doc?.type,
-              important: !!doc?.important,
-            },
+            scope: 'other',
+            severity: !!doc?.important ? 'important' : 'info',
+            visibleInFamilyTimeline: true,
+            relatedToRole: childId ? 'child' : 'both',
+            targetLabel: postLabel,
+            summary: isChildUpdate ? 'Created child update post' : 'Created family post',
+            meta,
           })
           return
         }
@@ -560,16 +633,18 @@ export const Posts: CollectionConfig = {
           await logAudit(req, {
             familyId,
             childId,
+            childName,
             action: 'post.update',
-            entityType: 'other',
+            entityType: 'post',
             entityId: String(doc?.id),
-            summary: 'Updated family post',
+            scope: 'other',
+            severity: !!doc?.important || !!previousDoc?.important ? 'important' : 'info',
+            visibleInFamilyTimeline: true,
+            relatedToRole: childId ? 'child' : 'both',
+            targetLabel: postLabel,
+            summary: isChildUpdate ? 'Updated child update post' : 'Updated family post',
             changes,
-            meta: {
-              title: doc?.title,
-              type: doc?.type,
-              important: !!doc?.important,
-            },
+            meta,
           })
         }
       },
@@ -579,18 +654,23 @@ export const Posts: CollectionConfig = {
       async ({ doc, req }: any) => {
         if (!req?.user || !doc) return
 
+        const { childId, childName, postLabel, meta, isChildUpdate } =
+          await buildPostAuditMeta(req, doc)
+
         await logAudit(req, {
           familyId: getFamilyIdFromDoc(doc),
-          childId: normalizeRelId(doc?.child),
+          childId,
+          childName,
           action: 'post.delete',
-          entityType: 'other',
+          entityType: 'post',
           entityId: String(doc?.id),
-          summary: 'Deleted family post',
-          meta: {
-            title: doc?.title,
-            type: doc?.type,
-            important: !!doc?.important,
-          },
+          scope: 'other',
+          severity: !!doc?.important ? 'important' : 'info',
+          visibleInFamilyTimeline: true,
+          relatedToRole: childId ? 'child' : 'both',
+          targetLabel: postLabel,
+          summary: isChildUpdate ? 'Deleted child update post' : 'Deleted family post',
+          meta,
         })
       },
     ],

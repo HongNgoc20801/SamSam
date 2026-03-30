@@ -349,6 +349,7 @@ export interface Customer {
   address: string;
   gender: 'male' | 'female' | 'other';
   familyRole: 'father' | 'mother' | 'sibling' | 'other';
+  avatar?: (number | null) | Media;
   family?: (number | null) | Family;
   updatedAt: string;
   createdAt: string;
@@ -955,6 +956,7 @@ export interface CustomersSelect<T extends boolean = true> {
   address?: T;
   gender?: T;
   familyRole?: T;
+  avatar?: T;
   family?: T;
   updatedAt?: T;
   createdAt?: T;

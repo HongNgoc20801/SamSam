@@ -1,0 +1,140 @@
+'use client'
+
+import { useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import styles from './changePassword.module.css'
+
+export default function ChangePasswordPage() {
+  const router = useRouter()
+
+  const API_BASE = useMemo(() => {
+    const base = process.env.NEXT_PUBLIC_PAYLOAD_URL
+    const clean = base ? base.replace(/\/$/, '') : ''
+    return clean ? `${clean}/api` : '/api'
+  }, [])
+
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (saving) return
+
+    setError('')
+    setSuccess('')
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      setError('Vennligst fyll inn alle feltene.')
+      return
+    }
+
+    if (newPassword.length < 6) {
+      setError('Nytt passord må være minst 6 tegn.')
+      return
+    }
+
+    if (newPassword !== confirmPassword) {
+      setError('Nytt passord og bekreftelse matcher ikke.')
+      return
+    }
+
+    setSaving(true)
+
+    try {
+      const res = await fetch(`${API_BASE}/customers/change-password`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          currentPassword,
+          newPassword,
+          confirmPassword,
+        }),
+      })
+
+      const data = await res.json().catch(() => null)
+
+      if (!res.ok) {
+        throw new Error(data?.message || `Request failed with status ${res.status}`)
+      }
+
+      setSuccess(data?.message || 'Passordet ble oppdatert.')
+      setCurrentPassword('')
+      setNewPassword('')
+      setConfirmPassword('')
+    } catch (err: any) {
+      setError(err?.message || 'Noe gikk galt.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <main className={styles.page}>
+      <div className={styles.container}>
+        <section className={styles.card}>
+          <h1 className={styles.title}>Bytt passord</h1>
+
+          <form className={styles.form} onSubmit={handleSubmit}>
+            <label className={styles.field}>
+              <span className={styles.label}>Nåværende passord</span>
+              <input
+                className={styles.input}
+                type="password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                autoComplete="current-password"
+              />
+            </label>
+
+            <label className={styles.field}>
+              <span className={styles.label}>Nytt passord</span>
+              <input
+                className={styles.input}
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                autoComplete="new-password"
+              />
+            </label>
+
+            <label className={styles.field}>
+              <span className={styles.label}>Bekreft nytt passord</span>
+              <input
+                className={styles.input}
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                autoComplete="new-password"
+              />
+            </label>
+
+            {success ? <p className={styles.success}>{success}</p> : null}
+            {error ? <p className={styles.error}>{error}</p> : null}
+
+            <div className={styles.actions}>
+              <button
+                className={styles.secondaryBtn}
+                type="button"
+                onClick={() => router.push('/profile')}
+              >
+                Tilbake
+              </button>
+
+              <button className={styles.primaryBtn} type="submit" disabled={saving}>
+                {saving ? 'Lagrer…' : 'Oppdater passord'}
+              </button>
+            </div>
+          </form>
+        </section>
+      </div>
+    </main>
+  )
+}

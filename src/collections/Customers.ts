@@ -1,5 +1,6 @@
 import type { CollectionConfig } from 'payload'
 import type { Where } from 'payload'
+
 function getCollectionSlug(req: any) {
   return req?.user?.collection ?? req?.user?._collection
 }
@@ -19,6 +20,14 @@ function isCustomer(req: any) {
   return false
 }
 
+function cleanText(v: any, max = 120) {
+  return String(v ?? '').trim().slice(0, max)
+}
+
+function cleanPhone(v: any) {
+  return String(v ?? '').trim()
+}
+
 function getFamilyIdFromUser(req: any) {
   const u: any = req?.user
   if (!u) return null
@@ -30,36 +39,150 @@ export const Customers: CollectionConfig = {
   auth: true,
   admin: { useAsTitle: 'email' },
 
-  access: {
-    create: () => true,
+ access: {
+  create: () => true,
 
-  read: ({ req }) => {
+ read: ({ req }) => {
   if (!req.user) return false
+  if (isAdmin(req)) return true
+
+  const familyId = getFamilyIdFromUser(req)
+
+  if (!familyId) {
+    const where: Where = {
+      id: {
+        equals: req.user.id,
+      },
+    }
+
+    return where
+  }
 
   const where: Where = {
-    id: {
-      equals: req.user.id,
-    },
+    or: [
+      {
+        id: {
+          equals: req.user.id,
+        },
+      },
+      {
+        family: {
+          equals: familyId,
+        },
+      },
+    ],
   }
 
   return where
 },
-    update: ({ req }) => {
-      if (!req.user) return false
-      if (isAdmin(req)) return true
 
-      return { id: { equals: req.user.id } }
-    },
+  update: ({ req }) => {
+    if (!req.user) return false
+    if (isAdmin(req)) return true
 
-    delete: ({ req }) => {
-      if (!req.user) return false
-      if (isAdmin(req)) return true
-
-      return { id: { equals: req.user.id } }
-    },
+    return { id: { equals: req.user.id } }
   },
 
+  delete: ({ req }) => {
+    if (!req.user) return false
+    if (isAdmin(req)) return true
+
+    return { id: { equals: req.user.id } }
+  },
+},
+
+  endpoints: [
+    {
+      path: '/change-password',
+      method: 'post',
+      handler: async (req: any) => {
+        try {
+          if (!req.user || !isCustomer(req)) {
+            return Response.json({ message: 'Unauthorized.' }, { status: 401 })
+          }
+
+          const body =
+            typeof req.json === 'function' ? await req.json().catch(() => ({})) : req.body ?? {}
+
+          const currentPassword = String(body?.currentPassword ?? '')
+          const newPassword = String(body?.newPassword ?? '')
+          const confirmPassword = String(body?.confirmPassword ?? '')
+
+          if (!currentPassword || !newPassword || !confirmPassword) {
+            return Response.json(
+              { message: 'All password fields are required.' },
+              { status: 400 },
+            )
+          }
+
+          if (newPassword.length < 6) {
+            return Response.json(
+              { message: 'New password must be at least 6 characters.' },
+              { status: 400 },
+            )
+          }
+
+          if (newPassword !== confirmPassword) {
+            return Response.json(
+              { message: 'New password and confirmation do not match.' },
+              { status: 400 },
+            )
+          }
+
+          const userId = req.user.id
+          const email = req.user.email
+
+          const loginResult = await req.payload.login({
+            collection: 'customers',
+            data: {
+              email,
+              password: currentPassword,
+            },
+            req,
+          }).catch(() => null)
+
+          if (!loginResult?.user) {
+            return Response.json(
+              { message: 'Current password is incorrect.' },
+              { status: 400 },
+            )
+          }
+
+          await req.payload.update({
+            collection: 'customers',
+            id: userId,
+            data: {
+              password: newPassword,
+            },
+            req,
+            overrideAccess: true,
+          })
+
+          return Response.json({ ok: true, message: 'Password updated successfully.' })
+        } catch (error: any) {
+          return Response.json(
+            { message: error?.message || 'Could not change password.' },
+            { status: 400 },
+          )
+        }
+      },
+    },
+  ],
+
   hooks: {
+    beforeValidate: [
+      ({ data }) => {
+        const next: any = { ...(data ?? {}) }
+
+        if ('firstName' in next) next.firstName = cleanText(next.firstName, 60)
+        if ('lastName' in next) next.lastName = cleanText(next.lastName, 60)
+        if ('address' in next) next.address = cleanText(next.address, 200)
+        if ('phone' in next) next.phone = cleanPhone(next.phone)
+
+        return next
+      },
+    ],
+
     afterChange: [
       async ({ doc, req, operation }) => {
         if (operation !== 'create') return
@@ -121,6 +244,13 @@ export const Customers: CollectionConfig = {
         { label: 'Søsken', value: 'sibling' },
         { label: 'Annet', value: 'other' },
       ],
+    },
+
+    {
+      name: 'avatar',
+      type: 'upload',
+      relationTo: 'media',
+      required: false,
     },
 
     {

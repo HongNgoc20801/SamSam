@@ -1,9 +1,10 @@
 'use client'
 
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import styles from './newChild.module.css'
 import { ArrowLeft, Plus } from 'lucide-react'
+import { useTranslations } from '@/app/lib/i18n/useTranslations'
 
 const BLOOD_MAIN = ['A', 'B', 'AB', 'O'] as const
 const BLOOD_ALL = [
@@ -23,7 +24,15 @@ const BLOOD_ALL = [
 ] as const
 
 type Gender = 'na' | 'male' | 'female' | 'other'
-type Relation = 'mother' | 'father' | 'grandparent' | 'guardian' | 'other' | 'relative' | 'babysitter' | ''
+type Relation =
+  | 'mother'
+  | 'father'
+  | 'grandparent'
+  | 'guardian'
+  | 'other'
+  | 'relative'
+  | 'babysitter'
+  | ''
 
 type Phone = { value: string }
 type EmergencyContact = {
@@ -53,6 +62,7 @@ function isValidPhone(v: string) {
 
 export default function NewChildPage() {
   const router = useRouter()
+  const t = useTranslations()
 
   const [avatarFile, setAvatarFile] = useState<File | null>(null)
 
@@ -70,7 +80,6 @@ export default function NewChildPage() {
   const [conditionsText, setConditionsText] = useState('')
   const [medicalShort, setMedicalShort] = useState('')
 
-  
   const [gpName, setGpName] = useState('')
   const [gpClinic, setGpClinic] = useState('')
   const [gpPhones, setGpPhones] = useState<Phone[]>([{ value: '' }])
@@ -89,10 +98,18 @@ export default function NewChildPage() {
   }, [fullName, birthDate, agree, loading])
 
   const avatarLetter = (fullName.trim()?.[0] ?? 'C').toUpperCase()
+
   const filePreview = useMemo(() => {
     if (!avatarFile) return ''
     return URL.createObjectURL(avatarFile)
   }, [avatarFile])
+
+  useEffect(() => {
+    return () => {
+      if (filePreview) URL.revokeObjectURL(filePreview)
+    }
+  }, [filePreview])
+
   const showAvatarImage = !!filePreview
 
   async function uploadToMedia(file: File) {
@@ -106,7 +123,7 @@ export default function NewChildPage() {
     })
 
     const j = await res.json().catch(() => ({}))
-    if (!res.ok) throw new Error(j?.message || 'Could not upload image.')
+    if (!res.ok) throw new Error(j?.message || t.newChild.uploadImageError)
     return j
   }
 
@@ -115,20 +132,27 @@ export default function NewChildPage() {
   }
 
   function addContact() {
-    setEmergencyContacts((prev) => [...prev, { name: '', relation: '', phones: [{ value: '' }], isPrimary: false }])
+    setEmergencyContacts((prev) => [
+      ...prev,
+      { name: '', relation: '', phones: [{ value: '' }], isPrimary: false },
+    ])
   }
 
   function removeContact(index: number) {
     setEmergencyContacts((prev) => {
       const next = prev.filter((_, i) => i !== index)
       if (next.length && !next.some((c) => c.isPrimary)) next[0].isPrimary = true
-      return next.length ? next : [{ name: '', relation: '', phones: [{ value: '' }], isPrimary: true }]
+      return next.length
+        ? next
+        : [{ name: '', relation: '', phones: [{ value: '' }], isPrimary: true }]
     })
   }
 
   function addPhoneToContact(contactIndex: number) {
     setEmergencyContacts((prev) =>
-      prev.map((c, i) => (i === contactIndex ? { ...c, phones: [...c.phones, { value: '' }] } : c)),
+      prev.map((c, i) =>
+        i === contactIndex ? { ...c, phones: [...c.phones, { value: '' }] } : c,
+      ),
     )
   }
 
@@ -152,7 +176,9 @@ export default function NewChildPage() {
 
   function validateBeforeSubmit(): string | null {
     const cleanNationalId = normalize11Digits(nationalId.trim())
-    if (cleanNationalId && !/^\d{11}$/.test(cleanNationalId)) return 'National ID must be exactly 11 digits.'
+    if (cleanNationalId && !/^\d{11}$/.test(cleanNationalId)) {
+      return t.newChild.validationNationalId
+    }
 
     const normalized = emergencyContacts.map((c) => {
       const name = c.name.trim()
@@ -161,12 +187,14 @@ export default function NewChildPage() {
     })
 
     const hasAnyInput = normalized.filter((c) => c.name || c.phones.length)
-    if (!hasAnyInput.length) return 'Please add at least one emergency contact.'
+    if (!hasAnyInput.length) return t.newChild.validationEmergencyRequired
 
-    const allValid = hasAnyInput.every((c) => c.name && c.phones.length && c.phones.every((p) => isValidPhone(p)))
-    if (!allValid) return 'Each emergency contact must have a name and at least one valid phone number.'
+    const allValid = hasAnyInput.every(
+      (c) => c.name && c.phones.length && c.phones.every((p) => isValidPhone(p)),
+    )
+    if (!allValid) return t.newChild.validationEmergencyInvalid
 
-    if (!hasAnyInput.some((c) => c.isPrimary)) return 'Please select one primary emergency contact.'
+    if (!hasAnyInput.some((c) => c.isPrimary)) return t.newChild.validationPrimaryRequired
 
     const gpHasAny = gpName.trim() || gpClinic.trim() || gpPhones.some((p) => p.value.trim())
     if (gpHasAny) {
@@ -174,7 +202,7 @@ export default function NewChildPage() {
         .map((p) => p.value.trim())
         .filter(Boolean)
         .every((p) => isValidPhone(p))
-      if (!ok) return 'Primary doctor phone number is invalid.'
+      if (!ok) return t.newChild.validationGpInvalid
     }
 
     return null
@@ -218,7 +246,12 @@ export default function NewChildPage() {
       const notesShort = medicalShort.trim()
 
       const hasMedical =
-        bloodType !== 'unknown' || allergies.length || conditions.length || notesShort || gpName.trim() || gpClinic.trim()
+        bloodType !== 'unknown' ||
+        allergies.length ||
+        conditions.length ||
+        notesShort ||
+        gpName.trim() ||
+        gpClinic.trim()
 
       if (hasMedical) {
         body.medical = {}
@@ -227,7 +260,10 @@ export default function NewChildPage() {
         if (conditions.length) body.medical.conditions = conditions
         if (notesShort) body.medical.notesShort = notesShort.slice(0, 160)
 
-        const gpPhoneClean = gpPhones.map((p) => ({ value: p.value.trim() })).filter((p) => p.value)
+        const gpPhoneClean = gpPhones
+          .map((p) => ({ value: p.value.trim() }))
+          .filter((p) => p.value)
+
         if (gpName.trim() || gpClinic.trim() || gpPhoneClean.length) {
           body.medical.gp = {
             name: gpName.trim() || undefined,
@@ -259,14 +295,16 @@ export default function NewChildPage() {
       if (!res.ok) {
         const msg =
           j?.message ||
-          (Array.isArray(j?.errors) ? j.errors.map((x: any) => x?.message).filter(Boolean).join(', ') : '') ||
-          'Could not create child profile.'
+          (Array.isArray(j?.errors)
+            ? j.errors.map((x: any) => x?.message).filter(Boolean).join(', ')
+            : '') ||
+          t.newChild.createError
         throw new Error(msg)
       }
 
       router.push('/child-info')
     } catch (err: any) {
-      setError(err?.message || 'Something went wrong.')
+      setError(err?.message || t.newChild.unknownError)
     } finally {
       setLoading(false)
     }
@@ -275,13 +313,18 @@ export default function NewChildPage() {
   return (
     <div className={styles.screen}>
       <header className={styles.topbar}>
-        <button type="button" onClick={() => router.back()} className={styles.backBtn} aria-label="Back">
+        <button
+          type="button"
+          onClick={() => router.back()}
+          className={styles.backBtn}
+          aria-label={t.newChild.backAriaLabel}
+        >
           <ArrowLeft size={30} strokeWidth={2.5} />
         </button>
 
         <div className={styles.topbarCenter}>
-          <h1 className={styles.topbarTitle}>Create Child Profile</h1>
-          <p className={styles.topbarHint}>This information will be shared with your family group.</p>
+          <h1 className={styles.topbarTitle}>{t.newChild.pageTitle}</h1>
+          <p className={styles.topbarHint}>{t.newChild.pageHint}</p>
         </div>
 
         <div className={styles.topbarRight} />
@@ -291,15 +334,15 @@ export default function NewChildPage() {
         <section className={styles.section}>
           <div className={styles.sectionTop}>
             <div>
-              <div className={styles.sectionTitle}>Basic information</div>
-              <div className={styles.sectionHint}>Used for calendars, notifications, and structure.</div>
+              <div className={styles.sectionTitle}>{t.newChild.basicTitle}</div>
+              <div className={styles.sectionHint}>{t.newChild.basicHint}</div>
             </div>
           </div>
 
           <div className={styles.identityGrid}>
             <div className={styles.avatarBlock}>
               <label className={styles.avatarPicker}>
-                <div className={styles.avatarCircle} aria-label="Avatar">
+                <div className={styles.avatarCircle} aria-label={t.newChild.avatarAriaLabel}>
                   {showAvatarImage ? (
                     <img className={styles.avatarImg} src={filePreview} alt="Child avatar" />
                   ) : (
@@ -308,7 +351,7 @@ export default function NewChildPage() {
 
                   <div className={styles.avatarOverlay}>
                     <div className={styles.avatarOverlayIcon}>📷</div>
-                    <div className={styles.avatarOverlayText}>Add photo</div>
+                    <div className={styles.avatarOverlayText}>{t.newChild.addPhoto}</div>
                   </div>
                 </div>
 
@@ -321,48 +364,67 @@ export default function NewChildPage() {
                 />
               </label>
 
-              <div className={styles.avatarText}>Avatar (optional) • PNG/JPG recommended.</div>
+              <div className={styles.avatarText}>{t.newChild.avatarHelp}</div>
 
               {avatarFile ? (
-                <button type="button" className={styles.smallDanger} onClick={() => setAvatarFile(null)} disabled={loading}>
-                  Remove photo
+                <button
+                  type="button"
+                  className={styles.smallDanger}
+                  onClick={() => setAvatarFile(null)}
+                  disabled={loading}
+                >
+                  {t.newChild.removePhoto}
                 </button>
               ) : null}
             </div>
 
             <div className={styles.fieldsCol}>
               <div className={styles.field}>
-                <label>Full name</label>
-                <input placeholder="Enter full name" value={fullName} onChange={(e) => setFullName(e.target.value)} disabled={loading} />
+                <label>{t.newChild.fullName}</label>
+                <input
+                  placeholder={t.newChild.fullNamePlaceholder}
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  disabled={loading}
+                />
               </div>
 
               <div className={styles.row2}>
                 <div className={styles.field}>
-                  <label>Date of birth</label>
-                  <input type="date" value={birthDate} onChange={(e) => setBirthDate(e.target.value)} disabled={loading} />
+                  <label>{t.newChild.birthDate}</label>
+                  <input
+                    type="date"
+                    value={birthDate}
+                    onChange={(e) => setBirthDate(e.target.value)}
+                    disabled={loading}
+                  />
                 </div>
 
                 <div className={styles.field}>
-                  <label>Gender</label>
-                  <select value={gender} onChange={(e) => setGender(e.target.value as Gender)} disabled={loading}>
-                    <option value="na">Prefer not to say</option>
-                    <option value="male">Male</option>
-                    <option value="female">Female</option>
-                    <option value="other">Other</option>
+                  <label>{t.newChild.gender}</label>
+                  <select
+                    value={gender}
+                    onChange={(e) => setGender(e.target.value as Gender)}
+                    disabled={loading}
+                  >
+                    <option value="na">{t.newChild.genderNa}</option>
+                    <option value="male">{t.newChild.genderMale}</option>
+                    <option value="female">{t.newChild.genderFemale}</option>
+                    <option value="other">{t.newChild.genderOther}</option>
                   </select>
                 </div>
               </div>
 
               <div className={styles.field}>
-                <label>National ID (11 digits) (optional)</label>
+                <label>{t.newChild.nationalId}</label>
                 <input
                   inputMode="numeric"
-                  placeholder="Example: 12345678901"
+                  placeholder={t.newChild.nationalIdPlaceholder}
                   value={nationalId}
                   onChange={(e) => setNationalId(e.target.value)}
                   disabled={loading}
                 />
-                <div className={styles.helpText}>Optional. Spaces are removed automatically.</div>
+                <div className={styles.helpText}>{t.newChild.nationalIdHelp}</div>
               </div>
             </div>
           </div>
@@ -371,25 +433,25 @@ export default function NewChildPage() {
         <section className={styles.section}>
           <div className={styles.sectionTop}>
             <div>
-              <div className={styles.sectionTitle}>School / Kindergarten</div>
-              <div className={styles.sectionHint}>Helps keep schedules and contact info consistent.</div>
+              <div className={styles.sectionTitle}>{t.newChild.schoolTitle}</div>
+              <div className={styles.sectionHint}>{t.newChild.schoolHint}</div>
             </div>
           </div>
 
           <div className={styles.row2}>
             <div className={styles.field}>
-              <label>School name</label>
+              <label>{t.newChild.schoolName}</label>
               <input value={schoolName} onChange={(e) => setSchoolName(e.target.value)} disabled={loading} />
             </div>
 
             <div className={styles.field}>
-              <label>Class</label>
+              <label>{t.newChild.className}</label>
               <input value={className} onChange={(e) => setClassName(e.target.value)} disabled={loading} />
             </div>
           </div>
 
           <div className={styles.field}>
-            <label>Main teacher (optional)</label>
+            <label>{t.newChild.mainTeacher}</label>
             <input value={mainTeacher} onChange={(e) => setMainTeacher(e.target.value)} disabled={loading} />
           </div>
         </section>
@@ -397,13 +459,13 @@ export default function NewChildPage() {
         <section className={styles.section}>
           <div className={styles.sectionTop}>
             <div>
-              <div className={styles.sectionTitle}>Medical (emergency)</div>
-              <div className={styles.sectionHint}>Keep it short and specific.</div>
+              <div className={styles.sectionTitle}>{t.newChild.medicalTitle}</div>
+              <div className={styles.sectionHint}>{t.newChild.medicalHint}</div>
             </div>
           </div>
 
           <div className={styles.field}>
-            <label>Blood type</label>
+            <label>{t.newChild.bloodType}</label>
             <div className={styles.bloodRow}>
               {BLOOD_MAIN.map((b) => (
                 <button
@@ -417,10 +479,15 @@ export default function NewChildPage() {
                 </button>
               ))}
 
-              <select className={styles.bloodMore} value={bloodType} onChange={(e) => setBloodType(e.target.value as any)} disabled={loading}>
+              <select
+                className={styles.bloodMore}
+                value={bloodType}
+                onChange={(e) => setBloodType(e.target.value as any)}
+                disabled={loading}
+              >
                 {BLOOD_ALL.map((b) => (
                   <option key={b} value={b}>
-                    {b === 'unknown' ? 'Unknown / Other' : b}
+                    {b === 'unknown' ? t.newChild.bloodUnknown : b}
                   </option>
                 ))}
               </select>
@@ -429,72 +496,82 @@ export default function NewChildPage() {
 
           <div className={styles.row2}>
             <div className={styles.field}>
-              <label>Allergies (tags)</label>
+              <label>{t.newChild.allergies}</label>
               <input value={allergyText} onChange={(e) => setAllergyText(e.target.value)} disabled={loading} />
-              <div className={styles.helpText}>Separate with commas or semicolons.</div>
+              <div className={styles.helpText}>{t.newChild.tagsHelpComma}</div>
             </div>
 
             <div className={styles.field}>
-              <label>Conditions (tags)</label>
+              <label>{t.newChild.conditions}</label>
               <input value={conditionsText} onChange={(e) => setConditionsText(e.target.value)} disabled={loading} />
-              <div className={styles.helpText}>Use short keywords only.</div>
+              <div className={styles.helpText}>{t.newChild.tagsHelpShort}</div>
             </div>
           </div>
 
           <div className={styles.field}>
-            <label>Medical note (short) (optional)</label>
+            <label>{t.newChild.medicalShort}</label>
             <textarea
               className={styles.textarea}
               value={medicalShort}
               onChange={(e) => setMedicalShort(e.target.value)}
               disabled={loading}
               maxLength={160}
-              placeholder="Example: Carries an EpiPen. Avoid medication X."
+              placeholder={t.newChild.medicalShortPlaceholder}
             />
-            <div className={styles.helpText}>Max 160 characters ({medicalShort.length}/160).</div>
+            <div className={styles.helpText}>
+              {t.newChild.medicalShortHelp} ({medicalShort.length}/160).
+            </div>
           </div>
 
           <div className={styles.divider} />
-          <div className={styles.sectionSubTitle}>Primary doctor (GP)</div>
+          <div className={styles.sectionSubTitle}>{t.newChild.gpTitle}</div>
 
           <div className={styles.row2}>
             <div className={styles.field}>
-              <label>Doctor name</label>
+              <label>{t.newChild.doctorName}</label>
               <input value={gpName} onChange={(e) => setGpName(e.target.value)} disabled={loading} />
             </div>
 
             <div className={styles.field}>
-              <label>Clinic (optional)</label>
+              <label>{t.newChild.clinic}</label>
               <input value={gpClinic} onChange={(e) => setGpClinic(e.target.value)} disabled={loading} />
             </div>
           </div>
 
           <div className={styles.field}>
             <div className={styles.fieldRow}>
-
               <button
                 type="button"
                 className={styles.iconCircleBtn}
                 onClick={addGpPhone}
                 disabled={loading}
-                aria-label="Add phone"
-                title="Add phone"
+                aria-label={t.newChild.addPhone}
+                title={t.newChild.addPhone}
               >
                 <Plus size={18} strokeWidth={2.5} />
               </button>
-              <label> Add Phone numbers</label>
+              <label>{t.newChild.phoneNumbers}</label>
             </div>
 
             <div className={styles.phoneList}>
               {gpPhones.map((p, i) => (
                 <div key={i} className={styles.phoneRow}>
                   <input
-                    placeholder="phone numbers"
+                    placeholder={t.newChild.phoneNumbersPlaceholder}
                     value={p.value}
-                    onChange={(e) => setGpPhones((prev) => prev.map((x, idx) => (idx === i ? { value: e.target.value } : x)))}
+                    onChange={(e) =>
+                      setGpPhones((prev) =>
+                        prev.map((x, idx) => (idx === i ? { value: e.target.value } : x)),
+                      )
+                    }
                     disabled={loading}
                   />
-                  <button type="button" className={styles.smallBtn} onClick={() => removeGpPhone(i)} disabled={loading || gpPhones.length === 1}>
+                  <button
+                    type="button"
+                    className={styles.smallBtn}
+                    onClick={() => removeGpPhone(i)}
+                    disabled={loading || gpPhones.length === 1}
+                  >
                     −
                   </button>
                 </div>
@@ -506,8 +583,8 @@ export default function NewChildPage() {
         <section className={styles.section}>
           <div className={styles.sectionTop}>
             <div>
-              <div className={styles.sectionTitle}>Emergency contacts</div>
-              <div className={styles.sectionHint}>Add at least one contact and select one primary.</div>
+              <div className={styles.sectionTitle}>{t.newChild.emergencyTitle}</div>
+              <div className={styles.sectionHint}>{t.newChild.emergencyHint}</div>
             </div>
             <span className={styles.iconPill}>!</span>
           </div>
@@ -524,75 +601,88 @@ export default function NewChildPage() {
                       onChange={() => setPrimaryContact(idx)}
                       disabled={loading}
                     />
-                    <span>Primary</span>
+                    <span>{t.newChild.primary}</span>
                   </label>
 
                   {emergencyContacts.length > 1 ? (
-                    <button type="button" className={styles.smallDanger} onClick={() => removeContact(idx)} disabled={loading}>
-                      Remove
+                    <button
+                      type="button"
+                      className={styles.smallDanger}
+                      onClick={() => removeContact(idx)}
+                      disabled={loading}
+                    >
+                      {t.newChild.remove}
                     </button>
                   ) : null}
                 </div>
 
                 <div className={styles.row2}>
                   <div className={styles.field}>
-                    <label>Contact name</label>
+                    <label>{t.newChild.contactName}</label>
                     <input
                       value={c.name}
-                      onChange={(e) => setEmergencyContacts((prev) => prev.map((x, i) => (i === idx ? { ...x, name: e.target.value } : x)))}
+                      onChange={(e) =>
+                        setEmergencyContacts((prev) =>
+                          prev.map((x, i) => (i === idx ? { ...x, name: e.target.value } : x)),
+                        )
+                      }
                       disabled={loading}
                     />
                   </div>
 
                   <div className={styles.field}>
-                    <label>Relation</label>
+                    <label>{t.newChild.relation}</label>
                     <select
                       value={c.relation}
                       onChange={(e) =>
-                        setEmergencyContacts((prev) => prev.map((x, i) => (i === idx ? { ...x, relation: e.target.value as Relation } : x)))
+                        setEmergencyContacts((prev) =>
+                          prev.map((x, i) =>
+                            i === idx ? { ...x, relation: e.target.value as Relation } : x,
+                          ),
+                        )
                       }
                       disabled={loading}
                     >
-                      <option value="">Select</option>
-                      <option value="guardian">Guardian</option>
-                      <option value="grandparent">Grandparent</option>
-                      <option value="mother">Mother</option>
-                      <option value="father">Father</option>
-                      <option value="relative">Relative</option>
-                      <option value="babysitter">Babysitter</option>
-                      <option value="other">Other</option>
+                      <option value="">{t.newChild.relationSelect}</option>
+                      <option value="guardian">{t.newChild.relationGuardian}</option>
+                      <option value="grandparent">{t.newChild.relationGrandparent}</option>
+                      <option value="mother">{t.newChild.relationMother}</option>
+                      <option value="father">{t.newChild.relationFather}</option>
+                      <option value="relative">{t.newChild.relationRelative}</option>
+                      <option value="babysitter">{t.newChild.relationBabysitter}</option>
+                      <option value="other">{t.newChild.relationOther}</option>
                     </select>
                   </div>
                 </div>
 
                 <div className={styles.field}>
                   <div className={styles.fieldRow}>
-                    
-
                     <button
                       type="button"
                       className={styles.iconCircleBtn}
                       onClick={() => addPhoneToContact(idx)}
                       disabled={loading}
-                      aria-label="Add phone"
-                      title="Add phone"
+                      aria-label={t.newChild.addEmergencyPhone}
+                      title={t.newChild.addEmergencyPhone}
                     >
                       <Plus size={18} strokeWidth={2.6} />
                     </button>
-                    <label> Add phone numbers</label>
+                    <label>{t.newChild.addEmergencyPhone}</label>
                   </div>
 
                   <div className={styles.phoneList}>
                     {c.phones.map((p, pi) => (
                       <div key={pi} className={styles.phoneRow}>
                         <input
-                          placeholder="+47 123 45 678"
+                          placeholder={t.newChild.emergencyPhonePlaceholder}
                           value={p.value}
                           onChange={(e) =>
                             setEmergencyContacts((prev) =>
                               prev.map((x, i) => {
                                 if (i !== idx) return x
-                                const phones = x.phones.map((pp, j) => (j === pi ? { value: e.target.value } : pp))
+                                const phones = x.phones.map((pp, j) =>
+                                  j === pi ? { value: e.target.value } : pp,
+                                )
                                 return { ...x, phones }
                               }),
                             )
@@ -614,16 +704,26 @@ export default function NewChildPage() {
               </div>
             ))}
 
-            <button type="button" className={styles.smallBtnAdd} onClick={addContact} disabled={loading}>
-              + Add emergency contact
+            <button
+              type="button"
+              className={styles.smallBtnAdd}
+              onClick={addContact}
+              disabled={loading}
+            >
+              {t.newChild.addEmergencyContact}
             </button>
           </div>
         </section>
 
         <section className={styles.footerCard}>
           <label className={styles.agree}>
-            <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} disabled={loading} />
-            <span>I understand this information is shared within my family group.</span>
+            <input
+              type="checkbox"
+              checked={agree}
+              onChange={(e) => setAgree(e.target.checked)}
+              disabled={loading}
+            />
+            <span>{t.newChild.agreeText}</span>
           </label>
 
           {error ? (
@@ -633,12 +733,17 @@ export default function NewChildPage() {
           ) : null}
 
           <div className={styles.actions}>
-            <button type="button" className={styles.secondary} onClick={() => router.back()} disabled={loading}>
-              Cancel
+            <button
+              type="button"
+              className={styles.secondary}
+              onClick={() => router.back()}
+              disabled={loading}
+            >
+              {t.newChild.cancel}
             </button>
 
             <button className={styles.primary} type="submit" disabled={!canSubmit}>
-              {loading ? 'Saving…' : 'Save profile'}
+              {loading ? t.newChild.saving : t.newChild.saveProfile}
             </button>
           </div>
         </section>

@@ -1,8 +1,11 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+
 import AuditLogList from '@/app/(frontend)/components/audit/AuditLogList'
 import type { AuditLog } from '@/app/(frontend)/components/audit/auditTypes'
 import { serverFetch } from '@/app/lib/serverFetch'
+import { getTranslations } from '@/app/lib/i18n/getTranslations'
+
 import styles from './childAuditLogsPage.module.css'
 
 const AUDIT_SLUG = 'audit_logs'
@@ -17,6 +20,9 @@ export default async function ChildAuditLogsPage({
 }: {
   params: Promise<{ id: string }>
 }) {
+  const t = await getTranslations()
+  const td = t.childAuditLogsPage
+
   const { id } = await params
 
   const [childRes, auditRes] = await Promise.all([
@@ -36,26 +42,20 @@ export default async function ChildAuditLogsPage({
 
   return (
     <div className={styles.page}>
-     <div className={styles.header}>
-  <Link href={`/child-info/${id}`} className={styles.backLink}>
-    ← Back to child profile
-  </Link>
+      <div className={styles.header}>
+        <Link href={`/child-info/${id}`} className={styles.backLink}>
+          ← {td.back}
+        </Link>
+      </div>
 
-  <h1 className={styles.title}>Historikk</h1>
-  <p className={styles.subtitle}>
-    Activity history for <strong>{child.fullName}</strong>.
-  </p>
-</div>
-
-<AuditLogList
-  audits={audits}
-  title={undefined}
-  compact={false}
-  allowFilter={true}
-  defaultImportantOnly={false}
-/>
-
-     
+      <AuditLogList
+        audits={audits}
+        title={td.title}
+        subtitle={`${td.subtitle} ${child.fullName}.`}
+        compact={false}
+        allowFilter={true}
+        defaultImportantOnly={true}
+      />
     </div>
   )
 }

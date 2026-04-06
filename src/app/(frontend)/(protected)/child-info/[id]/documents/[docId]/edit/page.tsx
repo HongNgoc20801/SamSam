@@ -2,8 +2,10 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import styles from './EditChildDoc.module.css'
 import { ArrowLeft, ShieldCheck } from 'lucide-react'
+
+import styles from './EditChildDoc.module.css'
+import { useTranslations } from '@/app/lib/i18n/useTranslations'
 
 const DOCS_SLUG = 'child_documents'
 
@@ -47,28 +49,11 @@ function extractErrorMessage(raw: string, parsed: any, fallback: string) {
   )
 }
 
-function getUploaderLabel(doc?: ChildDoc | null) {
-  if (!doc) return 'Family member'
-
-  if (doc.uploadedByName?.trim()) return doc.uploadedByName.trim()
-
-  const uploadedBy = doc.uploadedBy
-
-  if (!uploadedBy) return 'Family member'
-  if (typeof uploadedBy === 'string') return 'Family member'
-
-  return (
-    uploadedBy.fullName?.trim() ||
-    uploadedBy.name?.trim() ||
-    uploadedBy.displayName?.trim() ||
-    uploadedBy.email?.trim() ||
-    'Family member'
-  )
-}
-
 export default function EditChildDocPage() {
   const router = useRouter()
   const params = useParams<{ id: string; docId: string }>()
+  const t = useTranslations()
+  const td = t.editChildDoc
 
   const childId = params?.id
   const docId = params?.docId
@@ -83,8 +68,27 @@ export default function EditChildDocPage() {
   const [error, setError] = useState('')
 
   const canSubmit = useMemo(() => {
-    return !!childId && !!docId && !!title.trim() && !loading && !loadingInitial
+    return Boolean(childId && docId && title.trim() && !loading && !loadingInitial)
   }, [childId, docId, title, loading, loadingInitial])
+
+  function getUploaderLabel(value?: ChildDoc | null) {
+    if (!value) return td.familyMember
+
+    if (value.uploadedByName?.trim()) return value.uploadedByName.trim()
+
+    const uploadedBy = value.uploadedBy
+
+    if (!uploadedBy) return td.familyMember
+    if (typeof uploadedBy === 'string') return td.familyMember
+
+    return (
+      uploadedBy.fullName?.trim() ||
+      uploadedBy.name?.trim() ||
+      uploadedBy.displayName?.trim() ||
+      uploadedBy.email?.trim() ||
+      td.familyMember
+    )
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -106,7 +110,7 @@ export default function EditChildDocPage() {
 
         if (!res.ok) {
           throw new Error(
-            extractErrorMessage(raw, json, `Load document failed (${res.status})`)
+            extractErrorMessage(raw, json, td.failedToLoadDocument)
           )
         }
 
@@ -120,7 +124,7 @@ export default function EditChildDocPage() {
         }
       } catch (err: any) {
         if (!cancelled) {
-          setError(err?.message || 'Failed to load document.')
+          setError(err?.message || td.failedToLoadDocument)
         }
       } finally {
         if (!cancelled) {
@@ -134,7 +138,7 @@ export default function EditChildDocPage() {
     return () => {
       cancelled = true
     }
-  }, [docId])
+  }, [docId, td.failedToLoadDocument])
 
   async function updateChildDocument(input: {
     title: string
@@ -153,14 +157,14 @@ export default function EditChildDocPage() {
 
     if (!res.ok) {
       throw new Error(
-        extractErrorMessage(raw, json, `Update document failed (${res.status})`)
+        extractErrorMessage(raw, json, td.updateDocumentFailed)
       )
     }
 
     return json
   }
 
-  async function onSubmit(e: React.FormEvent) {
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (!canSubmit || !childId || !docId) return
 
@@ -179,7 +183,7 @@ export default function EditChildDocPage() {
       router.push(`/child-info/${childId}/documents/${docId}`)
       router.refresh()
     } catch (err: any) {
-      setError(err?.message || 'Something went wrong.')
+      setError(err?.message || td.unknownError)
     } finally {
       setLoading(false)
     }
@@ -196,15 +200,13 @@ export default function EditChildDocPage() {
             disabled={loading}
           >
             <ArrowLeft size={16} />
-            Back
+            {td.back}
           </button>
 
           <div className={styles.headerText}>
-            <div className={styles.kicker}>Child documents</div>
-            <h1 className={styles.title}>Edit document</h1>
-            <p className={styles.sub}>
-              You can update the title, category, and short note.
-            </p>
+            <div className={styles.kicker}>{td.kicker}</div>
+            <h1 className={styles.title}>{td.pageTitle}</h1>
+            <p className={styles.sub}>{td.pageHint}</p>
           </div>
         </div>
 
@@ -214,60 +216,60 @@ export default function EditChildDocPage() {
               <ShieldCheck size={18} />
             </div>
             <div>
-              <div className={styles.cardTitle}>Document details</div>
-              <div className={styles.cardSub}>
-                File replacement is not allowed here. To replace a file, create a new document.
-              </div>
+              <div className={styles.cardTitle}>{td.detailsTitle}</div>
+              <div className={styles.cardSub}>{td.detailsHint}</div>
             </div>
           </div>
 
           {loadingInitial ? (
-            <div className={styles.infoBox}>Loading document...</div>
+            <div className={styles.infoBox}>{td.loadingDocument}</div>
           ) : (
             <>
               <div className={styles.field}>
-                <label className={styles.label}>Uploaded by</label>
+                <label className={styles.label}>{td.uploadedBy}</label>
                 <div className={styles.infoBox}>{getUploaderLabel(doc)}</div>
               </div>
 
               <div className={styles.field}>
-                <label className={styles.label}>Title</label>
+                <label className={styles.label}>{td.title}</label>
                 <input
                   className={styles.input}
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   disabled={loading}
-                  placeholder="Eg: Birth certificate / Vaccine record"
+                  placeholder={td.titlePlaceholder}
                 />
               </div>
 
               <div className={styles.field}>
-                <label className={styles.label}>Category</label>
+                <label className={styles.label}>{td.category}</label>
                 <select
                   className={styles.input}
                   value={category}
                   onChange={(e) => setCategory(e.target.value as Category)}
                   disabled={loading}
                 >
-                  <option value="agreement">Agreements</option>
-                  <option value="school">School</option>
-                  <option value="health">Health</option>
-                  <option value="id">ID</option>
-                  <option value="other">Other</option>
+                  <option value="agreement">{td.categoryAgreement}</option>
+                  <option value="school">{td.categorySchool}</option>
+                  <option value="health">{td.categoryHealth}</option>
+                  <option value="id">{td.categoryId}</option>
+                  <option value="other">{td.categoryOther}</option>
                 </select>
               </div>
 
               <div className={styles.field}>
-                <label className={styles.label}>Note (short)</label>
+                <label className={styles.label}>{td.noteShort}</label>
                 <input
                   className={styles.input}
                   value={noteShort}
                   onChange={(e) => setNoteShort(e.target.value)}
                   disabled={loading}
                   maxLength={160}
-                  placeholder="Optional short context for the other parent"
+                  placeholder={td.notePlaceholder}
                 />
-                <div className={styles.hint}>{noteShort.length}/160 characters</div>
+                <div className={styles.hint}>
+                  {noteShort.length}/160 {td.characters}
+                </div>
               </div>
             </>
           )}
@@ -281,11 +283,15 @@ export default function EditChildDocPage() {
               onClick={() => router.back()}
               disabled={loading}
             >
-              Cancel
+              {td.cancel}
             </button>
 
-            <button type="submit" className={styles.primaryBtn} disabled={!canSubmit}>
-              {loading ? 'Saving…' : 'Save changes'}
+            <button
+              type="submit"
+              className={styles.primaryBtn}
+              disabled={!canSubmit}
+            >
+              {loading ? td.saving : td.saveChanges}
             </button>
           </div>
         </form>

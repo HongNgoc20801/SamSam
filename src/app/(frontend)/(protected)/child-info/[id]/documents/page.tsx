@@ -10,8 +10,10 @@ import {
   Shapes,
   Pencil,
 } from 'lucide-react'
+
 import styles from './documents.module.css'
 import { serverFetch } from '@/app/lib/serverFetch'
+import { getTranslations } from '@/app/lib/i18n/getTranslations'
 
 const DOCS_SLUG = 'child_documents'
 
@@ -52,51 +54,43 @@ type ChildDoc = {
   uploadedByName?: string
 }
 
-const CATEGORY_TABS = [
-  { label: 'All', value: 'all' },
-  { label: 'Academic', value: 'school' },
-  { label: 'Medical', value: 'health' },
-  { label: 'Consent', value: 'agreement' },
-  { label: 'ID', value: 'id' },
-  { label: 'Other', value: 'other' },
-] as const
+function fmtDate(value?: string | null, fallback = '—') {
+  if (!value) return fallback
 
-function fmtDate(v?: string | null) {
-  if (!v) return '—'
-  const d = new Date(v)
-  if (Number.isNaN(d.getTime())) return '—'
-  return d.toISOString().slice(0, 10)
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return fallback
+
+  return date.toISOString().slice(0, 10)
 }
 
-function categoryLabel(c?: ChildDoc['category'] | string) {
-  if (c === 'agreement') return 'Consent'
-  if (c === 'school') return 'Academic'
-  if (c === 'health') return 'Medical'
-  if (c === 'id') return 'ID'
-  return 'Other'
+function prettyFileSize(size?: number) {
+  if (typeof size !== 'number' || size <= 0) return ''
+  if (size < 1024) return `${size} B`
+  if (size < 1024 * 1024) return `${Math.max(1, Math.round(size / 1024))} KB`
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`
 }
 
-function fileMeta(file?: string | Media) {
+function fileMeta(file?: string | Media, fallbackFileName = 'file') {
   if (!file || typeof file === 'string') return ''
 
-  const name = file.filename || 'file'
-  const size =
-    typeof file.filesize === 'number'
-      ? `${Math.max(1, Math.round(file.filesize / 1024))} KB`
-      : ''
+  const name = file.filename || fallbackFileName
+  const size = prettyFileSize(file.filesize)
 
   return `${name}${size ? ` • ${size}` : ''}`
 }
 
-function uploaderLabel(doc: ChildDoc) {
-  if (doc.uploadedByName) return doc.uploadedByName
+function uploaderLabel(
+  doc: ChildDoc,
+  labels: { unknownUser: string; familyMember: string }
+) {
+  if (doc.uploadedByName?.trim()) return doc.uploadedByName.trim()
 
-  const v = doc.uploadedBy
-  if (!v) return 'Unknown user'
-  if (typeof v === 'string') return 'Family member'
+  const value = doc.uploadedBy
 
-  const anyV = v as any
-  return anyV.fullName || anyV.name || anyV.displayName || anyV.email || 'Unknown user'
+  if (!value) return labels.unknownUser
+  if (typeof value === 'string') return labels.familyMember
+
+  return value.fullName || value.name || value.displayName || value.email || labels.unknownUser
 }
 
 function categoryHref(childId: string, category: string) {
@@ -119,6 +113,26 @@ export default async function DocumentsPage({
   params: Promise<{ id: string }>
   searchParams: SearchParams
 }) {
+  const t = await getTranslations()
+  const td = t.documentsPage
+
+  const CATEGORY_TABS = [
+    { label: td.all, value: 'all' },
+    { label: td.academic, value: 'school' },
+    { label: td.medical, value: 'health' },
+    { label: td.consent, value: 'agreement' },
+    { label: td.id, value: 'id' },
+    { label: td.other, value: 'other' },
+  ] as const
+
+  function categoryLabel(category?: ChildDoc['category'] | string) {
+    if (category === 'agreement') return td.consent
+    if (category === 'school') return td.academic
+    if (category === 'health') return td.medical
+    if (category === 'id') return td.id
+    return td.other
+  }
+
   const { id } = await params
   const sp = await searchParams
 
@@ -143,7 +157,14 @@ export default async function DocumentsPage({
   const filteredDocs =
     activeCategory === 'all'
       ? docs
-      : docs.filter((d) => (d.category || 'other') === activeCategory)
+      : docs.filter((doc) => (doc.category || 'other') === activeCategory)
+
+  const sectionTitle =
+    activeCategory === 'all'
+      ? td.allDocuments
+      : `${categoryLabel(activeCategory)} ${td.documentsInCategory}`
+
+  const fileCountLabel = filteredDocs.length === 1 ? td.file : td.files
 
   return (
     <div className={styles.page}>
@@ -152,18 +173,18 @@ export default async function DocumentsPage({
           <div className={styles.breadcrumbRow}>
             <Link href={`/child-info/${id}`} className={styles.backBtn}>
               <ArrowLeft size={16} />
-              <span>Child info</span>
+              <span>{td.backToChildInfo}</span>
             </Link>
 
             <span className={styles.breadcrumbSep}>/</span>
-            <span className={styles.breadcrumbCurrent}>Documents</span>
+            <span className={styles.breadcrumbCurrent}>{td.documents}</span>
           </div>
 
           <div className={styles.titleRow}>
             <h1 className={styles.title}>{child.fullName}</h1>
 
             <Link className={styles.primaryBtn} href={`/child-info/${id}/documents/new`}>
-              Add New
+              {td.addNew}
             </Link>
           </div>
         </div>
@@ -197,70 +218,75 @@ export default async function DocumentsPage({
       >
         <div className={styles.sectionHeader}>
           <div>
-            <div className={styles.sectionTitle}>
-              {activeCategory === 'all'
-                ? 'All documents'
-                : `${categoryLabel(activeCategory)} documents`}
-            </div>
+            <div className={styles.sectionTitle}>{sectionTitle}</div>
             <div className={styles.sectionSub}>
-              {filteredDocs.length} file{filteredDocs.length === 1 ? '' : 's'}
+              {filteredDocs.length} {fileCountLabel}
             </div>
           </div>
         </div>
 
         {filteredDocs.length === 0 ? (
           <div className={styles.emptyBox}>
-            <div className={styles.emptyTitle}>No documents found</div>
-            <div className={styles.emptyText}>
-              There are no documents in this category yet.
-            </div>
+            <div className={styles.emptyTitle}>{td.noDocumentsFound}</div>
+            <div className={styles.emptyText}>{td.noDocumentsInCategory}</div>
           </div>
         ) : (
           <div className={styles.list}>
-            {filteredDocs.map((doc) => (
-              <div key={doc.id} className={styles.row}>
-                <Link
-                  href={`/child-info/${id}/documents/${doc.id}`}
-                  className={styles.rowMain}
-                >
-                  <div className={styles.rowIcon}>
-                    <FileText size={15} />
-                  </div>
+            {filteredDocs.map((doc) => {
+              const meta = fileMeta(doc.file, td.untitledFile)
 
-                  <div className={styles.rowBody}>
-                    <div className={styles.rowTop}>
-                      <div className={styles.rowTitle}>{doc.title}</div>
-                    </div>
-
-                    <div className={styles.rowMeta}>
-                      <span>{categoryLabel(doc.category)}</span>
-                      <span className={styles.dot}>•</span>
-                      <span>v{doc.version ?? 1}</span>
-                      <span className={styles.dot}>•</span>
-                      <span>{fmtDate(doc.createdAt)}</span>
-                      <span className={styles.dot}>•</span>
-                      <span>By {uploaderLabel(doc)}</span>
-                    </div>
-
-                    {doc.noteShort ? <div className={styles.rowNote}>{doc.noteShort}</div> : null}
-
-                    {fileMeta(doc.file) ? (
-                      <div className={styles.rowFile}>{fileMeta(doc.file)}</div>
-                    ) : null}
-                  </div>
-                </Link>
-
-                <div className={styles.rowActions}>
+              return (
+                <div key={doc.id} className={styles.row}>
                   <Link
-                    href={`/child-info/${id}/documents/${doc.id}/edit`}
-                    className={styles.iconBtn}
-                    aria-label="Edit document"
+                    href={`/child-info/${id}/documents/${doc.id}`}
+                    className={styles.rowMain}
                   >
-                    <Pencil size={15} />
+                    <div className={styles.rowIcon}>
+                      <FileText size={15} />
+                    </div>
+
+                    <div className={styles.rowBody}>
+                      <div className={styles.rowTop}>
+                        <div className={styles.rowTitle}>{doc.title}</div>
+                      </div>
+
+                      <div className={styles.rowMeta}>
+                        <span>{categoryLabel(doc.category)}</span>
+                        <span className={styles.dot}>•</span>
+                        <span>
+                          {td.version}
+                          {doc.version ?? 1}
+                        </span>
+                        <span className={styles.dot}>•</span>
+                        <span>{fmtDate(doc.createdAt)}</span>
+                        <span className={styles.dot}>•</span>
+                        <span>
+                          {td.by}{' '}
+                          {uploaderLabel(doc, {
+                            unknownUser: td.unknownUser,
+                            familyMember: td.familyMember,
+                          })}
+                        </span>
+                      </div>
+
+                      {doc.noteShort ? <div className={styles.rowNote}>{doc.noteShort}</div> : null}
+
+                      {meta ? <div className={styles.rowFile}>{meta}</div> : null}
+                    </div>
                   </Link>
+
+                  <div className={styles.rowActions}>
+                    <Link
+                      href={`/child-info/${id}/documents/${doc.id}/edit`}
+                      className={styles.iconBtn}
+                      aria-label={td.editDocument}
+                    >
+                      <Pencil size={15} />
+                    </Link>
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </section>

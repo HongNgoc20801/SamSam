@@ -351,6 +351,12 @@ export interface Customer {
   familyRole: 'father' | 'mother' | 'sibling' | 'other';
   avatar?: (number | null) | Media;
   family?: (number | null) | Family;
+  language?: ('no' | 'en') | null;
+  notifyCalendarChanges?: boolean | null;
+  notifyExpenseUpdates?: boolean | null;
+  notifyStatusUpdates?: boolean | null;
+  sharePhoneWithFamily?: boolean | null;
+  shareAddressWithFamily?: boolean | null;
   updatedAt: string;
   createdAt: string;
   email: string;
@@ -966,6 +972,12 @@ export interface CustomersSelect<T extends boolean = true> {
   familyRole?: T;
   avatar?: T;
   family?: T;
+  language?: T;
+  notifyCalendarChanges?: T;
+  notifyExpenseUpdates?: T;
+  notifyStatusUpdates?: T;
+  sharePhoneWithFamily?: T;
+  shareAddressWithFamily?: T;
   updatedAt?: T;
   createdAt?: T;
   email?: T;

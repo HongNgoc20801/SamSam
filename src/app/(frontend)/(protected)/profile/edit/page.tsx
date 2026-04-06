@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import styles from './editProfile.module.css'
+import { useTranslations } from '@/app/lib/i18n/useTranslations'
 
 type MediaValue =
   | string
@@ -23,6 +24,7 @@ type CustomerUser = {
   gender?: 'male' | 'female' | 'other'
   familyRole?: 'father' | 'mother' | 'sibling' | 'other'
   avatar?: MediaValue
+  language?: 'no' | 'en'
 }
 
 type CustomerMeResponse = {
@@ -31,34 +33,6 @@ type CustomerMeResponse = {
 
 function isValidPhone(phone: string) {
   return /^[+\d\s]{6,}$/.test(phone.trim())
-}
-
-function labelGender(value?: string) {
-  switch (value) {
-    case 'male':
-      return 'Male'
-    case 'female':
-      return 'Female'
-    case 'other':
-      return 'Other'
-    default:
-      return '-'
-  }
-}
-
-function labelFamilyRole(value?: string) {
-  switch (value) {
-    case 'father':
-      return 'Father'
-    case 'mother':
-      return 'Mother'
-    case 'sibling':
-      return 'Child'
-    case 'other':
-      return 'Other'
-    default:
-      return '-'
-  }
 }
 
 function getMediaUrl(media?: MediaValue) {
@@ -116,6 +90,8 @@ function SectionCard({
 
 export default function EditProfilePage() {
   const router = useRouter()
+  const t = useTranslations()
+  const td = t.editProfilePage
 
   const API_BASE = useMemo(() => {
     const base = process.env.NEXT_PUBLIC_PAYLOAD_URL
@@ -141,6 +117,34 @@ export default function EditProfilePage() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
 
+  function labelGender(value?: string) {
+    switch (value) {
+      case 'male':
+        return td.genderMale
+      case 'female':
+        return td.genderFemale
+      case 'other':
+        return td.genderOther
+      default:
+        return td.noValue
+    }
+  }
+
+  function labelFamilyRole(value?: string) {
+    switch (value) {
+      case 'father':
+        return td.roleFather
+      case 'mother':
+        return td.roleMother
+      case 'sibling':
+        return td.roleChild
+      case 'other':
+        return td.roleOther
+      default:
+        return td.noValue
+    }
+  }
+
   useEffect(() => {
     ;(async () => {
       try {
@@ -150,7 +154,7 @@ export default function EditProfilePage() {
         })
 
         if (!res.ok) {
-          throw new Error('Could not load profile.')
+          throw new Error(td.loadProfileError)
         }
 
         const data: CustomerMeResponse = await res.json()
@@ -172,12 +176,12 @@ export default function EditProfilePage() {
         setGender(user.gender || '')
         setAvatar(getMediaUrl(user.avatar))
       } catch (err: any) {
-        setError(err?.message || 'Something went wrong.')
+        setError(err?.message || td.unknownError)
       } finally {
         setLoading(false)
       }
     })()
-  }, [API_BASE, router])
+  }, [API_BASE, router, td.loadProfileError, td.unknownError])
 
   async function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -190,7 +194,7 @@ export default function EditProfilePage() {
     try {
       const formData = new FormData()
       formData.append('file', file)
-      formData.append('alt', 'Profile photo')
+      formData.append('alt', td.profilePhotoAlt)
 
       const uploadRes = await fetch(`${API_BASE}/media`, {
         method: 'POST',
@@ -201,14 +205,14 @@ export default function EditProfilePage() {
       const uploadData = await uploadRes.json().catch(() => null)
 
       if (!uploadRes.ok) {
-        throw new Error(uploadData?.message || 'Could not upload profile photo.')
+        throw new Error(uploadData?.message || td.uploadPhotoError)
       }
 
       const mediaId = uploadData?.doc?.id || uploadData?.id
       const mediaUrl = uploadData?.doc?.url || uploadData?.url || ''
 
       if (!mediaId) {
-        throw new Error('Missing uploaded media id.')
+        throw new Error(td.missingUploadedMediaId)
       }
 
       const patchRes = await fetch(`${API_BASE}/customers/${userId}`, {
@@ -223,13 +227,13 @@ export default function EditProfilePage() {
       const patchData = await patchRes.json().catch(() => null)
 
       if (!patchRes.ok) {
-        throw new Error(patchData?.message || 'Could not update profile photo.')
+        throw new Error(patchData?.message || td.updatePhotoError)
       }
 
       setAvatar(mediaUrl)
-      setSuccess('Profile photo updated successfully.')
+      setSuccess(td.photoUpdatedSuccess)
     } catch (err: any) {
-      setError(err?.message || 'Something went wrong while uploading the image.')
+      setError(err?.message || td.uploadPhotoUnknownError)
     } finally {
       setUploading(false)
       e.target.value = ''
@@ -256,13 +260,13 @@ export default function EditProfilePage() {
       const data = await res.json().catch(() => null)
 
       if (!res.ok) {
-        throw new Error(data?.message || 'Could not remove profile photo.')
+        throw new Error(data?.message || td.removePhotoError)
       }
 
       setAvatar('')
-      setSuccess('Profile photo removed.')
+      setSuccess(td.photoRemovedSuccess)
     } catch (err: any) {
-      setError(err?.message || 'Something went wrong.')
+      setError(err?.message || td.unknownError)
     } finally {
       setUploading(false)
     }
@@ -276,12 +280,12 @@ export default function EditProfilePage() {
     setSuccess('')
 
     if (!firstName.trim() || !lastName.trim() || !phone.trim() || !address.trim() || !gender) {
-      setError('Please fill in all required fields.')
+      setError(td.fillRequiredFields)
       return
     }
 
     if (!isValidPhone(phone)) {
-      setError('Invalid phone number.')
+      setError(td.invalidPhone)
       return
     }
 
@@ -304,16 +308,18 @@ export default function EditProfilePage() {
       const data = await res.json().catch(() => null)
 
       if (!res.ok) {
-        throw new Error(data?.message || data?.errors?.[0]?.message || 'Could not update profile.')
+        throw new Error(
+          data?.message || data?.errors?.[0]?.message || td.updateProfileError,
+        )
       }
 
-      setSuccess('Profile updated successfully.')
+      setSuccess(td.profileUpdatedSuccess)
 
       setTimeout(() => {
         router.push('/profile')
       }, 700)
     } catch (err: any) {
-      setError(err?.message || 'Something went wrong.')
+      setError(err?.message || td.unknownError)
     } finally {
       setSaving(false)
     }
@@ -324,7 +330,7 @@ export default function EditProfilePage() {
       <main className={styles.page}>
         <div className={styles.container}>
           <section className={styles.sectionCard}>
-            <p className={styles.loading}>Loading…</p>
+            <p className={styles.loading}>{td.loading}</p>
           </section>
         </div>
       </main>
@@ -338,8 +344,8 @@ export default function EditProfilePage() {
       <div className={styles.container}>
         <div className={styles.topBar}>
           <div>
-            <p className={styles.breadcrumb}>Settings &nbsp;›&nbsp; Profile</p>
-            <h1 className={styles.pageTitle}>Edit Profile</h1>
+            <p className={styles.breadcrumb}>{td.breadcrumb}</p>
+            <h1 className={styles.pageTitle}>{td.pageTitle}</h1>
           </div>
 
           <div className={styles.topActions}>
@@ -348,7 +354,7 @@ export default function EditProfilePage() {
               type="button"
               onClick={() => router.push('/profile')}
             >
-              Cancel
+              {td.cancel}
             </button>
 
             <button
@@ -357,31 +363,29 @@ export default function EditProfilePage() {
               form="edit-profile-form"
               disabled={saving}
             >
-              {saving ? 'Saving…' : 'Save Changes'}
+              {saving ? td.saving : td.saveChanges}
             </button>
           </div>
         </div>
 
         <form id="edit-profile-form" className={styles.formLayout} onSubmit={handleSubmit}>
-          <SectionCard title="Profile Photo">
+          <SectionCard title={td.profilePhotoSection}>
             <div className={styles.avatarSection}>
               <div className={styles.avatarWrap}>
                 {avatar ? (
-                  <img className={styles.avatarImage} src={avatar} alt="Profile photo" />
+                  <img className={styles.avatarImage} src={avatar} alt={td.profilePhotoAlt} />
                 ) : (
                   <div className={styles.avatarPlaceholder}>{initials}</div>
                 )}
               </div>
 
               <div className={styles.avatarContent}>
-                <h3 className={styles.avatarTitle}>Profile photo</h3>
-                <p className={styles.avatarText}>
-                  Updating your profile photo helps family members recognize you more easily.
-                </p>
+                <h3 className={styles.avatarTitle}>{td.profilePhotoTitle}</h3>
+                <p className={styles.avatarText}>{td.profilePhotoText}</p>
 
                 <div className={styles.avatarActions}>
                   <label className={styles.linkUploadBtn}>
-                    {uploading ? 'Uploading…' : 'Upload new photo'}
+                    {uploading ? td.uploading : td.uploadNewPhoto}
                     <input
                       className={styles.hiddenInput}
                       type="file"
@@ -397,38 +401,38 @@ export default function EditProfilePage() {
                     onClick={handleRemoveAvatar}
                     disabled={uploading || !avatar}
                   >
-                    Remove
+                    {td.remove}
                   </button>
                 </div>
               </div>
             </div>
           </SectionCard>
 
-          <SectionCard title="Basic Information" icon="👤">
+          <SectionCard title={td.basicInformation} icon="👤">
             <div className={styles.grid}>
-              <Field label="Last Name">
+              <Field label={td.lastName}>
                 <input
                   className={styles.input}
                   type="text"
                   value={lastName}
                   onChange={(e) => setLastName(e.target.value)}
-                  placeholder="Enter last name"
+                  placeholder={td.enterLastName}
                 />
               </Field>
 
-              <Field label="First Name">
+              <Field label={td.firstName}>
                 <input
                   className={styles.input}
                   type="text"
                   value={firstName}
                   onChange={(e) => setFirstName(e.target.value)}
-                  placeholder="Enter first name"
+                  placeholder={td.enterFirstName}
                 />
               </Field>
             </div>
 
             <div className={styles.grid}>
-              <Field label="Date of Birth">
+              <Field label={td.dateOfBirth}>
                 <input
                   className={styles.inputDisabled}
                   type="text"
@@ -437,13 +441,13 @@ export default function EditProfilePage() {
                 />
               </Field>
 
-              <Field label="Gender">
+              <Field label={td.gender}>
                 <select
                   className={styles.input}
                   value={gender}
                   onChange={(e) => setGender(e.target.value)}
                 >
-                  <option value="">Select</option>
+                  <option value="">{td.select}</option>
                   <option value="male">{labelGender('male')}</option>
                   <option value="female">{labelGender('female')}</option>
                   <option value="other">{labelGender('other')}</option>
@@ -452,37 +456,37 @@ export default function EditProfilePage() {
             </div>
           </SectionCard>
 
-          <SectionCard title="Contact & Address" icon="📩">
-            <Field label="Email">
+          <SectionCard title={td.contactAndAddress} icon="📩">
+            <Field label={td.email}>
               <div className={styles.verifiedField}>
                 <input className={styles.inputDisabled} type="text" value={email} disabled />
-                <span className={styles.verifiedBadge}>Verified</span>
+                <span className={styles.verifiedBadge}>{td.verified}</span>
               </div>
             </Field>
 
-            <Field label="Phone Number">
+            <Field label={td.phoneNumber}>
               <input
                 className={styles.input}
                 type="text"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                placeholder="Enter phone number"
+                placeholder={td.enterPhoneNumber}
               />
             </Field>
 
-            <Field label="Residential Address">
+            <Field label={td.residentialAddress}>
               <textarea
                 className={styles.textarea}
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
-                placeholder="Enter address"
+                placeholder={td.enterAddress}
                 rows={4}
               />
             </Field>
           </SectionCard>
 
-          <SectionCard title="Family Role" icon="👨‍👩‍👧">
-            <Field label="Role in Family">
+          <SectionCard title={td.familyRoleSection} icon="👨‍👩‍👧">
+            <Field label={td.roleInFamily}>
               <input
                 className={styles.inputDisabled}
                 type="text"
@@ -494,10 +498,7 @@ export default function EditProfilePage() {
 
           <section className={styles.infoNote}>
             <div className={styles.infoNoteIcon}>i</div>
-            <p className={styles.infoNoteText}>
-              Your data is protected with secure handling standards. Changes to email or phone
-              number may require additional verification for account safety.
-            </p>
+            <p className={styles.infoNoteText}>{td.infoNote}</p>
           </section>
 
           {success ? <p className={styles.success}>{success}</p> : null}
@@ -509,11 +510,11 @@ export default function EditProfilePage() {
               type="button"
               onClick={() => router.push('/profile')}
             >
-              Cancel
+              {td.cancel}
             </button>
 
             <button className={styles.primaryBtn} type="submit" disabled={saving}>
-              {saving ? 'Saving…' : 'Save Changes'}
+              {saving ? td.saving : td.saveChanges}
             </button>
           </div>
         </form>

@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import styles from './editChild.module.css'
 import { ArrowLeft, Plus, AlertTriangle } from 'lucide-react'
+import { useTranslations } from '@/app/lib/i18n/useTranslations'
 
 const BLOOD_MAIN = ['A', 'B', 'AB', 'O'] as const
 const BLOOD_ALL = [
@@ -77,6 +78,7 @@ function getAvatarUrl(avatar: any): string {
 }
 
 export default function EditChildPage() {
+  const t = useTranslations()
   const router = useRouter()
   const params = useParams()
   const id = String(params?.id || '')
@@ -88,6 +90,7 @@ export default function EditChildPage() {
 
   const [avatarFile, setAvatarFile] = useState<File | null>(null)
   const [existingAvatarUrl, setExistingAvatarUrl] = useState('')
+  const [filePreview, setFilePreview] = useState('')
 
   const [fullName, setFullName] = useState('')
   const [birthDate, setBirthDate] = useState('')
@@ -127,8 +130,9 @@ export default function EditChildPage() {
         })
 
         const j = await res.json().catch(() => ({}))
+
         if (!res.ok) {
-          throw new Error(j?.message || `Could not load child profile (${res.status})`)
+          throw new Error(j?.message || t.editChild.loadError)
         }
 
         if (ignore) return
@@ -172,7 +176,7 @@ export default function EditChildPage() {
 
         setExistingAvatarUrl(getAvatarUrl(j?.avatar))
       } catch (e: any) {
-        if (!ignore) setError(e?.message || 'Failed to load profile.')
+        if (!ignore) setError(e?.message || t.editChild.loadError)
       } finally {
         if (!ignore) setInitialLoading(false)
       }
@@ -181,19 +185,20 @@ export default function EditChildPage() {
     return () => {
       ignore = true
     }
-  }, [id])
+  }, [id, t.editChild.loadError])
 
   useEffect(() => {
-    return () => {
-      if (avatarFile) {
-        URL.revokeObjectURL(URL.createObjectURL(avatarFile))
-      }
+    if (!avatarFile) {
+      setFilePreview('')
+      return
     }
-  }, [avatarFile])
 
-  const filePreview = useMemo(() => {
-    if (!avatarFile) return ''
-    return URL.createObjectURL(avatarFile)
+    const objectUrl = URL.createObjectURL(avatarFile)
+    setFilePreview(objectUrl)
+
+    return () => {
+      URL.revokeObjectURL(objectUrl)
+    }
   }, [avatarFile])
 
   const avatarLetter = (fullName.trim()?.[0] ?? 'C').toUpperCase()
@@ -214,7 +219,7 @@ export default function EditChildPage() {
     })
 
     const j = await res.json().catch(() => ({}))
-    if (!res.ok) throw new Error(j?.message || 'Could not upload image.')
+    if (!res.ok) throw new Error(j?.message || t.editChild.uploadImageError)
     return j
   }
 
@@ -232,7 +237,9 @@ export default function EditChildPage() {
   function removeContact(index: number) {
     setEmergencyContacts((prev) => {
       const next = prev.filter((_, i) => i !== index)
-      if (next.length && !next.some((c) => c.isPrimary)) next[0].isPrimary = true
+      if (next.length && !next.some((c) => c.isPrimary)) {
+        next[0].isPrimary = true
+      }
       return next.length
         ? next
         : [{ name: '', relation: '', phones: [{ value: '' }], isPrimary: true }]
@@ -268,7 +275,7 @@ export default function EditChildPage() {
   function validateBeforeSubmit(): string | null {
     const cleanNationalId = normalize11Digits(nationalId.trim())
     if (cleanNationalId && !/^\d{11}$/.test(cleanNationalId)) {
-      return 'National ID must be exactly 11 digits.'
+      return t.editChild.validationNationalId
     }
 
     const normalized = emergencyContacts.map((c) => {
@@ -278,17 +285,15 @@ export default function EditChildPage() {
     })
 
     const hasAnyInput = normalized.filter((c) => c.name || c.phones.length)
-    if (!hasAnyInput.length) return 'Please add at least one emergency contact.'
+    if (!hasAnyInput.length) return t.editChild.validationEmergencyRequired
 
     const allValid = hasAnyInput.every(
       (c) => c.name && c.phones.length && c.phones.every((p) => isValidPhone(p)),
     )
-    if (!allValid) {
-      return 'Each emergency contact must have a name and at least one valid phone number.'
-    }
+    if (!allValid) return t.editChild.validationEmergencyInvalid
 
     if (!hasAnyInput.some((c) => c.isPrimary)) {
-      return 'Please select one primary emergency contact.'
+      return t.editChild.validationPrimaryRequired
     }
 
     const gpHasAny = gpName.trim() || gpClinic.trim() || gpPhones.some((p) => p.value.trim())
@@ -297,7 +302,7 @@ export default function EditChildPage() {
         .map((p) => p.value.trim())
         .filter(Boolean)
         .every((p) => isValidPhone(p))
-      if (!ok) return 'Primary doctor phone number is invalid.'
+      if (!ok) return t.editChild.validationGpInvalid
     }
 
     return null
@@ -380,26 +385,27 @@ export default function EditChildPage() {
       })
 
       const j = await res.json().catch(() => ({}))
+
       if (!res.ok) {
         const msg =
           j?.message ||
           (Array.isArray(j?.errors)
             ? j.errors.map((x: any) => x?.message).filter(Boolean).join(', ')
             : '') ||
-          'Could not update child profile.'
+          t.editChild.updateError
         throw new Error(msg)
       }
 
       router.push(`/child-info/${id}`)
     } catch (err: any) {
-      setError(err?.message || 'Something went wrong.')
+      setError(err?.message || t.editChild.unknownError)
     } finally {
       setLoading(false)
     }
   }
 
   if (initialLoading) {
-    return <div className={styles.loadingScreen}>Loading child profile…</div>
+    return <div className={styles.loadingScreen}>{t.editChild.loadingProfile}</div>
   }
 
   return (
@@ -409,16 +415,14 @@ export default function EditChildPage() {
           type="button"
           onClick={() => router.push(`/child-info/${id}`)}
           className={styles.backBtn}
-          aria-label="Back"
+          aria-label={t.editChild.backAriaLabel}
         >
           <ArrowLeft size={30} strokeWidth={2.5} />
         </button>
 
         <div className={styles.topbarCenter}>
-          <h1 className={styles.topbarTitle}>Edit Child Profile</h1>
-          <p className={styles.topbarHint}>
-            Update profile information for this child.
-          </p>
+          <h1 className={styles.topbarTitle}>{t.editChild.pageTitle}</h1>
+          <p className={styles.topbarHint}>{t.editChild.pageHint}</p>
         </div>
 
         <div className={styles.topbarRight} />
@@ -429,39 +433,33 @@ export default function EditChildPage() {
           <section className={styles.warningBox}>
             <div className={styles.warningTop}>
               <AlertTriangle size={18} />
-              <strong>Important notice</strong>
+              <strong>{t.editChild.warningTitle}</strong>
             </div>
-            <div className={styles.warningText}>
-              This profile is currently <strong>confirmed</strong>. Editing important
-              information will reset the status to <strong>pending</strong> and require
-              confirmation again.
-            </div>
+            <div className={styles.warningText}>{t.editChild.warningText}</div>
           </section>
         ) : null}
 
         <section className={styles.section}>
           <div className={styles.sectionTop}>
             <div>
-              <div className={styles.sectionTitle}>Basic information</div>
-              <div className={styles.sectionHint}>
-                Used for calendars, notifications, and structure.
-              </div>
+              <div className={styles.sectionTitle}>{t.editChild.basicTitle}</div>
+              <div className={styles.sectionHint}>{t.editChild.basicHint}</div>
             </div>
           </div>
 
           <div className={styles.identityGrid}>
             <div className={styles.avatarBlock}>
               <label className={styles.avatarPicker}>
-                <div className={styles.avatarCircle} aria-label="Avatar">
+                <div className={styles.avatarCircle} aria-label={t.editChild.avatarAriaLabel}>
                   {avatarSrc ? (
-                    <img className={styles.avatarImg} src={avatarSrc} alt="Child avatar" />
+                    <img className={styles.avatarImg} src={avatarSrc} alt={t.editChild.avatarAlt} />
                   ) : (
                     <div className={styles.avatarPlaceholder}>{avatarLetter}</div>
                   )}
 
                   <div className={styles.avatarOverlay}>
                     <div className={styles.avatarOverlayIcon}>📷</div>
-                    <div className={styles.avatarOverlayText}>Change photo</div>
+                    <div className={styles.avatarOverlayText}>{t.editChild.changePhoto}</div>
                   </div>
                 </div>
 
@@ -474,9 +472,7 @@ export default function EditChildPage() {
                 />
               </label>
 
-              <div className={styles.avatarText}>
-                Avatar (optional) • PNG/JPG recommended.
-              </div>
+              <div className={styles.avatarText}>{t.editChild.avatarHelp}</div>
 
               {avatarFile ? (
                 <button
@@ -485,16 +481,16 @@ export default function EditChildPage() {
                   onClick={() => setAvatarFile(null)}
                   disabled={loading}
                 >
-                  Remove new photo
+                  {t.editChild.removeNewPhoto}
                 </button>
               ) : null}
             </div>
 
             <div className={styles.fieldsCol}>
               <div className={styles.field}>
-                <label>Full name</label>
+                <label>{t.editChild.fullName}</label>
                 <input
-                  placeholder="Enter full name"
+                  placeholder={t.editChild.fullNamePlaceholder}
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   disabled={loading}
@@ -503,7 +499,7 @@ export default function EditChildPage() {
 
               <div className={styles.row2}>
                 <div className={styles.field}>
-                  <label>Date of birth</label>
+                  <label>{t.editChild.birthDate}</label>
                   <input
                     type="date"
                     value={birthDate}
@@ -513,32 +509,30 @@ export default function EditChildPage() {
                 </div>
 
                 <div className={styles.field}>
-                  <label>Gender</label>
+                  <label>{t.editChild.gender}</label>
                   <select
                     value={gender}
                     onChange={(e) => setGender(e.target.value as Gender)}
                     disabled={loading}
                   >
-                    <option value="na">Prefer not to say</option>
-                    <option value="male">Male</option>
-                    <option value="female">Female</option>
-                    <option value="other">Other</option>
+                    <option value="na">{t.editChild.genderNa}</option>
+                    <option value="male">{t.editChild.genderMale}</option>
+                    <option value="female">{t.editChild.genderFemale}</option>
+                    <option value="other">{t.editChild.genderOther}</option>
                   </select>
                 </div>
               </div>
 
               <div className={styles.field}>
-                <label>National ID (11 digits) (optional)</label>
+                <label>{t.editChild.nationalId}</label>
                 <input
                   inputMode="numeric"
-                  placeholder="Example: 12345678901"
+                  placeholder={t.editChild.nationalIdPlaceholder}
                   value={nationalId}
                   onChange={(e) => setNationalId(e.target.value)}
                   disabled={loading}
                 />
-                <div className={styles.helpText}>
-                  Optional. Spaces are removed automatically.
-                </div>
+                <div className={styles.helpText}>{t.editChild.nationalIdHelp}</div>
               </div>
             </div>
           </div>
@@ -547,16 +541,14 @@ export default function EditChildPage() {
         <section className={styles.section}>
           <div className={styles.sectionTop}>
             <div>
-              <div className={styles.sectionTitle}>School / Kindergarten</div>
-              <div className={styles.sectionHint}>
-                Helps keep schedules and contact info consistent.
-              </div>
+              <div className={styles.sectionTitle}>{t.editChild.schoolTitle}</div>
+              <div className={styles.sectionHint}>{t.editChild.schoolHint}</div>
             </div>
           </div>
 
           <div className={styles.row2}>
             <div className={styles.field}>
-              <label>School name</label>
+              <label>{t.editChild.schoolName}</label>
               <input
                 value={schoolName}
                 onChange={(e) => setSchoolName(e.target.value)}
@@ -565,7 +557,7 @@ export default function EditChildPage() {
             </div>
 
             <div className={styles.field}>
-              <label>Class</label>
+              <label>{t.editChild.className}</label>
               <input
                 value={className}
                 onChange={(e) => setClassName(e.target.value)}
@@ -575,7 +567,7 @@ export default function EditChildPage() {
           </div>
 
           <div className={styles.field}>
-            <label>Main teacher (optional)</label>
+            <label>{t.editChild.mainTeacher}</label>
             <input
               value={mainTeacher}
               onChange={(e) => setMainTeacher(e.target.value)}
@@ -587,13 +579,13 @@ export default function EditChildPage() {
         <section className={styles.section}>
           <div className={styles.sectionTop}>
             <div>
-              <div className={styles.sectionTitle}>Medical (emergency)</div>
-              <div className={styles.sectionHint}>Keep it short and specific.</div>
+              <div className={styles.sectionTitle}>{t.editChild.medicalTitle}</div>
+              <div className={styles.sectionHint}>{t.editChild.medicalHint}</div>
             </div>
           </div>
 
           <div className={styles.field}>
-            <label>Blood type</label>
+            <label>{t.editChild.bloodType}</label>
             <div className={styles.bloodRow}>
               {BLOOD_MAIN.map((b) => (
                 <button
@@ -615,7 +607,7 @@ export default function EditChildPage() {
               >
                 {BLOOD_ALL.map((b) => (
                   <option key={b} value={b}>
-                    {b === 'unknown' ? 'Unknown / Other' : b}
+                    {b === 'unknown' ? t.editChild.bloodUnknown : b}
                   </option>
                 ))}
               </select>
@@ -624,52 +616,52 @@ export default function EditChildPage() {
 
           <div className={styles.row2}>
             <div className={styles.field}>
-              <label>Allergies (tags)</label>
+              <label>{t.editChild.allergies}</label>
               <input
                 value={allergyText}
                 onChange={(e) => setAllergyText(e.target.value)}
                 disabled={loading}
               />
-              <div className={styles.helpText}>Separate with commas or semicolons.</div>
+              <div className={styles.helpText}>{t.editChild.tagsHelpComma}</div>
             </div>
 
             <div className={styles.field}>
-              <label>Conditions (tags)</label>
+              <label>{t.editChild.conditions}</label>
               <input
                 value={conditionsText}
                 onChange={(e) => setConditionsText(e.target.value)}
                 disabled={loading}
               />
-              <div className={styles.helpText}>Use short keywords only.</div>
+              <div className={styles.helpText}>{t.editChild.tagsHelpShort}</div>
             </div>
           </div>
 
           <div className={styles.field}>
-            <label>Medical note (short) (optional)</label>
+            <label>{t.editChild.medicalShort}</label>
             <textarea
               className={styles.textarea}
               value={medicalShort}
               onChange={(e) => setMedicalShort(e.target.value)}
               disabled={loading}
               maxLength={160}
-              placeholder="Example: Carries an EpiPen. Avoid medication X."
+              placeholder={t.editChild.medicalShortPlaceholder}
             />
             <div className={styles.helpText}>
-              Max 160 characters ({medicalShort.length}/160).
+              {t.editChild.medicalShortHelp} ({medicalShort.length}/160)
             </div>
           </div>
 
           <div className={styles.divider} />
-          <div className={styles.sectionSubTitle}>Primary doctor (GP)</div>
+          <div className={styles.sectionSubTitle}>{t.editChild.gpTitle}</div>
 
           <div className={styles.row2}>
             <div className={styles.field}>
-              <label>Doctor name</label>
+              <label>{t.editChild.doctorName}</label>
               <input value={gpName} onChange={(e) => setGpName(e.target.value)} disabled={loading} />
             </div>
 
             <div className={styles.field}>
-              <label>Clinic (optional)</label>
+              <label>{t.editChild.clinic}</label>
               <input
                 value={gpClinic}
                 onChange={(e) => setGpClinic(e.target.value)}
@@ -685,19 +677,19 @@ export default function EditChildPage() {
                 className={styles.iconCircleBtn}
                 onClick={addGpPhone}
                 disabled={loading}
-                aria-label="Add phone"
-                title="Add phone"
+                aria-label={t.editChild.addPhone}
+                title={t.editChild.addPhone}
               >
                 <Plus size={18} strokeWidth={2.5} />
               </button>
-              <label>Add phone numbers</label>
+              <label>{t.editChild.phoneNumbers}</label>
             </div>
 
             <div className={styles.phoneList}>
               {gpPhones.map((p, i) => (
                 <div key={i} className={styles.phoneRow}>
                   <input
-                    placeholder="phone numbers"
+                    placeholder={t.editChild.phoneNumbersPlaceholder}
                     value={p.value}
                     onChange={(e) =>
                       setGpPhones((prev) =>
@@ -723,10 +715,8 @@ export default function EditChildPage() {
         <section className={styles.section}>
           <div className={styles.sectionTop}>
             <div>
-              <div className={styles.sectionTitle}>Emergency contacts</div>
-              <div className={styles.sectionHint}>
-                Add at least one contact and select one primary.
-              </div>
+              <div className={styles.sectionTitle}>{t.editChild.emergencyTitle}</div>
+              <div className={styles.sectionHint}>{t.editChild.emergencyHint}</div>
             </div>
             <span className={styles.iconPill}>!</span>
           </div>
@@ -743,7 +733,7 @@ export default function EditChildPage() {
                       onChange={() => setPrimaryContact(idx)}
                       disabled={loading}
                     />
-                    <span>Primary</span>
+                    <span>{t.editChild.primary}</span>
                   </label>
 
                   {emergencyContacts.length > 1 ? (
@@ -753,14 +743,14 @@ export default function EditChildPage() {
                       onClick={() => removeContact(idx)}
                       disabled={loading}
                     >
-                      Remove
+                      {t.editChild.remove}
                     </button>
                   ) : null}
                 </div>
 
                 <div className={styles.row2}>
                   <div className={styles.field}>
-                    <label>Contact name</label>
+                    <label>{t.editChild.contactName}</label>
                     <input
                       value={c.name}
                       onChange={(e) =>
@@ -775,28 +765,26 @@ export default function EditChildPage() {
                   </div>
 
                   <div className={styles.field}>
-                    <label>Relation</label>
+                    <label>{t.editChild.relation}</label>
                     <select
                       value={c.relation}
                       onChange={(e) =>
                         setEmergencyContacts((prev) =>
                           prev.map((x, i) =>
-                            i === idx
-                              ? { ...x, relation: e.target.value as Relation }
-                              : x,
+                            i === idx ? { ...x, relation: e.target.value as Relation } : x,
                           ),
                         )
                       }
                       disabled={loading}
                     >
-                      <option value="">Select</option>
-                      <option value="guardian">Guardian</option>
-                      <option value="grandparent">Grandparent</option>
-                      <option value="mother">Mother</option>
-                      <option value="father">Father</option>
-                      <option value="relative">Relative</option>
-                      <option value="babysitter">Babysitter</option>
-                      <option value="other">Other</option>
+                      <option value="">{t.editChild.relationSelect}</option>
+                      <option value="guardian">{t.editChild.relationGuardian}</option>
+                      <option value="grandparent">{t.editChild.relationGrandparent}</option>
+                      <option value="mother">{t.editChild.relationMother}</option>
+                      <option value="father">{t.editChild.relationFather}</option>
+                      <option value="relative">{t.editChild.relationRelative}</option>
+                      <option value="babysitter">{t.editChild.relationBabysitter}</option>
+                      <option value="other">{t.editChild.relationOther}</option>
                     </select>
                   </div>
                 </div>
@@ -808,19 +796,19 @@ export default function EditChildPage() {
                       className={styles.iconCircleBtn}
                       onClick={() => addPhoneToContact(idx)}
                       disabled={loading}
-                      aria-label="Add phone"
-                      title="Add phone"
+                      aria-label={t.editChild.addPhone}
+                      title={t.editChild.addPhone}
                     >
                       <Plus size={18} strokeWidth={2.6} />
                     </button>
-                    <label>Add phone numbers</label>
+                    <label>{t.editChild.phoneNumbers}</label>
                   </div>
 
                   <div className={styles.phoneList}>
                     {c.phones.map((p, pi) => (
                       <div key={pi} className={styles.phoneRow}>
                         <input
-                          placeholder="+47 123 45 678"
+                          placeholder={t.editChild.emergencyPhonePlaceholder}
                           value={p.value}
                           onChange={(e) =>
                             setEmergencyContacts((prev) =>
@@ -856,7 +844,7 @@ export default function EditChildPage() {
               onClick={addContact}
               disabled={loading}
             >
-              + Add emergency contact
+              {t.editChild.addEmergencyContact}
             </button>
           </div>
         </section>
@@ -875,11 +863,11 @@ export default function EditChildPage() {
               onClick={() => router.push(`/child-info/${id}`)}
               disabled={loading}
             >
-              Cancel
-            </button>  
+              {t.editChild.cancel}
+            </button>
 
             <button className={styles.primary} type="submit" disabled={!canSubmit}>
-              {loading ? 'Saving…' : 'Save changes'}
+              {loading ? t.editChild.saving : t.editChild.saveChanges}
             </button>
           </div>
         </section>

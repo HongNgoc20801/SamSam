@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import styles from './oppdateringer.module.css'
+import { useTranslations } from '@/app/lib/i18n/useTranslations'
 
 type Child = {
   id: string | number
@@ -69,22 +70,6 @@ function getChildName(v: any) {
   return ''
 }
 
-function fmtDateTime(v?: string) {
-  if (!v) return '—'
-
-  const d = new Date(v)
-  if (Number.isNaN(d.getTime())) return '—'
-
-  return d.toLocaleString('nb-NO', {
-    timeZone: 'Europe/Oslo',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  })
-}
 function normalizeMediaList(v: any): MediaDoc[] {
   if (!Array.isArray(v)) return []
   return v
@@ -115,16 +100,16 @@ function normalizeComments(v: any): CommentDoc[] {
     .filter(Boolean) as CommentDoc[]
 }
 
-function getDisplayName(explicitName?: string, author?: any) {
+function getDisplayName(explicitName?: string, author?: any, fallback = 'Unknown user') {
   const direct = String(explicitName ?? '').trim()
   if (direct) return direct
 
   if (author && typeof author === 'object') {
     const full = `${String(author?.firstName ?? '').trim()} ${String(author?.lastName ?? '').trim()}`.trim()
-    return full || author?.fullName || author?.name || author?.email || 'Unknown user'
+    return full || author?.fullName || author?.name || author?.email || fallback
   }
 
-  return 'Unknown user'
+  return fallback
 }
 
 function getInitials(name?: string) {
@@ -158,6 +143,25 @@ function getAuthorAvatarUrl(author: any) {
 }
 
 export default function OppdateringerPage() {
+  const t = useTranslations()
+
+  function fmtDateTime(v?: string) {
+    if (!v) return '—'
+
+    const d = new Date(v)
+    if (Number.isNaN(d.getTime())) return '—'
+
+    return d.toLocaleString('nb-NO', {
+      timeZone: 'Europe/Oslo',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    })
+  }
+
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -318,7 +322,7 @@ export default function OppdateringerPage() {
       setChildren(childJson?.docs ?? [])
       setPosts(postJson?.docs ?? [])
     } catch (err: any) {
-      setError(err?.message || 'Could not load posts page.')
+      setError(err?.message || t.updates.loadPageError)
       setMe(null)
       setChildren([])
       setPosts([])
@@ -426,12 +430,12 @@ export default function OppdateringerPage() {
       } catch {}
 
       if (!res.ok) {
-        throw new Error(json?.message || raw || 'Could not upload image.')
+        throw new Error(json?.message || raw || t.updates.uploadImageError)
       }
 
       const mediaId = json?.id ?? json?.doc?.id
       if (!mediaId) {
-        throw new Error('Image uploaded but media id was missing.')
+        throw new Error(t.updates.missingMediaId)
       }
 
       uploadedIds.push(mediaId)
@@ -487,21 +491,21 @@ export default function OppdateringerPage() {
           json?.message ||
             json?.errors?.[0]?.message ||
             raw ||
-            (isEdit ? 'Could not update post.' : 'Could not create post.'),
+            (isEdit ? t.updates.updatePostError : t.updates.createPostError),
         )
       }
 
       closeModal()
       await loadAll()
     } catch (err: any) {
-      setError(err?.message || 'Could not save post.')
+      setError(err?.message || t.updates.savePostError)
     } finally {
       setSaving(false)
     }
   }
 
   async function onDeletePost(postId: string) {
-    const ok = window.confirm('Are you sure you want to delete this post?')
+    const ok = window.confirm(t.updates.deleteConfirm)
     if (!ok) return
 
     setError('')
@@ -520,7 +524,7 @@ export default function OppdateringerPage() {
       } catch {}
 
       if (!res.ok) {
-        throw new Error(json?.message || raw || 'Could not delete post.')
+        throw new Error(json?.message || raw || t.updates.deletePostError)
       }
 
       if (editingId === postId) {
@@ -533,7 +537,7 @@ export default function OppdateringerPage() {
 
       await loadAll()
     } catch (err: any) {
-      setError(err?.message || 'Could not delete post.')
+      setError(err?.message || t.updates.deletePostError)
     } finally {
       setActionLoadingId(null)
     }
@@ -556,12 +560,12 @@ export default function OppdateringerPage() {
       } catch {}
 
       if (!res.ok) {
-        throw new Error(json?.message || raw || 'Could not toggle like.')
+        throw new Error(json?.message || raw || t.updates.toggleLikeError)
       }
 
       await loadAll()
     } catch (err: any) {
-      setError(err?.message || 'Could not toggle like.')
+      setError(err?.message || t.updates.toggleLikeError)
     } finally {
       setLikeLoadingId(null)
     }
@@ -589,7 +593,7 @@ export default function OppdateringerPage() {
       } catch {}
 
       if (!res.ok) {
-        throw new Error(json?.message || raw || 'Could not add comment.')
+        throw new Error(json?.message || raw || t.updates.addCommentError)
       }
 
       setCommentDrafts((prev) => ({
@@ -599,7 +603,7 @@ export default function OppdateringerPage() {
 
       await loadAll()
     } catch (err: any) {
-      setError(err?.message || 'Could not add comment.')
+      setError(err?.message || t.updates.addCommentError)
     } finally {
       setCommentLoadingId(null)
     }
@@ -623,7 +627,7 @@ export default function OppdateringerPage() {
       >
         <img
           src={img.url}
-          alt={img.filename || 'Post image'}
+          alt={img.filename || t.updates.imageFallback}
           className={styles.galleryImage}
         />
         {overlayText ? <div className={styles.galleryOverlay}>{overlayText}</div> : null}
@@ -675,17 +679,15 @@ export default function OppdateringerPage() {
   }
 
   if (loading) {
-    return <div className={styles.loading}>Laster innlegg…</div>
+    return <div className={styles.loading}>{t.updates.loading}</div>
   }
 
   return (
     <div className={styles.wrapper}>
       <div className={styles.header}>
         <div>
-          <h1 className={styles.title}>Oppdateringer</h1>
-          <p className={styles.subtitle}>
-            Her ser du familiens innlegg og oppdateringer.
-          </p>
+          <h1 className={styles.title}>{t.updates.title}</h1>
+          <p className={styles.subtitle}>{t.updates.subtitle}</p>
         </div>
 
         <button type="button" className={styles.plusBtn} onClick={openCreateModal}>
@@ -698,10 +700,10 @@ export default function OppdateringerPage() {
       <section className={styles.feedCard}>
         <div className={styles.feedHeader}>
           <div className={styles.feedHeaderLeft}>
-            <div className={styles.cardTitle}>Siste oppdateringer</div>
+            <div className={styles.cardTitle}>{t.updates.latestUpdates}</div>
             <div className={styles.feedCount}>
               {filteredPosts.length}
-              {filteredPosts.length !== posts.length ? ` av ${posts.length}` : ''} innlegg
+              {filteredPosts.length !== posts.length ? ` av ${posts.length}` : ''} {t.updates.postsCount}
             </div>
           </div>
 
@@ -711,12 +713,12 @@ export default function OppdateringerPage() {
                 className={styles.filterSelect}
                 value={filterType}
                 onChange={(e) => setFilterType(e.target.value as 'all' | PostType)}
-                aria-label="Filter posts by type"
-                title="Filter posts by type"
+                aria-label={t.updates.filterTypeLabel}
+                title={t.updates.filterTypeLabel}
               >
-                <option value="all">All posts</option>
-                <option value="general">General updates</option>
-                <option value="child-update">Child updates</option>
+                <option value="all">{t.updates.allPosts}</option>
+                <option value="general">{t.updates.generalUpdates}</option>
+                <option value="child-update">{t.updates.childUpdates}</option>
               </select>
             </div>
 
@@ -725,10 +727,10 @@ export default function OppdateringerPage() {
                 className={styles.filterSelect}
                 value={filterChildId}
                 onChange={(e) => setFilterChildId(e.target.value)}
-                aria-label="Filter posts by child"
-                title="Filter posts by child"
+                aria-label={t.updates.filterChildLabel}
+                title={t.updates.filterChildLabel}
               >
-                <option value="all">All children</option>
+                <option value="all">{t.updates.allChildren}</option>
                 {children.map((child) => (
                   <option key={String(child.id)} value={String(child.id)}>
                     {child.fullName}
@@ -742,7 +744,7 @@ export default function OppdateringerPage() {
               className={styles.clearFilterBtn}
               onClick={resetFilters}
             >
-              Reset filters
+              {t.updates.resetFilters}
             </button>
           </div>
         </div>
@@ -750,20 +752,18 @@ export default function OppdateringerPage() {
         {filteredPosts.length === 0 ? (
           <div className={styles.emptyState}>
             <div className={styles.emptyIcon}>📝</div>
-            <div className={styles.emptyTitle}>Ingen innlegg ennå</div>
+            <div className={styles.emptyTitle}>{t.updates.emptyTitle}</div>
             <div className={styles.emptyText}>
-              {posts.length === 0
-                ? 'Trykk på pluss-knappen for å opprette familiens første innlegg.'
-                : 'Ingen innlegg matcher filteret ditt akkurat nå.'}
+              {posts.length === 0 ? t.updates.emptyTextCreate : t.updates.emptyTextFilter}
             </div>
 
             {posts.length === 0 ? (
               <button type="button" className={styles.emptyAction} onClick={openCreateModal}>
-                + Nytt innlegg
+                {t.updates.newPost}
               </button>
             ) : (
               <button type="button" className={styles.emptyAction} onClick={resetFilters}>
-                Fjern filter
+                {t.updates.clearFilter}
               </button>
             )}
           </div>
@@ -782,7 +782,11 @@ export default function OppdateringerPage() {
               const comments = normalizeComments(post.comments)
               const likedByMe = likes.some((x) => getId(x) === myId)
 
-              const displayAuthorName = getDisplayName(post.authorName, post.author)
+              const displayAuthorName = getDisplayName(
+                post.authorName,
+                post.author,
+                t.updates.unknownUser,
+              )
               const authorAvatarUrl = getAuthorAvatarUrl(post.author)
 
               return (
@@ -806,12 +810,16 @@ export default function OppdateringerPage() {
                           <span className={styles.author}>{displayAuthorName}</span>
                         </div>
 
-                        {isMine ? <span className={styles.mineBadge}>You</span> : null}
-                        {post.important ? <span className={styles.importantBadge}>Important</span> : null}
+                        {isMine ? <span className={styles.mineBadge}>{t.updates.you}</span> : null}
+                        {post.important ? (
+                          <span className={styles.importantBadge}>{t.updates.important}</span>
+                        ) : null}
                       </div>
 
                       <div className={styles.postMeta}>
-                        <span>{post.type === 'child-update' ? 'Child update' : 'General'}</span>
+                        <span>
+                          {post.type === 'child-update' ? t.updates.childUpdate : t.updates.general}
+                        </span>
                         {childName ? (
                           <>
                             <span className={styles.dot}>•</span>
@@ -828,7 +836,7 @@ export default function OppdateringerPage() {
                         <button
                           type="button"
                           className={styles.menuBtn}
-                          aria-label="Post options"
+                          aria-label={t.updates.postOptions}
                           onClick={() =>
                             setOpenMenuId((prev) => (prev === postId ? null : postId))
                           }
@@ -850,7 +858,7 @@ export default function OppdateringerPage() {
                                 openEditModal(post)
                               }}
                             >
-                              Edit
+                              {t.updates.edit}
                             </button>
 
                             <button
@@ -862,7 +870,7 @@ export default function OppdateringerPage() {
                               }}
                               disabled={actionLoadingId === postId}
                             >
-                              {actionLoadingId === postId ? 'Deleting…' : 'Delete'}
+                              {actionLoadingId === postId ? t.updates.deleting : t.updates.delete}
                             </button>
                           </div>
                         ) : null}
@@ -885,8 +893,8 @@ export default function OppdateringerPage() {
                       {likeLoadingId === postId
                         ? '...'
                         : likedByMe
-                          ? `Likt (${likes.length})`
-                          : `Lik (${likes.length})`}
+                          ? `${t.updates.liked} (${likes.length})`
+                          : `${t.updates.like} (${likes.length})`}
                     </button>
 
                     <button
@@ -894,7 +902,7 @@ export default function OppdateringerPage() {
                       className={styles.commentOpenBtn}
                       onClick={() => openCommentModal(postId)}
                     >
-                      Kommentarer {comments.length}
+                      {t.updates.comments} {comments.length}
                     </button>
                   </div>
                 </article>
@@ -909,7 +917,7 @@ export default function OppdateringerPage() {
           <div className={styles.modal} onMouseDown={(e) => e.stopPropagation()}>
             <div className={styles.modalHeader}>
               <div className={styles.modalTitle}>
-                {modalMode === 'create' ? 'Nytt innlegg' : 'Rediger innlegg'}
+                {modalMode === 'create' ? t.updates.createModalTitle : t.updates.editModalTitle}
               </div>
 
               <button type="button" className={styles.closeBtn} onClick={closeModal}>
@@ -920,7 +928,7 @@ export default function OppdateringerPage() {
             <form className={styles.form} onSubmit={onSubmitPost}>
               <div className={styles.row}>
                 <label className={styles.label}>
-                  Type
+                  {t.updates.type}
                   <select
                     className={styles.select}
                     value={type}
@@ -931,21 +939,21 @@ export default function OppdateringerPage() {
                     }}
                     disabled={saving}
                   >
-                    <option value="general">General update</option>
-                    <option value="child-update">Child update</option>
+                    <option value="general">{t.updates.generalUpdates}</option>
+                    <option value="child-update">{t.updates.childUpdates}</option>
                   </select>
                 </label>
 
                 {type === 'child-update' ? (
                   <label className={styles.label}>
-                    Child
+                    {t.updates.child}
                     <select
                       className={styles.select}
                       value={childId}
                       onChange={(e) => setChildId(e.target.value)}
                       disabled={saving}
                     >
-                      <option value="">Velg barn…</option>
+                      <option value="">{t.updates.selectChild}</option>
                       {children.map((child) => (
                         <option key={String(child.id)} value={String(child.id)}>
                           {child.fullName}
@@ -957,31 +965,31 @@ export default function OppdateringerPage() {
               </div>
 
               <label className={styles.label}>
-                Title (optional)
+                {t.updates.titleOptional}
                 <input
                   className={styles.input}
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   disabled={saving}
-                  placeholder="Kort overskrift"
+                  placeholder={t.updates.titlePlaceholder}
                   maxLength={120}
                 />
               </label>
 
               <label className={styles.label}>
-                Content
+                {t.updates.content}
                 <textarea
                   className={styles.textarea}
                   value={content}
                   onChange={(e) => setContent(e.target.value)}
                   disabled={saving}
-                  placeholder="Skriv en familieoppdatering her…"
+                  placeholder={t.updates.contentPlaceholder}
                   maxLength={5000}
                 />
               </label>
 
               <label className={styles.label}>
-                Images (optional)
+                {t.updates.imagesOptional}
                 <input
                   className={styles.fileInput}
                   type="file"
@@ -997,14 +1005,14 @@ export default function OppdateringerPage() {
 
               {existingAttachments.length > 0 ? (
                 <div className={styles.attachmentBlock}>
-                  <div className={styles.attachmentLabel}>Current images</div>
+                  <div className={styles.attachmentLabel}>{t.updates.currentImages}</div>
                   <div className={styles.uploadPreviewGrid}>
                     {existingAttachments.map((img) => (
                       <div key={String(img.id)} className={styles.uploadPreviewItem}>
                         {img.url ? (
                           <img
                             src={img.url}
-                            alt={img.filename || 'Existing image'}
+                            alt={img.filename || t.updates.imageFallback}
                             className={styles.uploadPreviewImage}
                           />
                         ) : null}
@@ -1019,7 +1027,7 @@ export default function OppdateringerPage() {
                           }
                           disabled={saving}
                         >
-                          Remove
+                          {t.updates.remove}
                         </button>
                       </div>
                     ))}
@@ -1029,7 +1037,7 @@ export default function OppdateringerPage() {
 
               {filePreviews.length > 0 ? (
                 <div className={styles.attachmentBlock}>
-                  <div className={styles.attachmentLabel}>New images</div>
+                  <div className={styles.attachmentLabel}>{t.updates.newImages}</div>
                   <div className={styles.uploadPreviewGrid}>
                     {filePreviews.map((img, index) => (
                       <div key={`${img.name}-${index}`} className={styles.uploadPreviewItem}>
@@ -1042,7 +1050,7 @@ export default function OppdateringerPage() {
                           }
                           disabled={saving}
                         >
-                          Remove
+                          {t.updates.remove}
                         </button>
                       </div>
                     ))}
@@ -1057,7 +1065,7 @@ export default function OppdateringerPage() {
                   onChange={(e) => setImportant(e.target.checked)}
                   disabled={saving}
                 />
-                <span>Mark as important</span>
+                <span>{t.updates.markImportant}</span>
               </label>
 
               <div className={styles.modalActions}>
@@ -1068,7 +1076,7 @@ export default function OppdateringerPage() {
                     onClick={() => onDeletePost(editingId)}
                     disabled={saving}
                   >
-                    Delete
+                    {t.updates.delete}
                   </button>
                 ) : null}
 
@@ -1078,17 +1086,17 @@ export default function OppdateringerPage() {
                   onClick={closeModal}
                   disabled={saving}
                 >
-                  Cancel
+                  {t.updates.cancel}
                 </button>
 
                 <button className={styles.primaryBtn} type="submit" disabled={!canSubmit}>
                   {saving
                     ? modalMode === 'create'
-                      ? 'Publiserer…'
-                      : 'Lagrer…'
+                      ? t.updates.publishing
+                      : t.updates.saving
                     : modalMode === 'create'
-                      ? 'Publiser innlegg'
-                      : 'Save changes'}
+                      ? t.updates.publishPost
+                      : t.updates.saveChanges}
                 </button>
               </div>
             </form>
@@ -1096,153 +1104,165 @@ export default function OppdateringerPage() {
         </div>
       ) : null}
 
-      {activeCommentPost ? (() => {
-        const postId = String(activeCommentPost.id)
-        const comments = normalizeComments(activeCommentPost.comments)
-        const likes = Array.isArray(activeCommentPost.likes) ? activeCommentPost.likes : []
-        const likedByMe = likes.some((x) => getId(x) === myId)
-        const attachments = normalizeMediaList(activeCommentPost.attachments)
-        const displayAuthorName = getDisplayName(activeCommentPost.authorName, activeCommentPost.author)
-        const authorAvatarUrl = getAuthorAvatarUrl(activeCommentPost.author)
-        const rawChildId = getId(activeCommentPost.child)
-        const childName =
-          (rawChildId ? childNameById.get(rawChildId) : '') || getChildName(activeCommentPost.child)
+      {activeCommentPost
+        ? (() => {
+            const postId = String(activeCommentPost.id)
+            const comments = normalizeComments(activeCommentPost.comments)
+            const likes = Array.isArray(activeCommentPost.likes) ? activeCommentPost.likes : []
+            const likedByMe = likes.some((x) => getId(x) === myId)
+            const attachments = normalizeMediaList(activeCommentPost.attachments)
+            const displayAuthorName = getDisplayName(
+              activeCommentPost.authorName,
+              activeCommentPost.author,
+              t.updates.unknownUser,
+            )
+            const authorAvatarUrl = getAuthorAvatarUrl(activeCommentPost.author)
+            const rawChildId = getId(activeCommentPost.child)
+            const childName =
+              (rawChildId ? childNameById.get(rawChildId) : '') || getChildName(activeCommentPost.child)
 
-        return (
-          <div className={styles.commentModalBackdrop} onMouseDown={closeCommentModal}>
-            <div className={styles.commentModal} onMouseDown={(e) => e.stopPropagation()}>
-              <div className={styles.commentModalHeader}>
-                <div className={styles.commentModalTitle}>Post</div>
-                <button
-                  type="button"
-                  className={styles.commentModalClose}
-                  onClick={closeCommentModal}
-                >
-                  ✕
-                </button>
-              </div>
+            return (
+              <div className={styles.commentModalBackdrop} onMouseDown={closeCommentModal}>
+                <div className={styles.commentModal} onMouseDown={(e) => e.stopPropagation()}>
+                  <div className={styles.commentModalHeader}>
+                    <div className={styles.commentModalTitle}>{t.updates.postModalTitle}</div>
+                    <button
+                      type="button"
+                      className={styles.commentModalClose}
+                      onClick={closeCommentModal}
+                    >
+                      ✕
+                    </button>
+                  </div>
 
-              <div className={styles.commentModalBody}>
-                <div className={styles.commentModalPost}>
-                  <div className={styles.postTop}>
-                    <div>
-                      <div className={styles.postAuthorRow}>
-                        <div className={styles.authorMain}>
-                          {authorAvatarUrl ? (
-                            <img
-                              src={authorAvatarUrl}
-                              alt={displayAuthorName}
-                              className={styles.authorAvatarImage}
-                            />
-                          ) : (
-                            <div className={styles.authorAvatarFallback}>
-                              {getInitials(displayAuthorName)}
+                  <div className={styles.commentModalBody}>
+                    <div className={styles.commentModalPost}>
+                      <div className={styles.postTop}>
+                        <div>
+                          <div className={styles.postAuthorRow}>
+                            <div className={styles.authorMain}>
+                              {authorAvatarUrl ? (
+                                <img
+                                  src={authorAvatarUrl}
+                                  alt={displayAuthorName}
+                                  className={styles.authorAvatarImage}
+                                />
+                              ) : (
+                                <div className={styles.authorAvatarFallback}>
+                                  {getInitials(displayAuthorName)}
+                                </div>
+                              )}
+                              <span className={styles.author}>{displayAuthorName}</span>
                             </div>
-                          )}
-                          <span className={styles.author}>{displayAuthorName}</span>
-                        </div>
 
-                        {String(getId(activeCommentPost.author) || '') === String(myId || '') ? (
-                          <span className={styles.mineBadge}>You</span>
-                        ) : null}
-                        {activeCommentPost.important ? (
-                          <span className={styles.importantBadge}>Important</span>
-                        ) : null}
-                      </div>
-
-                      <div className={styles.postMeta}>
-                        <span>{activeCommentPost.type === 'child-update' ? 'Child update' : 'General'}</span>
-                        {childName ? (
-                          <>
-                            <span className={styles.dot}>•</span>
-                            <span>{childName}</span>
-                          </>
-                        ) : null}
-                        <span className={styles.dot}>•</span>
-                        <span>{fmtDateTime(activeCommentPost.createdAt)}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {activeCommentPost.title ? (
-                    <h3 className={styles.postTitle}>{activeCommentPost.title}</h3>
-                  ) : null}
-
-                  <div className={styles.postContent}>{activeCommentPost.content}</div>
-
-                  {attachments.length > 0 ? renderGallery(attachments, postId) : null}
-
-                  <div className={styles.engagementBar}>
-                    <button
-                      type="button"
-                      className={`${styles.engagementBtn} ${likedByMe ? styles.engagementBtnActive : ''}`}
-                      onClick={() => onToggleLike(postId)}
-                      disabled={likeLoadingId === postId}
-                    >
-                      {likeLoadingId === postId
-                        ? '...'
-                        : likedByMe
-                          ? `Likt (${likes.length})`
-                          : `Lik (${likes.length})`}
-                    </button>
-
-                    <div className={styles.commentCount}>Kommentarer {comments.length}</div>
-                  </div>
-                </div>
-
-                <div className={styles.commentModalComments}>
-                  <div className={styles.commentModalCommentsHeader}>
-                    Kommentarer
-                  </div>
-
-                  {comments.length === 0 ? (
-                    <div className={styles.commentEmpty}>Ingen kommentarer ennå.</div>
-                  ) : (
-                    <div className={styles.commentList}>
-                      {comments.map((comment, index) => (
-                        <div key={`${postId}-comment-modal-${index}`} className={styles.commentItem}>
-                          <div className={styles.commentMeta}>
-                            <span className={styles.commentAuthor}>
-                              {comment.authorName || 'Unknown user'}
-                            </span>
-                            <span className={styles.dot}>•</span>
-                            <span className={styles.commentTime}>
-                              {fmtDateTime(comment.createdAt)}
-                            </span>
+                            {String(getId(activeCommentPost.author) || '') === String(myId || '') ? (
+                              <span className={styles.mineBadge}>{t.updates.you}</span>
+                            ) : null}
+                            {activeCommentPost.important ? (
+                              <span className={styles.importantBadge}>{t.updates.important}</span>
+                            ) : null}
                           </div>
-                          <div className={styles.commentText}>{comment.content || ''}</div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
 
-                  <div className={styles.commentComposer}>
-                    <input
-                      className={styles.commentInput}
-                      value={commentDrafts[postId] || ''}
-                      onChange={(e) =>
-                        setCommentDrafts((prev) => ({
-                          ...prev,
-                          [postId]: e.target.value,
-                        }))
-                      }
-                      placeholder="Skriv en kommentar..."
-                    />
-                    <button
-                      type="button"
-                      className={styles.commentSubmit}
-                      onClick={() => onAddComment(postId)}
-                      disabled={commentLoadingId === postId || !(commentDrafts[postId] || '').trim()}
-                    >
-                      {commentLoadingId === postId ? 'Sender…' : 'Send'}
-                    </button>
+                          <div className={styles.postMeta}>
+                            <span>
+                              {activeCommentPost.type === 'child-update'
+                                ? t.updates.childUpdate
+                                : t.updates.general}
+                            </span>
+                            {childName ? (
+                              <>
+                                <span className={styles.dot}>•</span>
+                                <span>{childName}</span>
+                              </>
+                            ) : null}
+                            <span className={styles.dot}>•</span>
+                            <span>{fmtDateTime(activeCommentPost.createdAt)}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {activeCommentPost.title ? (
+                        <h3 className={styles.postTitle}>{activeCommentPost.title}</h3>
+                      ) : null}
+
+                      <div className={styles.postContent}>{activeCommentPost.content}</div>
+
+                      {attachments.length > 0 ? renderGallery(attachments, postId) : null}
+
+                      <div className={styles.engagementBar}>
+                        <button
+                          type="button"
+                          className={`${styles.engagementBtn} ${likedByMe ? styles.engagementBtnActive : ''}`}
+                          onClick={() => onToggleLike(postId)}
+                          disabled={likeLoadingId === postId}
+                        >
+                          {likeLoadingId === postId
+                            ? '...'
+                            : likedByMe
+                              ? `${t.updates.liked} (${likes.length})`
+                              : `${t.updates.like} (${likes.length})`}
+                        </button>
+
+                        <div className={styles.commentCount}>
+                          {t.updates.comments} {comments.length}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className={styles.commentModalComments}>
+                      <div className={styles.commentModalCommentsHeader}>
+                        {t.updates.comments}
+                      </div>
+
+                      {comments.length === 0 ? (
+                        <div className={styles.commentEmpty}>{t.updates.noCommentsYet}</div>
+                      ) : (
+                        <div className={styles.commentList}>
+                          {comments.map((comment, index) => (
+                            <div key={`${postId}-comment-modal-${index}`} className={styles.commentItem}>
+                              <div className={styles.commentMeta}>
+                                <span className={styles.commentAuthor}>
+                                  {comment.authorName || t.updates.unknownUser}
+                                </span>
+                                <span className={styles.dot}>•</span>
+                                <span className={styles.commentTime}>
+                                  {fmtDateTime(comment.createdAt)}
+                                </span>
+                              </div>
+                              <div className={styles.commentText}>{comment.content || ''}</div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      <div className={styles.commentComposer}>
+                        <input
+                          className={styles.commentInput}
+                          value={commentDrafts[postId] || ''}
+                          onChange={(e) =>
+                            setCommentDrafts((prev) => ({
+                              ...prev,
+                              [postId]: e.target.value,
+                            }))
+                          }
+                          placeholder={t.updates.writeComment}
+                        />
+                        <button
+                          type="button"
+                          className={styles.commentSubmit}
+                          onClick={() => onAddComment(postId)}
+                          disabled={commentLoadingId === postId || !(commentDrafts[postId] || '').trim()}
+                        >
+                          {commentLoadingId === postId ? t.updates.sending : t.updates.send}
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          </div>
-        )
-      })() : null}
+            )
+          })()
+        : null}
 
       {viewerOpen ? (
         <div className={styles.viewerBackdrop} onMouseDown={closeViewer}>
@@ -1264,7 +1284,7 @@ export default function OppdateringerPage() {
             <div className={styles.viewerStage}>
               <img
                 src={viewerImages[viewerIndex]?.url || ''}
-                alt={viewerImages[viewerIndex]?.filename || 'Viewer image'}
+                alt={viewerImages[viewerIndex]?.filename || t.updates.viewerImageAlt}
                 className={styles.viewerImage}
               />
             </div>
@@ -1283,7 +1303,7 @@ export default function OppdateringerPage() {
               <span>
                 {viewerIndex + 1} / {viewerImages.length}
               </span>
-              <span>{viewerImages[viewerIndex]?.filename || 'Image'}</span>
+              <span>{viewerImages[viewerIndex]?.filename || t.updates.imageFallback}</span>
             </div>
           </div>
         </div>

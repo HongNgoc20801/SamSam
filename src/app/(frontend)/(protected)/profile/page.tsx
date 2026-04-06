@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import styles from './profile.module.css'
+import { useTranslations } from '@/app/lib/i18n/useTranslations'
 
 type MediaValue =
   | string
@@ -35,6 +36,14 @@ type CustomerUser = {
   gender?: 'male' | 'female' | 'other'
   familyRole?: 'father' | 'mother' | 'sibling' | 'other'
   avatar?: MediaValue
+
+  language?: 'no' | 'en'
+  notifyCalendarChanges?: boolean
+  notifyExpenseUpdates?: boolean
+  notifyStatusUpdates?: boolean
+  sharePhoneWithFamily?: boolean
+  shareAddressWithFamily?: boolean
+
   family?:
     | string
     | {
@@ -56,39 +65,8 @@ type FamilyDoc = {
   members?: FamilyMember[]
 }
 
-function formatDate(value?: string) {
-  if (!value) return '-'
-  const d = new Date(value)
-  if (Number.isNaN(d.getTime())) return value
-  return d.toLocaleDateString('no-NO')
-}
-
-function labelGender(value?: string) {
-  switch (value) {
-    case 'male':
-      return 'Mann'
-    case 'female':
-      return 'Kvinne'
-    case 'other':
-      return 'Annet'
-    default:
-      return '-'
-  }
-}
-
-function labelFamilyRole(value?: string) {
-  switch (value) {
-    case 'father':
-      return 'Far'
-    case 'mother':
-      return 'Mor'
-    case 'sibling':
-      return 'Barn'
-    case 'other':
-      return 'Annet'
-    default:
-      return '-'
-  }
+function isMemberObject(member: FamilyMember): member is Exclude<FamilyMember, string> {
+  return typeof member === 'object' && member !== null
 }
 
 function getInitials(firstName?: string, lastName?: string, email?: string) {
@@ -104,45 +82,27 @@ function getMediaUrl(media?: MediaValue) {
   return media.url || ''
 }
 
-function isMemberObject(member: FamilyMember): member is Exclude<FamilyMember, string> {
-  return typeof member === 'object' && member !== null
-}
-
-function memberName(member: FamilyMember) {
-  if (!isMemberObject(member)) return 'Member'
-  const full = `${member.firstName ?? ''} ${member.lastName ?? ''}`.trim()
-  return full || member.email || 'Member'
-}
-
-function memberRole(member: FamilyMember) {
-  if (!isMemberObject(member)) return '-'
-  return labelFamilyRole(member.familyRole)
-}
-
-function memberKey(member: FamilyMember, index: number) {
-  if (!isMemberObject(member)) return `${member}-${index}`
-  return member.id || member.email || String(index)
-}
-
-function InfoCard({
+function DetailItem({
   label,
   value,
-  full,
+  wide,
 }: {
   label: string
   value: string
-  full?: boolean
+  wide?: boolean
 }) {
   return (
-    <div className={`${styles.infoItem} ${full ? styles.fullWidth : ''}`}>
-      <p className={styles.infoLabel}>{label}</p>
-      <p className={styles.infoValue}>{value}</p>
+    <div className={`${styles.detailItem} ${wide ? styles.detailItemWide : ''}`}>
+      <p className={styles.detailLabel}>{label}</p>
+      <p className={styles.detailValue}>{value}</p>
     </div>
   )
 }
 
 export default function ProfilePage() {
   const router = useRouter()
+  const t = useTranslations()
+  const td = t.profile
 
   const API_BASE = useMemo(() => {
     const base = process.env.NEXT_PUBLIC_PAYLOAD_URL
@@ -154,16 +114,66 @@ export default function ProfilePage() {
   const [error, setError] = useState('')
   const [user, setUser] = useState<CustomerUser | null>(null)
   const [family, setFamily] = useState<FamilyDoc | null>(null)
+  const [copyMessage, setCopyMessage] = useState('')
+  const [copyError, setCopyError] = useState('')
 
-  const [joinCode, setJoinCode] = useState('')
-  const [joinLoading, setJoinLoading] = useState(false)
-  const [joinMessage, setJoinMessage] = useState('')
-  const [joinError, setJoinError] = useState('')
-  const [showJoinConfirm, setShowJoinConfirm] = useState(false)
+  function formatDate(value?: string) {
+    if (!value) return td.noValue
+    const d = new Date(value)
+    if (Number.isNaN(d.getTime())) return value
+    const locale = user?.language === 'en' ? 'en-GB' : 'nb-NO'
+    return d.toLocaleDateString(locale)
+  }
+
+  function labelGender(value?: string) {
+    switch (value) {
+      case 'male':
+        return td.genderMale
+      case 'female':
+        return td.genderFemale
+      case 'other':
+        return td.genderOther
+      default:
+        return td.noValue
+    }
+  }
+
+  function labelFamilyRole(value?: string) {
+    switch (value) {
+      case 'father':
+        return td.roleFather
+      case 'mother':
+        return td.roleMother
+      case 'sibling':
+        return td.roleChild
+      case 'other':
+        return td.roleOther
+      default:
+        return td.noValue
+    }
+  }
+
+  function memberName(member: FamilyMember) {
+    if (!isMemberObject(member)) return td.memberFallback
+    const full = `${member.firstName ?? ''} ${member.lastName ?? ''}`.trim()
+    return full || member.email || td.memberFallback
+  }
+
+  function memberRole(member: FamilyMember) {
+    if (!isMemberObject(member)) return td.noValue
+    return labelFamilyRole(member.familyRole)
+  }
+
+  function memberKey(member: FamilyMember, index: number) {
+    if (!isMemberObject(member)) return `${member}-${index}`
+    return member.id || member.email || String(index)
+  }
 
   async function loadProfile() {
     setLoading(true)
     setError('')
+    setCopyMessage('')
+    setCopyError('')
 
     try {
       const meRes = await fetch(`${API_BASE}/customers/me`, {
@@ -172,7 +182,7 @@ export default function ProfilePage() {
       })
 
       if (!meRes.ok) {
-        throw new Error('Kunne ikke hente profilinformasjon.')
+        throw new Error(td.loadProfileError)
       }
 
       const meData: CustomerMeResponse = await meRes.json()
@@ -215,7 +225,7 @@ export default function ProfilePage() {
       const familyData = await familyRes.json()
       setFamily(familyData)
     } catch (err: any) {
-      setError(err?.message || 'Noe gikk galt ved lasting av profil.')
+      setError(err?.message || td.loadProfileUnknownError)
     } finally {
       setLoading(false)
     }
@@ -225,90 +235,27 @@ export default function ProfilePage() {
     loadProfile()
   }, [])
 
-  function handleJoinFamily(e: React.FormEvent) {
-    e.preventDefault()
-    if (joinLoading) return
-
-    setJoinMessage('')
-    setJoinError('')
-
-    const code = joinCode.trim().toUpperCase()
-    if (!code) {
-      setJoinError('Vennligst skriv inn invitasjonskode.')
-      return
-    }
-
-    setShowJoinConfirm(true)
-  }
-
-  async function confirmJoinFamily() {
-    if (joinLoading) return
-
-    setJoinMessage('')
-    setJoinError('')
-
-    const code = joinCode.trim().toUpperCase()
-    if (!code) {
-      setJoinError('Vennligst skriv inn invitasjonskode.')
-      setShowJoinConfirm(false)
-      return
-    }
-
-    setJoinLoading(true)
-
-    try {
-      const res = await fetch(`${API_BASE}/families/join`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code }),
-      })
-
-      const data = await res.json().catch(() => null)
-
-      if (!res.ok) {
-        throw new Error(data?.message || 'Kunne ikke bli med i familiegruppen.')
-      }
-
-      setJoinMessage('Du har blitt koblet til familiegruppen.')
-      setJoinCode('')
-      setShowJoinConfirm(false)
-      await loadProfile()
-    } catch (err: any) {
-      setJoinError(err?.message || 'Noe gikk galt.')
-    } finally {
-      setJoinLoading(false)
-    }
-  }
-
-  async function handleLogout() {
-    try {
-      await fetch(`${API_BASE}/customers/logout`, {
-        method: 'POST',
-        credentials: 'include',
-      })
-    } catch {}
-    router.push('/login')
-  }
-
   async function handleCopyInviteCode() {
+    setCopyMessage('')
+    setCopyError('')
+
     const code = family?.inviteCode?.trim()
     if (!code) return
+
     try {
       await navigator.clipboard.writeText(code)
-      setJoinMessage('Invitasjonskoden er kopiert.')
-      setJoinError('')
+      setCopyMessage(td.inviteCodeCopied)
     } catch {
-      setJoinError('Kunne ikke kopiere invitasjonskoden.')
+      setCopyError(td.inviteCodeCopyFailed)
     }
   }
 
   if (loading) {
     return (
       <main className={styles.page}>
-        <div className={styles.wrapper}>
-          <section className={styles.card}>
-            <p className={styles.loading}>Laster profil…</p>
+        <div className={styles.container}>
+          <section className={styles.panel}>
+            <p className={styles.loading}>{td.loading}</p>
           </section>
         </div>
       </main>
@@ -318,9 +265,10 @@ export default function ProfilePage() {
   if (error) {
     return (
       <main className={styles.page}>
-        <div className={styles.wrapper}>
-          <section className={styles.card}>
-            <h1 className={styles.pageHeading}>Profile Settings</h1>
+        <div className={styles.container}>
+          <section className={styles.panel}>
+            <p className={styles.eyebrow}>{td.pageKicker}</p>
+            <h1 className={styles.pageTitle}>{td.pageTitle}</h1>
             <p className={styles.error}>{error}</p>
           </section>
         </div>
@@ -330,210 +278,219 @@ export default function ProfilePage() {
 
   if (!user) return null
 
-  const fullName = `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || 'Bruker'
+  const fullName =
+    `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || td.userFallback
+
   const initials = getInitials(user.firstName, user.lastName, user.email)
   const avatarUrl = getMediaUrl(user.avatar)
 
+  const notificationsEnabled = [
+    user.notifyCalendarChanges,
+    user.notifyExpenseUpdates,
+    user.notifyStatusUpdates,
+  ].some(Boolean)
+
+  const privacySummary =
+    user.sharePhoneWithFamily || user.shareAddressWithFamily
+      ? td.privacyCustom
+      : td.privacyLimited
+
   return (
     <main className={styles.page}>
-      <div className={styles.wrapper}>
-        <div className={styles.topBar}>
-          <h1 className={styles.pageHeading}>Profile Settings</h1>
+      <div className={styles.container}>
+        <div className={styles.headerBlock}>
+          <p className={styles.eyebrow}>{td.pageKicker}</p>
+          <h1 className={styles.pageTitle}>{td.pageTitle}</h1>
         </div>
 
         <div className={styles.layout}>
-          <div className={styles.leftColumn}>
-            <section className={styles.profileHeader}>
-              <div className={styles.profileMain}>
+          <div className={styles.mainColumn}>
+            <section className={styles.heroSection}>
+              <div className={styles.heroMedia}>
                 {avatarUrl ? (
                   <img className={styles.avatarImage} src={avatarUrl} alt={fullName} />
                 ) : (
-                  <div className={styles.avatar}>{initials}</div>
+                  <div className={styles.avatarPlaceholder}>{initials}</div>
                 )}
-
-                <div className={styles.profileText}>
-                  <div className={styles.nameRow}>
-                    <h2 className={styles.profileName}>{fullName}</h2>
-                    <span className={styles.roleBadge}>{labelFamilyRole(user.familyRole)}</span>
-                  </div>
-                  <p className={styles.profileEmail}>{user.email}</p>
-                </div>
               </div>
 
-              <div className={styles.headerActions}>
+              <div className={styles.heroContent}>
+                <div className={styles.heroTopRow}>
+                  <div>
+                    <h2 className={styles.userName}>{fullName}</h2>
+                    <p className={styles.userEmail}>{user.email}</p>
+                  </div>
+
+                  <span className={styles.roleBadge}>{labelFamilyRole(user.familyRole)}</span>
+                </div>
+
+                <p className={styles.heroText}>{td.heroText}</p>
+
+                <div className={styles.heroActions}>
+                  <button
+                    className={styles.primaryButton}
+                    type="button"
+                    onClick={() => router.push('/profile/edit')}
+                  >
+                    {td.editProfile}
+                  </button>
+
+                  <button
+                    className={styles.secondaryButton}
+                    type="button"
+                    onClick={() => router.push('/settings')}
+                  >
+                    {td.openSettings}
+                  </button>
+                </div>
+              </div>
+            </section>
+
+            <section className={styles.section}>
+              <div className={styles.sectionTop}>
+                <h2 className={styles.sectionTitle}>{td.personalInformation}</h2>
                 <button
-                  className={styles.primaryBtn}
+                  className={styles.inlineAction}
                   type="button"
                   onClick={() => router.push('/profile/edit')}
                 >
-                  Edit Profile
+                  {td.updateProfile}
                 </button>
+              </div>
 
-                <button
-                  className={styles.secondaryBtn}
-                  type="button"
-                  onClick={() => router.push('/profile/change-password')}
-                >
-                  Change Password
-                </button>
+              <div className={styles.detailGrid}>
+                <DetailItem label={td.firstName} value={user.firstName || td.noValue} />
+                <DetailItem label={td.lastName} value={user.lastName || td.noValue} />
+                <DetailItem label={td.emailAddress} value={user.email || td.noValue} />
+                <DetailItem label={td.phoneNumber} value={user.phone || td.noValue} />
+                <DetailItem label={td.address} value={user.address || td.noValue} wide />
+                <DetailItem label={td.birthDate} value={formatDate(user.birthDate)} />
+                <DetailItem label={td.gender} value={labelGender(user.gender)} />
               </div>
             </section>
 
-            <section className={styles.card}>
-              <h2 className={styles.sectionTitle}>Personal Information</h2>
+            <section className={styles.section}>
+              <h2 className={styles.sectionTitle}>{td.familyConnection}</h2>
 
-              <div className={styles.infoGrid}>
-                <InfoCard label="First Name" value={user.firstName || '-'} />
-                <InfoCard label="Last Name" value={user.lastName || '-'} />
-                <InfoCard label="Email Address" value={user.email || '-'} />
-                <InfoCard label="Phone Number" value={user.phone || '-'} />
-                <InfoCard label="Residential Address" value={user.address || '-'} full />
-                <InfoCard label="Date of Birth" value={formatDate(user.birthDate)} />
-                <InfoCard label="Gender" value={labelGender(user.gender)} />
-              </div>
-            </section>
+              <div className={styles.familyTop}>
+                <div className={styles.familyMeta}>
+                  <p className={styles.familyLabel}>{td.familyName}</p>
+                  <p className={styles.familyName}>{family?.name || td.noFamily}</p>
+                </div>
 
-            <section className={styles.card}>
-              <h2 className={styles.sectionTitle}>Family Information</h2>
-
-              <div className={styles.infoGrid}>
-                <InfoCard label="Family Name" value={family?.name || 'No Family'} />
-
-                <div className={styles.infoItem}>
-                  <p className={styles.infoLabel}>Invitation Code</p>
-                  <div className={styles.codeRow}>
-                    <p className={styles.infoValue}>{family?.inviteCode || '-'}</p>
-                    <button
-                      className={styles.copyBtn}
-                      type="button"
-                      onClick={handleCopyInviteCode}
-                      disabled={!family?.inviteCode}
-                    >
-                      Copy
-                    </button>
-                  </div>
+                <div className={styles.familyMeta}>
+                  <p className={styles.familyLabel}>{td.memberCount}</p>
+                  <p className={styles.familyName}>
+                    {Array.isArray(family?.members) ? family.members.length : 0}
+                  </p>
                 </div>
               </div>
 
-              <div className={styles.membersBlock}>
-                <h3 className={styles.subTitle}>Family Members</h3>
-
+              <div className={styles.memberGrid}>
                 {Array.isArray(family?.members) && family.members.length > 0 ? (
-                  <div className={styles.memberList}>
-                    {family.members.map((member, index) => (
-                      <div key={memberKey(member, index)} className={styles.memberItem}>
-                        <div className={styles.memberAvatarSmall}>
-                          {memberName(member).charAt(0).toUpperCase()}
-                        </div>
-
-                        <div className={styles.memberInfo}>
-                          <p className={styles.memberName}>{memberName(member)}</p>
-                          <p className={styles.memberRole}>{memberRole(member)}</p>
-                        </div>
+                  family.members.map((member, index) => (
+                    <div key={memberKey(member, index)} className={styles.memberCard}>
+                      <div className={styles.memberAvatar}>
+                        {memberName(member).charAt(0).toUpperCase()}
                       </div>
-                    ))}
-                  </div>
+
+                      <div className={styles.memberBody}>
+                        <p className={styles.memberTitle}>{memberName(member)}</p>
+                        <p className={styles.memberSub}>{memberRole(member)}</p>
+                      </div>
+                    </div>
+                  ))
                 ) : (
-                  <p className={styles.emptyText}>No family members found.</p>
+                  <p className={styles.emptyText}>{td.noFamilyMembersFound}</p>
                 )}
               </div>
-
-              <div className={styles.noteBox}>
-                Å bli med i en annen familiegruppe kan erstatte din nåværende familietilknytning
-                og påvirke eksisterende informasjon.
-              </div>
-
-              <form className={styles.joinForm} onSubmit={handleJoinFamily}>
-                <input
-                  className={styles.input}
-                  type="text"
-                  value={joinCode}
-                  onChange={(e) => setJoinCode(e.target.value)}
-                  placeholder="Enter Invitation Code"
-                  disabled={joinLoading}
-                />
-
-                <button className={styles.joinBtn} type="submit" disabled={joinLoading}>
-                  {joinLoading ? 'Joining…' : 'Join Family'}
-                </button>
-              </form>
-
-              {joinMessage ? <p className={styles.success}>{joinMessage}</p> : null}
-              {joinError ? <p className={styles.error}>{joinError}</p> : null}
             </section>
           </div>
 
-          <div className={styles.rightColumn}>
-            <section className={styles.sideCard}>
-              <h2 className={styles.sectionTitle}>Security</h2>
+          <aside className={styles.sideColumn}>
+            <section className={styles.sidePanelDark}>
+              <p className={styles.sideEyebrowDark}>{td.accountOverview}</p>
+              <h3 className={styles.sideTitleDark}>{td.statusTitle}</h3>
+
+              <div className={styles.sideListDark}>
+                <div className={styles.sideListItemDark}>
+                  <span>{td.language}</span>
+                  <strong>{user.language === 'en' ? td.english : td.norwegian}</strong>
+                </div>
+
+                <div className={styles.sideListItemDark}>
+                  <span>{td.notifications}</span>
+                  <strong>{notificationsEnabled ? td.active : td.off}</strong>
+                </div>
+
+                <div className={styles.sideListItemDark}>
+                  <span>{td.privacy}</span>
+                  <strong>{privacySummary}</strong>
+                </div>
+              </div>
 
               <button
-                className={styles.sideAction}
+                className={styles.darkActionButton}
                 type="button"
-                onClick={() => router.push('/profile/change-password')}
+                onClick={() => router.push('/settings')}
               >
-                Change Password
-              </button>
-
-              <button className={styles.logoutBtn} type="button" onClick={handleLogout}>
-                Log Out
+                {td.manageSettings}
               </button>
             </section>
 
-            <section className={styles.sideCard}>
-              <h2 className={styles.sectionTitle}>Support</h2>
-              <p className={styles.supportText}>
-                Samsam supports structured co-parenting with focus on clarity, responsibility,
-                and the child’s best interest.
-              </p>
-
-              <div className={styles.supportLinks}>
-                <button type="button" className={styles.linkBtn}>
-                  Help Center
+            <section className={styles.sidePanel}>
+              <p className={styles.sideEyebrow}>{td.inviteCodeTitle}</p>
+              <div className={styles.codeBox}>
+                <span>{family?.inviteCode || td.noValue}</span>
+                <button
+                  className={styles.copyIconButton}
+                  type="button"
+                  onClick={handleCopyInviteCode}
+                  disabled={!family?.inviteCode}
+                  aria-label={td.copyInviteCode}
+                >
+                  ⧉
                 </button>
-                <button type="button" className={styles.linkBtn}>
-                  Contact Support
+              </div>
+
+              <p className={styles.sideText}>{td.inviteCodeHelp}</p>
+
+              {copyMessage ? <p className={styles.success}>{copyMessage}</p> : null}
+              {copyError ? <p className={styles.error}>{copyError}</p> : null}
+            </section>
+
+            <section className={styles.sidePanel}>
+              <p className={styles.sideEyebrow}>{td.quickActions}</p>
+
+              <div className={styles.quickLinks}>
+                <button
+                  type="button"
+                  className={styles.quickLink}
+                  onClick={() => router.push('/profile/edit')}
+                >
+                  {td.editProfile}
+                </button>
+
+                <button
+                  type="button"
+                  className={styles.quickLink}
+                  onClick={() => router.push('/settings/change-password')}
+                >
+                  {td.changePassword}
+                </button>
+
+                <button
+                  type="button"
+                  className={styles.quickLink}
+                  onClick={() => router.push('/settings')}
+                >
+                  {td.goToSettings}
                 </button>
               </div>
             </section>
-          </div>
+          </aside>
         </div>
       </div>
-
-      {showJoinConfirm ? (
-        <div className={styles.modalOverlay}>
-          <div className={styles.modal}>
-            <h3 className={styles.modalTitle}>Bekreft bytte av familiegruppe</h3>
-
-            <p className={styles.modalText}>
-              Hvis du blir med i en annen familiegruppe, kan din nåværende familietilknytning
-              bli erstattet, og tilknyttet informasjon kan gå tapt.
-            </p>
-
-            <p className={styles.modalWarning}>Er du sikker på at du vil fortsette?</p>
-
-            <div className={styles.modalActions}>
-              <button
-                type="button"
-                className={styles.secondaryBtn}
-                onClick={() => setShowJoinConfirm(false)}
-                disabled={joinLoading}
-              >
-                Avbryt
-              </button>
-
-              <button
-                type="button"
-                className={styles.dangerBtn}
-                onClick={confirmJoinFamily}
-                disabled={joinLoading}
-              >
-                {joinLoading ? 'Kobler…' : 'Ja, bytt familie'}
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
     </main>
   )
 }

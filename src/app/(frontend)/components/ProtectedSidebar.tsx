@@ -1,20 +1,20 @@
 'use client'
- 
+
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import styles from '../(protected)/protectedLayout.module.css'
- 
 import Brand from './Brand/Brand'
-import CopyButton from "../../(frontend)/components/CopyButton"
-import LogoutButton from "../../(frontend)/components/LogoutButton"
- 
+import CopyButton from '../../(frontend)/components/CopyButton'
+import LogoutButton from '../../(frontend)/components/LogoutButton'
+import { useTranslations } from '@/app/lib/i18n/useTranslations'
+
 function Icon({
   type,
 }: {
   type: 'dash' | 'cal' | 'posts' | 'money' | 'child' | 'profile' | 'settings'
 }) {
   const common = { className: styles.icon, viewBox: '0 0 24 24', fill: 'none' as const }
- 
+
   switch (type) {
     case 'dash':
       return (
@@ -58,8 +58,17 @@ function Icon({
       return (
         <svg {...common}>
           <path d="M3 7h18v10H3V7z" stroke="currentColor" strokeWidth="1.8" />
-          <path d="M7 12h.01M17 12h.01" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
-          <path d="M12 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4z" stroke="currentColor" strokeWidth="1.8" />
+          <path
+            d="M7 12h.01M17 12h.01"
+            stroke="currentColor"
+            strokeWidth="2.4"
+            strokeLinecap="round"
+          />
+          <path
+            d="M12 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"
+            stroke="currentColor"
+            strokeWidth="1.8"
+          />
         </svg>
       )
     case 'child':
@@ -112,7 +121,7 @@ function Icon({
       )
   }
 }
- 
+
 export default function ProtectedSidebar({
   user,
   inviteCode,
@@ -121,34 +130,35 @@ export default function ProtectedSidebar({
   inviteCode: string | null
 }) {
   const pathname = usePathname()
- 
+  const t = useTranslations()
+
   const firstName = user?.firstName ?? '—'
   const lastName = user?.lastName ?? ''
   const role = user?.familyRole ?? '-'
   const email = user?.email ?? '-'
- 
+
   const links = [
-    { href: '/dashboard', label: 'Dashboard / Hjem', icon: 'dash' as const },
-    { href: '/calendar', label: 'Kalender', icon: 'cal' as const },
-    { href: '/oppdateringer', label: 'Oppdateringer (feed)', icon: 'posts' as const },
-    { href: '/economy', label: 'Økonomi', icon: 'money' as const },
-    { href: '/child-info', label: 'Barn-info', icon: 'child' as const },
-    { href: '/audit-logs', label: 'Historikk', icon: 'posts' as const },
-    { href: '/profile', label: 'Profil', icon: 'profile' as const },
-    { href: '/settings', label: 'Innstillinger', icon: 'settings' as const },
+    { href: '/dashboard', label: t.sidebar.dashboard, icon: 'dash' as const },
+    { href: '/calendar', label: t.sidebar.calendar, icon: 'cal' as const },
+    { href: '/oppdateringer', label: t.sidebar.updates, icon: 'posts' as const },
+    { href: '/economy', label: t.sidebar.economy, icon: 'money' as const },
+    { href: '/child-info', label: t.sidebar.childInfo, icon: 'child' as const },
+    { href: '/audit-logs', label: t.sidebar.history, icon: 'posts' as const },
+    { href: '/profile', label: t.sidebar.profile, icon: 'profile' as const },
+    { href: '/settings', label: t.sidebar.settings, icon: 'settings' as const },
   ]
- 
+
   function isActive(href: string) {
     return pathname === href || pathname.startsWith(`${href}/`)
   }
- 
+
   return (
     <aside className={styles.sidebar} aria-label="Sidebar">
       <div className={styles.brandWrap}>
         <Brand />
       </div>
- 
-      <nav className={styles.nav} aria-label="Main navigation">
+
+      <nav className={styles.nav} aria-label={t.sidebar.navAria}>
         {links.map((l) => (
           <Link
             key={l.href}
@@ -160,21 +170,21 @@ export default function ProtectedSidebar({
           </Link>
         ))}
       </nav>
- 
-      <section className={styles.sidebarCard} aria-label="Family invite code">
-        <div className={styles.sectionTitle}>Family Invite Code</div>
+
+      <section className={styles.sidebarCard} aria-label={t.sidebar.inviteCodeTitle}>
+        <div className={styles.sectionTitle}>{t.sidebar.inviteCodeTitle}</div>
         {inviteCode ? (
           <div className={styles.inviteRow}>
             <span className={styles.codePill}>{inviteCode}</span>
             <CopyButton value={inviteCode} />
           </div>
         ) : (
-          <div className={styles.miniText}>No family code found.</div>
+          <div className={styles.miniText}>{t.sidebar.noInviteCode}</div>
         )}
       </section>
- 
-      <section className={styles.sidebarCard} aria-label="Signed in as">
-        <div className={styles.sectionTitle}>Signed in as</div>
+
+      <section className={styles.sidebarCard} aria-label={t.sidebar.signedInAs}>
+        <div className={styles.sectionTitle}>{t.sidebar.signedInAs}</div>
         <div className={styles.userRow}>
           <div className={styles.avatar} aria-hidden="true">
             {(firstName?.[0] ?? 'U').toUpperCase()}
@@ -188,7 +198,7 @@ export default function ProtectedSidebar({
             <div className={styles.miniText}>{email}</div>
           </div>
         </div>
- 
+
         <div className={styles.logoutRow}>
           <LogoutButton />
         </div>
@@ -196,5 +206,3 @@ export default function ProtectedSidebar({
     </aside>
   )
 }
- 
- 

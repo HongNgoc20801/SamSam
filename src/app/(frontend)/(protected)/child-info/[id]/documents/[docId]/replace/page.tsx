@@ -3,7 +3,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { ArrowLeft, FileText, RefreshCcw, UploadCloud, X } from 'lucide-react'
-import styles from "./ReplaceChilDoc.module.css"
+
+import styles from './ReplaceChilDoc.module.css'
+import { useTranslations } from '@/app/lib/i18n/useTranslations'
 
 const DOCS_SLUG = 'child_documents'
 const MAX_FILE_SIZE = 10 * 1024 * 1024
@@ -49,19 +51,19 @@ function extractErrorMessage(raw: string, parsed: any, fallback: string) {
   )
 }
 
-function normalizeId(v: unknown): string | number | null {
-  if (v === null || v === undefined || v === '') return null
+function normalizeId(value: unknown): string | number | null {
+  if (value === null || value === undefined || value === '') return null
 
-  if (typeof v === 'number') return v
+  if (typeof value === 'number') return value
 
-  if (typeof v === 'string') {
-    const trimmed = v.trim()
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
     if (!trimmed) return null
     return /^\d+$/.test(trimmed) ? Number(trimmed) : trimmed
   }
 
-  if (typeof v === 'object' && v !== null && 'id' in v) {
-    return normalizeId((v as any).id)
+  if (typeof value === 'object' && value !== null && 'id' in value) {
+    return normalizeId((value as any).id)
   }
 
   return null
@@ -74,17 +76,11 @@ function prettyFileSize(size?: number) {
   return `${(size / (1024 * 1024)).toFixed(1)} MB`
 }
 
-function categoryLabel(c?: Category | string) {
-  if (c === 'agreement') return 'Agreements'
-  if (c === 'school') return 'School'
-  if (c === 'health') return 'Health'
-  if (c === 'id') return 'ID'
-  return 'Other'
-}
-
 export default function ReplaceChildDocPage() {
   const router = useRouter()
   const params = useParams<{ id: string; docId: string }>()
+  const t = useTranslations()
+  const td = t.replaceChildDoc
 
   const childId = params?.id
   const docId = params?.docId
@@ -97,8 +93,16 @@ export default function ReplaceChildDocPage() {
   const [error, setError] = useState('')
 
   const canSubmit = useMemo(() => {
-    return !!childId && !!docId && !!currentDoc && !!file && !loading && !loadingInitial
+    return Boolean(childId && docId && currentDoc && file && !loading && !loadingInitial)
   }, [childId, docId, currentDoc, file, loading, loadingInitial])
+
+  function categoryLabel(category?: Category | string) {
+    if (category === 'agreement') return td.categoryAgreement
+    if (category === 'school') return td.categorySchool
+    if (category === 'health') return td.categoryHealth
+    if (category === 'id') return td.categoryId
+    return td.categoryOther
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -120,7 +124,7 @@ export default function ReplaceChildDocPage() {
 
         if (!res.ok) {
           throw new Error(
-            extractErrorMessage(raw, json, `Load document failed (${res.status})`),
+            extractErrorMessage(raw, json, td.failedToLoadDocument),
           )
         }
 
@@ -129,7 +133,7 @@ export default function ReplaceChildDocPage() {
         }
       } catch (err: any) {
         if (!cancelled) {
-          setError(err?.message || 'Failed to load document.')
+          setError(err?.message || td.failedToLoadDocument)
         }
       } finally {
         if (!cancelled) {
@@ -143,11 +147,11 @@ export default function ReplaceChildDocPage() {
     return () => {
       cancelled = true
     }
-  }, [docId])
+  }, [docId, td.failedToLoadDocument])
 
-  async function uploadToMedia(f: File) {
+  async function uploadToMedia(selectedFile: File) {
     const form = new FormData()
-    form.append('file', f)
+    form.append('file', selectedFile)
 
     const res = await fetch('/api/media', {
       method: 'POST',
@@ -160,14 +164,14 @@ export default function ReplaceChildDocPage() {
 
     if (!res.ok) {
       throw new Error(
-        `Media upload failed: ${extractErrorMessage(raw, json, `Upload media failed (${res.status})`)}`,
+        extractErrorMessage(raw, json, td.uploadMediaFailed),
       )
     }
 
     const mediaId = json?.id ?? json?.doc?.id
 
     if (mediaId === null || mediaId === undefined || mediaId === '') {
-      throw new Error('Media upload succeeded, but no media id was returned.')
+      throw new Error(td.uploadMediaNoId)
     }
 
     return mediaId
@@ -191,34 +195,36 @@ export default function ReplaceChildDocPage() {
     const raw = await res.text()
     const json = safeJsonParse(raw)
 
-    console.log('[createReplacementDocument] status:', res.status)
-    console.log('[createReplacementDocument] raw:', raw)
-    console.log('[createReplacementDocument] json:', json)
-
     if (!res.ok) {
       throw new Error(
-        `Document creation failed: ${extractErrorMessage(raw, json, `Create document failed (${res.status})`)}`,
+        extractErrorMessage(raw, json, td.createDocumentFailed),
       )
     }
 
     return json
   }
 
-  async function onSubmit(e: React.FormEvent) {
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
+
     if (!canSubmit || !file || !currentDoc || !docId) return
 
     setError('')
 
-    const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp']
+    const allowedTypes = [
+      'application/pdf',
+      'image/jpeg',
+      'image/png',
+      'image/webp',
+    ]
 
     if (!allowedTypes.includes(file.type)) {
-      setError('Only PDF, JPG, PNG, or WEBP files are allowed.')
+      setError(td.onlyAllowedTypes)
       return
     }
 
     if (file.size > MAX_FILE_SIZE) {
-      setError('File is too large. Maximum size is 10MB.')
+      setError(td.fileTooLarge)
       return
     }
 
@@ -227,31 +233,29 @@ export default function ReplaceChildDocPage() {
     try {
       const normalizedChildId = normalizeId(currentDoc.child)
       if (!normalizedChildId) {
-        throw new Error('Missing child id from current document.')
+        throw new Error(td.missingChildId)
       }
 
       const normalizedReplacesId = normalizeId(docId)
       if (!normalizedReplacesId) {
-        throw new Error('Missing original document id.')
+        throw new Error(td.missingOriginalDocumentId)
       }
 
       const uploadedMediaId = await uploadToMedia(file)
       const normalizedMediaId = normalizeId(uploadedMediaId)
 
       if (!normalizedMediaId) {
-        throw new Error('Missing uploaded media id.')
+        throw new Error(td.missingUploadedMediaId)
       }
 
       const payload = {
         child: normalizedChildId,
         file: normalizedMediaId,
-        title: currentDoc.title?.trim() || 'Untitled document',
+        title: currentDoc.title?.trim() || td.untitledDocument,
         category: currentDoc.category || 'other',
         noteShort: currentDoc.noteShort?.trim() || undefined,
         replaces: normalizedReplacesId,
       }
-
-      console.log('[ReplaceChildDoc] payload:', payload)
 
       const created = await createReplacementDocument(payload)
       const newDocId = created?.id
@@ -265,7 +269,7 @@ export default function ReplaceChildDocPage() {
       router.refresh()
     } catch (err: any) {
       console.error('[ReplaceChildDoc] ERROR', err)
-      setError(err?.message || 'Something went wrong.')
+      setError(err?.message || td.unknownError)
     } finally {
       setLoading(false)
     }
@@ -285,16 +289,13 @@ export default function ReplaceChildDocPage() {
             disabled={loading}
           >
             <ArrowLeft size={16} />
-            Back
+            {td.back}
           </button>
 
           <div className={styles.headerText}>
-            <div className={styles.kicker}>Child documents</div>
-            <h1 className={styles.title}>Replace document</h1>
-            <p className={styles.sub}>
-              Upload a new file to create a new document version. The current document will
-              remain in history.
-            </p>
+            <div className={styles.kicker}>{td.kicker}</div>
+            <h1 className={styles.title}>{td.pageTitle}</h1>
+            <p className={styles.sub}>{td.pageHint}</p>
           </div>
         </div>
 
@@ -304,55 +305,55 @@ export default function ReplaceChildDocPage() {
               <RefreshCcw size={18} />
             </div>
             <div>
-              <div className={styles.cardTitle}>Current document</div>
-              <div className={styles.cardSub}>
-                Replace creates a new version. It does not overwrite the old file.
-              </div>
+              <div className={styles.cardTitle}>{td.currentDocumentTitle}</div>
+              <div className={styles.cardSub}>{td.currentDocumentHint}</div>
             </div>
           </div>
 
           {loadingInitial ? (
-            <div className={styles.infoBox}>Loading document...</div>
+            <div className={styles.infoBox}>{td.loadingDocument}</div>
           ) : currentDoc ? (
             <>
               <div className={styles.currentBox}>
-                <div className={styles.currentTitle}>Document information</div>
+                <div className={styles.currentTitle}>{td.documentInformation}</div>
 
                 <div className={styles.currentMetaRow}>
-                  <span className={styles.currentMetaLabel}>Title</span>
-                  <span className={styles.currentMetaValue}>{currentDoc.title || '—'}</span>
+                  <span className={styles.currentMetaLabel}>{td.title}</span>
+                  <span className={styles.currentMetaValue}>
+                    {currentDoc.title || td.noValue}
+                  </span>
                 </div>
 
                 <div className={styles.currentMetaRow}>
-                  <span className={styles.currentMetaLabel}>Category</span>
+                  <span className={styles.currentMetaLabel}>{td.category}</span>
                   <span className={styles.currentMetaValue}>
                     {categoryLabel(currentDoc.category)}
                   </span>
                 </div>
 
                 <div className={styles.currentMetaRow}>
-                  <span className={styles.currentMetaLabel}>Version</span>
+                  <span className={styles.currentMetaLabel}>{td.version}</span>
                   <span className={styles.currentMetaValue}>v{currentDoc.version ?? 1}</span>
                 </div>
 
                 <div className={styles.currentMetaRow}>
-                  <span className={styles.currentMetaLabel}>Current file</span>
+                  <span className={styles.currentMetaLabel}>{td.currentFile}</span>
                   <span className={styles.currentMetaValue}>
-                    {currentFile?.filename || '—'}
+                    {currentFile?.filename || td.noValue}
                     {currentFile?.filesize ? ` • ${prettyFileSize(currentFile.filesize)}` : ''}
                   </span>
                 </div>
 
                 {currentDoc.noteShort ? (
                   <div className={styles.currentMetaRow}>
-                    <span className={styles.currentMetaLabel}>Note</span>
+                    <span className={styles.currentMetaLabel}>{td.note}</span>
                     <span className={styles.currentMetaValue}>{currentDoc.noteShort}</span>
                   </div>
                 ) : null}
               </div>
 
               <div className={styles.field}>
-                <label className={styles.label}>New file</label>
+                <label className={styles.label}>{td.newFile}</label>
 
                 <label className={`${styles.uploadBox} ${file ? styles.uploadBoxActive : ''}`}>
                   <input
@@ -371,10 +372,8 @@ export default function ReplaceChildDocPage() {
                       <div className={styles.uploadIcon}>
                         <UploadCloud size={24} />
                       </div>
-                      <div className={styles.uploadTitle}>Choose replacement file</div>
-                      <div className={styles.uploadSub}>
-                        PDF, JPG, PNG or WEBP up to 10MB
-                      </div>
+                      <div className={styles.uploadTitle}>{td.chooseReplacementFile}</div>
+                      <div className={styles.uploadSub}>{td.uploadHelp}</div>
                     </div>
                   ) : (
                     <div className={styles.filePreview}>
@@ -386,7 +385,7 @@ export default function ReplaceChildDocPage() {
                         <div className={styles.fileInfo}>
                           <div className={styles.fileName}>{file.name}</div>
                           <div className={styles.fileMeta}>
-                            {file.type || 'Unknown type'} • {prettyFileSize(file.size)}
+                            {file.type || td.unknownType} • {prettyFileSize(file.size)}
                           </div>
                         </div>
                       </div>
@@ -399,7 +398,7 @@ export default function ReplaceChildDocPage() {
                           setFile(null)
                         }}
                         disabled={loading}
-                        aria-label="Remove file"
+                        aria-label={td.removeFile}
                       >
                         <X size={16} />
                       </button>
@@ -409,7 +408,7 @@ export default function ReplaceChildDocPage() {
               </div>
             </>
           ) : (
-            <div className={styles.infoBox}>Document not found.</div>
+            <div className={styles.infoBox}>{td.documentNotFound}</div>
           )}
 
           {error ? <div className={styles.error}>⚠ {error}</div> : null}
@@ -421,11 +420,15 @@ export default function ReplaceChildDocPage() {
               onClick={() => router.back()}
               disabled={loading}
             >
-              Cancel
+              {td.cancel}
             </button>
 
-            <button type="submit" className={styles.primaryBtn} disabled={!canSubmit}>
-              {loading ? 'Replacing…' : 'Replace document'}
+            <button
+              type="submit"
+              className={styles.primaryBtn}
+              disabled={!canSubmit}
+            >
+              {loading ? td.replacing : td.replace}
             </button>
           </div>
         </form>

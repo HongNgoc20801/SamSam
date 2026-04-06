@@ -3,7 +3,6 @@
 import { Children, cloneElement, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import styles from './calendar.module.css'
-import { Navigate } from 'react-big-calendar'
 import {
   Calendar as BigCalendar,
   dateFnsLocalizer,
@@ -11,9 +10,9 @@ import {
   type SlotInfo,
   type Event as RBCBaseEvent,
 } from 'react-big-calendar'
-
 import { format, parse, startOfWeek, getDay, addDays, startOfDay } from 'date-fns'
 import { nb } from 'date-fns/locale'
+import { useTranslations } from '@/app/lib/i18n/useTranslations'
 
 type Child = { id: string | number; fullName: string; status?: string }
 type EventStatus = 'admin' | 'personal' | 'important' | 'child'
@@ -97,6 +96,8 @@ function getEventColor(s?: EventStatus) {
 }
 
 export default function CalendarPage() {
+  const t = useTranslations()
+
   const [loading, setLoading] = useState(true)
   const [children, setChildren] = useState<Child[]>([])
   const [docs, setDocs] = useState<CalEventDoc[]>([])
@@ -156,19 +157,25 @@ export default function CalendarPage() {
 
       if (!cRes.ok) {
         throw new Error(
-          cData?.message || cData?.errors?.[0]?.message || cRaw || `Children failed: ${cRes.status}`,
+          cData?.message ||
+            cData?.errors?.[0]?.message ||
+            cRaw ||
+            `Children failed: ${cRes.status}`,
         )
       }
       if (!eRes.ok) {
         throw new Error(
-          eData?.message || eData?.errors?.[0]?.message || eRaw || `Events failed: ${eRes.status}`,
+          eData?.message ||
+            eData?.errors?.[0]?.message ||
+            eRaw ||
+            `Events failed: ${eRes.status}`,
         )
       }
 
       setChildren(cData?.docs ?? [])
       setDocs(eData?.docs ?? [])
     } catch (err: any) {
-      setError(err?.message || 'Network error')
+      setError(err?.message || t.calendar.networkError)
       setChildren([])
       setDocs([])
     } finally {
@@ -304,13 +311,13 @@ export default function CalendarPage() {
     if (saving) return
     setError('')
 
-    if (!hasChildren) return setError('Du må legge til minst ett barn før du kan opprette en avtale.')
-    if (!childId) return setError('Vennligst velg et barn.')
-    if (!title.trim()) return setError('Tittel er påkrevd.')
-    if (!startAt || !endAt) return setError('Vennligst velg start og slutt.')
+    if (!hasChildren) return setError(t.calendar.mustAddChildBeforeCreate)
+    if (!childId) return setError(t.calendar.mustSelectChild)
+    if (!title.trim()) return setError(t.calendar.titleRequired)
+    if (!startAt || !endAt) return setError(t.calendar.startEndRequired)
 
     const { startD, endD } = normalizeTimes(startAt, endAt)
-    if (endD.getTime() <= startD.getTime()) return setError('Slutt må være etter start.')
+    if (endD.getTime() <= startD.getTime()) return setError(t.calendar.endAfterStart)
 
     setSaving(true)
     try {
@@ -337,7 +344,7 @@ export default function CalendarPage() {
       } catch {}
 
       if (!res.ok) {
-        const msg = j?.message || j?.errors?.[0]?.message || raw || 'Kunne ikke opprette avtale.'
+        const msg = j?.message || j?.errors?.[0]?.message || raw || t.calendar.createFailed
         throw new Error(msg)
       }
 
@@ -345,7 +352,7 @@ export default function CalendarPage() {
       setOpen(false)
       await loadAll()
     } catch (err: any) {
-      setError(err?.message || 'Noe gikk galt.')
+      setError(err?.message || t.calendar.genericError)
     } finally {
       setSaving(false)
     }
@@ -357,20 +364,20 @@ export default function CalendarPage() {
     if (!activeEvent) return
     setError('')
 
-    if (!hasChildren) return setError('Du må legge til minst ett barn før du kan opprette en avtale.')
-    if (!childId) return setError('Vennligst velg et barn.')
-    if (!title.trim()) return setError('Tittel er påkrevd.')
-    if (!startAt || !endAt) return setError('Vennligst velg start og slutt.')
+    if (!hasChildren) return setError(t.calendar.mustAddChildBeforeCreate)
+    if (!childId) return setError(t.calendar.mustSelectChild)
+    if (!title.trim()) return setError(t.calendar.titleRequired)
+    if (!startAt || !endAt) return setError(t.calendar.startEndRequired)
 
     const { startD, endD } = normalizeTimes(startAt, endAt)
-    if (endD.getTime() <= startD.getTime()) return setError('Slutt må være etter start.')
+    if (endD.getTime() <= startD.getTime()) return setError(t.calendar.endAfterStart)
 
     setSaving(true)
     try {
       const childValue = normalizeID(childId)
 
       const res = await fetch(`/api/calendar-events/${activeEvent.id}`, {
-        method: 'PATCH', 
+        method: 'PATCH',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -390,21 +397,21 @@ export default function CalendarPage() {
       } catch {}
 
       if (!res.ok) {
-        const msg = j?.message || j?.errors?.[0]?.message || raw || 'Kunne ikke oppdatere avtale.'
+        const msg = j?.message || j?.errors?.[0]?.message || raw || t.calendar.updateFailed
         throw new Error(msg)
       }
 
       closeModal()
       await loadAll()
     } catch (err: any) {
-      setError(err?.message || 'Noe gikk galt.')
+      setError(err?.message || t.calendar.genericError)
     } finally {
       setSaving(false)
     }
   }
 
   async function deleteEvent(id: string) {
-    if (!confirm('Slette denne avtalen?')) return
+    if (!confirm(t.calendar.deleteConfirm)) return
     setError('')
     try {
       const res = await fetch(`/api/calendar-events/${id}`, {
@@ -419,14 +426,14 @@ export default function CalendarPage() {
       } catch {}
 
       if (!res.ok) {
-        const msg = j?.message || j?.errors?.[0]?.message || raw || 'Kunne ikke slette.'
+        const msg = j?.message || j?.errors?.[0]?.message || raw || t.calendar.deleteFailed
         throw new Error(msg)
       }
 
       closeModal()
       await loadAll()
     } catch (err: any) {
-      setError(err?.message || 'Noe gikk galt.')
+      setError(err?.message || t.calendar.genericError)
     }
   }
 
@@ -437,14 +444,24 @@ export default function CalendarPage() {
       <div className={styles.toolbar}>
         <div className={styles.toolbarLeft}>
           <button type="button" className={styles.navBtn} onClick={() => onNavigate('TODAY')}>
-            Idag
+            {t.calendar.today}
           </button>
 
           <div className={styles.navArrows}>
-            <button type="button" className={styles.iconNav} onClick={() => onNavigate('PREV')} aria-label="Prev">
+            <button
+              type="button"
+              className={styles.iconNav}
+              onClick={() => onNavigate('PREV')}
+              aria-label={t.calendar.prev}
+            >
               ‹
             </button>
-            <button type="button" className={styles.iconNav} onClick={() => onNavigate('NEXT')} aria-label="Next">
+            <button
+              type="button"
+              className={styles.iconNav}
+              onClick={() => onNavigate('NEXT')}
+              aria-label={t.calendar.next}
+            >
               ›
             </button>
           </div>
@@ -462,7 +479,7 @@ export default function CalendarPage() {
                 onView(Views.MONTH)
               }}
             >
-              Måned
+              {t.calendar.month}
             </button>
 
             <button
@@ -473,7 +490,7 @@ export default function CalendarPage() {
                 onView(Views.WEEK)
               }}
             >
-              Uke
+              {t.calendar.week}
             </button>
 
             <button
@@ -484,7 +501,7 @@ export default function CalendarPage() {
                 onView(Views.DAY)
               }}
             >
-              Dag
+              {t.calendar.day}
             </button>
 
             <button
@@ -495,7 +512,7 @@ export default function CalendarPage() {
                 onView(Views.AGENDA)
               }}
             >
-              Agenda
+              {t.calendar.agenda}
             </button>
           </div>
         </div>
@@ -538,7 +555,9 @@ export default function CalendarPage() {
           <span className={styles.dayEventTime}>{time}</span>
         </div>
 
-        {ev.resource.childName ? <div className={styles.dayEventSub}>{ev.resource.childName}</div> : null}
+        {ev.resource.childName ? (
+          <div className={styles.dayEventSub}>{ev.resource.childName}</div>
+        ) : null}
       </div>
     )
   }
@@ -574,26 +593,26 @@ export default function CalendarPage() {
     child: styles.evtChild,
   }
 
-  if (loading) return <div className={styles.loading}>Laster…</div>
+  if (loading) return <div className={styles.loading}>{t.calendar.loading}</div>
 
   return (
     <div className={styles.wrapper}>
       <div className={styles.topBar}>
         <div>
-          <h1 className={styles.title}>Kalender</h1>
-          <p className={styles.subtitle}>Velg dato i kalenderen for å legge til avtale.</p>
+          <h1 className={styles.title}>{t.calendar.title}</h1>
+          <p className={styles.subtitle}>{t.calendar.subtitle}</p>
         </div>
 
         <div className={styles.topActions}>
           <label className={styles.filterLabel}>
-            Filter barn
+            {t.calendar.filterChild}
             <select
               className={styles.select}
               value={filterChild}
               onChange={(e) => setFilterChild(e.target.value)}
               disabled={!hasChildren}
             >
-              <option value="all">Alle</option>
+              <option value="all">{t.calendar.allChildren}</option>
               {children.map((c) => (
                 <option key={String(c.id)} value={String(c.id)}>
                   {c.fullName}
@@ -605,30 +624,32 @@ export default function CalendarPage() {
           <button
             className={styles.primaryBtn}
             disabled={!hasChildren}
-            title={!hasChildren ? 'Legg til et barn først' : 'Opprett avtale'}
+            title={!hasChildren ? t.calendar.addChildFirstTooltip : t.calendar.createEventTitle}
             onClick={() => {
               const now = new Date()
               const end = new Date(now.getTime() + 30 * 60 * 1000)
               openCreateWithRange(now, end)
             }}
           >
-            + Ny avtale
+            {t.calendar.newEvent}
           </button>
         </div>
       </div>
 
       {!hasChildren ? (
         <div className={styles.emptyCard}>
-          <p className={styles.emptyText}>
-            Du har ingen barn registrert enda. Du må legge til minst ett barn før du kan opprette avtaler.
-          </p>
+          <p className={styles.emptyText}>{t.calendar.noChildrenTitle}</p>
           <Link className={styles.linkBtn} href="/child-info/new">
-            Legg til barn
+            {t.calendar.addChild}
           </Link>
         </div>
       ) : null}
 
-      {error ? <p className={styles.error}>Feil: {error}</p> : null}
+      {error ? (
+        <p className={styles.error}>
+          {t.calendar.errorPrefix} {error}
+        </p>
+      ) : null}
 
       <div className={styles.calendarShell}>
         <BigCalendar<RBCEvent>
@@ -679,218 +700,322 @@ export default function CalendarPage() {
       {open ? (
         <div className={styles.modalBackdrop} onMouseDown={closeModal}>
           <div className={styles.modal} onMouseDown={(e) => e.stopPropagation()}>
-            {mode === 'view' && activeEvent ? (() => {
-              const s = (activeEvent.resource.status ?? 'admin') as EventStatus
-              const childName = activeEvent.resource.childName || ''
-              const initials = getInitials(childName)
+            {mode === 'view' && activeEvent ? (
+              (() => {
+                const s = (activeEvent.resource.status ?? 'admin') as EventStatus
+                const childName = activeEvent.resource.childName || ''
+                const initials = getInitials(childName)
 
-              const startDate = format(activeEvent.start, 'dd.MM.yyyy')
-              const endDate = format(activeEvent.end, 'dd.MM.yyyy')
-              const dateText = startDate === endDate ? startDate : `${startDate} → ${endDate}`
+                const startDate = format(activeEvent.start, 'dd.MM.yyyy')
+                const endDate = format(activeEvent.end, 'dd.MM.yyyy')
+                const dateText = startDate === endDate ? startDate : `${startDate} → ${endDate}`
 
-              const timeText = `${format(activeEvent.start, 'HH:mm')} → ${format(activeEvent.end, 'HH:mm')}`
+                const timeText = `${format(activeEvent.start, 'HH:mm')} → ${format(
+                  activeEvent.end,
+                  'HH:mm',
+                )}`
 
-              return (
-                <div className={styles.detailWrap}>
-                  <div className={`${styles.detailTopAccent} ${styles[`accent_${s}`]}`} />
+                return (
+                  <div className={styles.detailWrap}>
+                    <div className={`${styles.detailTopAccent} ${styles[`accent_${s}`]}`} />
 
-                  <div className={styles.detailHeader}>
-                    <div className={styles.detailType}>
-                      <span className={styles.detailTypeIcon}>🔖</span>
-                      <span className={styles.detailTypeText}>HENDELSE</span>
-                    </div>
-
-                    <button type="button" className={styles.detailClose} onClick={closeModal} aria-label="Close">
-                      ✕
-                    </button>
-                  </div>
-
-                  <div className={styles.detailTitle}>{activeEvent.title}</div>
-
-                  <div className={styles.badgeRow}>
-                    {childName ? (
-                      <span className={styles.badgePerson}>
-                        <span className={styles.avatar}>{initials}</span>
-                        <span className={styles.badgeText}>{childName}</span>
-                      </span>
-                    ) : null}
-
-                    <span className={`${styles.badgeStatus} ${styles[`status_${s}`]}`}>
-                      <span className={styles.badgeStatusIcon}>!</span>
-                      <span className={styles.badgeText}>
-                        {s === 'important' ? 'QUAN TRỌNG' : s.toUpperCase()}
-                      </span>
-                    </span>
-                  </div>
-
-                  <div className={styles.infoGrid}>
-                    <div className={styles.infoCard}>
-                      <div className={styles.infoLabel}>
-                        <span className={styles.infoIcon}>📅</span> DATO FOR HENDELSE
+                    <div className={styles.detailHeader}>
+                      <div className={styles.detailType}>
+                        <span className={styles.detailTypeIcon}>🔖</span>
+                        <span className={styles.detailTypeText}>{t.calendar.eventType}</span>
                       </div>
-                      <div className={styles.infoValue}>{dateText}</div>
+
+                      <button
+                        type="button"
+                        className={styles.detailClose}
+                        onClick={closeModal}
+                        aria-label={t.calendar.close}
+                      >
+                        ✕
+                      </button>
                     </div>
 
-                    <div className={styles.infoCard}>
-                      <div className={styles.infoLabel}>
-                        <span className={styles.infoIcon}>🕒</span> TID
+                    <div className={styles.detailTitle}>{activeEvent.title}</div>
+
+                    <div className={styles.badgeRow}>
+                      {childName ? (
+                        <span className={styles.badgePerson}>
+                          <span className={styles.avatar}>{initials}</span>
+                          <span className={styles.badgeText}>{childName}</span>
+                        </span>
+                      ) : null}
+
+                      <span className={`${styles.badgeStatus} ${styles[`status_${s}`]}`}>
+                        <span className={styles.badgeStatusIcon}>!</span>
+                        <span className={styles.badgeText}>
+                          {s === 'important' ? t.calendar.importantUpper : s.toUpperCase()}
+                        </span>
+                      </span>
+                    </div>
+
+                    <div className={styles.infoGrid}>
+                      <div className={styles.infoCard}>
+                        <div className={styles.infoLabel}>
+                          <span className={styles.infoIcon}>📅</span> {t.calendar.eventDate}
+                        </div>
+                        <div className={styles.infoValue}>{dateText}</div>
                       </div>
-                      <div className={styles.infoValue}>{timeText}</div>
+
+                      <div className={styles.infoCard}>
+                        <div className={styles.infoLabel}>
+                          <span className={styles.infoIcon}>🕒</span> {t.calendar.time}
+                        </div>
+                        <div className={styles.infoValue}>{timeText}</div>
+                      </div>
+                    </div>
+
+                    <div className={styles.descSection}>
+                      <div className={styles.descLabel}>{t.calendar.descriptionTitle}</div>
+                      <div className={styles.descBox}>
+                        {activeEvent.resource.notes ? (
+                          activeEvent.resource.notes
+                        ) : (
+                          <span className={styles.descMuted}>{t.calendar.noDescriptionYet}</span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className={styles.detailFooter}>
+                      <button type="button" className={styles.actionClose} onClick={closeModal}>
+                        {t.calendar.close}
+                      </button>
+
+                      <button
+                        type="button"
+                        className={styles.actionDelete}
+                        onClick={() => deleteEvent(activeEvent.id)}
+                      >
+                        {t.calendar.deleteEvent}
+                      </button>
+
+                      <button
+                        type="button"
+                        className={styles.actionEdit}
+                        onClick={() => {
+                          fillFormFromEvent(activeEvent)
+                          setMode('edit')
+                        }}
+                      >
+                        {t.calendar.editEvent}
+                      </button>
                     </div>
                   </div>
-
-                  <div className={styles.descSection}>
-                    <div className={styles.descLabel}>BESKRIVELSE AV HENDELSEN</div>
-                    <div className={styles.descBox}>
-                      {activeEvent.resource.notes ? activeEvent.resource.notes : (
-                        <span className={styles.descMuted}>INGEN BERSKRIVELSE ENNÅ</span>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className={styles.detailFooter}>
-                    <button type="button" className={styles.actionClose} onClick={closeModal}>
-                      Lukk
-                    </button>
-
-                    <button type="button" className={styles.actionDelete} onClick={() => deleteEvent(activeEvent.id)}>
-                      Slett hendelse
-                    </button>
-
-                    <button
-                      type="button"
-                      className={styles.actionEdit}
-                      onClick={() => {
-                        fillFormFromEvent(activeEvent)
-                        setMode('edit')
-                      }}
-                    >
-                      Rediger hendelse
-                    </button>
-                  </div>
-                </div>
-              )
-            })() : mode === 'edit' ? (
+                )
+              })()
+            ) : mode === 'edit' ? (
               <form className={styles.form} onSubmit={updateEvent}>
                 <div className={styles.modalHeader}>
-                  <div className={styles.modalTitle}>Rediger avtale</div>
-                  <button type="button" className={styles.iconBtn} onClick={() => setMode('view')} aria-label="Close">
+                  <div className={styles.modalTitle}>{t.calendar.editAgreement}</div>
+                  <button
+                    type="button"
+                    className={styles.iconBtn}
+                    onClick={() => setMode('view')}
+                    aria-label={t.calendar.close}
+                  >
                     ✕
                   </button>
                 </div>
 
                 <label className={styles.label}>
-                  Velg barn
-                  <select className={styles.select} value={childId} onChange={(ev) => setChildId(ev.target.value)} disabled={saving}>
-                    <option value="">Velg…</option>
+                  {t.calendar.selectChild}
+                  <select
+                    className={styles.select}
+                    value={childId}
+                    onChange={(ev) => setChildId(ev.target.value)}
+                    disabled={saving}
+                  >
+                    <option value="">{t.calendar.selectPlaceholder}</option>
                     {children.map((c) => (
                       <option key={String(c.id)} value={String(c.id)}>
-                        {c.fullName} {c.status ? `(${c.status})` : ''}
+                        {c.fullName}{' '}
+                        {c.status ? `(${c.status})` : `(${t.calendar.childStatusUnknown})`}
                       </option>
                     ))}
                   </select>
                 </label>
 
                 <label className={styles.label}>
-                  Status
-                  <select className={styles.select} value={status} onChange={(e) => setStatus(e.target.value as EventStatus)} disabled={saving}>
-                    <option value="admin">Admin (blå)</option>
-                    <option value="personal">Personlig (grønn)</option>
-                    <option value="important">Viktig (rosa/rød)</option>
-                    <option value="child">Barn (lilla)</option>
+                  {t.calendar.status}
+                  <select
+                    className={styles.select}
+                    value={status}
+                    onChange={(e) => setStatus(e.target.value as EventStatus)}
+                    disabled={saving}
+                  >
+                    <option value="admin">{t.calendar.statusAdmin}</option>
+                    <option value="personal">{t.calendar.statusPersonal}</option>
+                    <option value="important">{t.calendar.statusImportant}</option>
+                    <option value="child">{t.calendar.statusChild}</option>
                   </select>
                 </label>
 
                 <label className={styles.label}>
-                  Tittel
-                  <input className={styles.input} value={title} onChange={(ev) => setTitle(ev.target.value)} disabled={saving} />
+                  {t.calendar.titleLabel}
+                  <input
+                    className={styles.input}
+                    value={title}
+                    onChange={(ev) => setTitle(ev.target.value)}
+                    disabled={saving}
+                  />
                 </label>
 
                 <div className={styles.formRow}>
                   <label className={styles.label}>
-                    Start
-                    <input className={styles.input} type="datetime-local" value={startAt} onChange={(ev) => setStartAt(ev.target.value)} disabled={saving} />
+                    {t.calendar.start}
+                    <input
+                      className={styles.input}
+                      type="datetime-local"
+                      value={startAt}
+                      onChange={(ev) => setStartAt(ev.target.value)}
+                      disabled={saving}
+                    />
                   </label>
 
                   <label className={styles.label}>
-                    Slutt
-                    <input className={styles.input} type="datetime-local" value={endAt} onChange={(ev) => setEndAt(ev.target.value)} disabled={saving} />
+                    {t.calendar.end}
+                    <input
+                      className={styles.input}
+                      type="datetime-local"
+                      value={endAt}
+                      onChange={(ev) => setEndAt(ev.target.value)}
+                      disabled={saving}
+                    />
                   </label>
                 </div>
 
                 <label className={styles.label}>
-                  Notat (valgfritt)
-                  <textarea className={styles.textarea} value={notes} onChange={(ev) => setNotes(ev.target.value)} disabled={saving} />
+                  {t.calendar.noteOptional}
+                  <textarea
+                    className={styles.textarea}
+                    value={notes}
+                    onChange={(ev) => setNotes(ev.target.value)}
+                    disabled={saving}
+                  />
                 </label>
 
                 <div className={styles.modalActions}>
-                  <button type="button" className={styles.secondaryBtn} onClick={() => setMode('view')} disabled={saving}>
-                    Avbryt
+                  <button
+                    type="button"
+                    className={styles.secondaryBtn}
+                    onClick={() => setMode('view')}
+                    disabled={saving}
+                  >
+                    {t.calendar.cancel}
                   </button>
                   <button className={styles.primaryBtn} type="submit" disabled={saving}>
-                    {saving ? 'Lagrer…' : 'Lagre endringer'}
+                    {saving ? t.calendar.saving : t.calendar.saveChanges}
                   </button>
                 </div>
               </form>
             ) : (
               <form className={styles.form} onSubmit={createEvent}>
                 <div className={styles.modalHeader}>
-                  <div className={styles.modalTitle}>Opprett avtale</div>
-                  <button type="button" className={styles.iconBtn} onClick={closeModal} aria-label="Close">
+                  <div className={styles.modalTitle}>{t.calendar.createAgreement}</div>
+                  <button
+                    type="button"
+                    className={styles.iconBtn}
+                    onClick={closeModal}
+                    aria-label={t.calendar.close}
+                  >
                     ✕
                   </button>
                 </div>
 
                 <label className={styles.label}>
-                  Velg barn
-                  <select className={styles.select} value={childId} onChange={(ev) => setChildId(ev.target.value)} disabled={saving}>
-                    <option value="">Velg…</option>
+                  {t.calendar.selectChild}
+                  <select
+                    className={styles.select}
+                    value={childId}
+                    onChange={(ev) => setChildId(ev.target.value)}
+                    disabled={saving}
+                  >
+                    <option value="">{t.calendar.selectPlaceholder}</option>
                     {children.map((c) => (
                       <option key={String(c.id)} value={String(c.id)}>
-                        {c.fullName} {c.status ? `(${c.status})` : ''}
+                        {c.fullName}{' '}
+                        {c.status ? `(${c.status})` : `(${t.calendar.childStatusUnknown})`}
                       </option>
                     ))}
                   </select>
                 </label>
 
                 <label className={styles.label}>
-                  Status
-                  <select className={styles.select} value={status} onChange={(e) => setStatus(e.target.value as EventStatus)} disabled={saving}>
-                    <option value="admin">Admin (blå)</option>
-                    <option value="personal">Personlig (grønn)</option>
-                    <option value="important">Viktig (rosa/rød)</option>
-                    <option value="child">Barn (lilla)</option>
+                  {t.calendar.status}
+                  <select
+                    className={styles.select}
+                    value={status}
+                    onChange={(e) => setStatus(e.target.value as EventStatus)}
+                    disabled={saving}
+                  >
+                    <option value="admin">{t.calendar.statusAdmin}</option>
+                    <option value="personal">{t.calendar.statusPersonal}</option>
+                    <option value="important">{t.calendar.statusImportant}</option>
+                    <option value="child">{t.calendar.statusChild}</option>
                   </select>
                 </label>
 
                 <label className={styles.label}>
-                  Tittel
-                  <input className={styles.input} value={title} onChange={(ev) => setTitle(ev.target.value)} disabled={saving} placeholder="F.eks. Legetime / Barnehage / Fotball" />
+                  {t.calendar.titleLabel}
+                  <input
+                    className={styles.input}
+                    value={title}
+                    onChange={(ev) => setTitle(ev.target.value)}
+                    disabled={saving}
+                    placeholder={t.calendar.titlePlaceholder}
+                  />
                 </label>
 
                 <div className={styles.formRow}>
                   <label className={styles.label}>
-                    Start
-                    <input className={styles.input} type="datetime-local" value={startAt} onChange={(ev) => setStartAt(ev.target.value)} disabled={saving} />
+                    {t.calendar.start}
+                    <input
+                      className={styles.input}
+                      type="datetime-local"
+                      value={startAt}
+                      onChange={(ev) => setStartAt(ev.target.value)}
+                      disabled={saving}
+                    />
                   </label>
 
                   <label className={styles.label}>
-                    Slutt
-                    <input className={styles.input} type="datetime-local" value={endAt} onChange={(ev) => setEndAt(ev.target.value)} disabled={saving} />
+                    {t.calendar.end}
+                    <input
+                      className={styles.input}
+                      type="datetime-local"
+                      value={endAt}
+                      onChange={(ev) => setEndAt(ev.target.value)}
+                      disabled={saving}
+                    />
                   </label>
                 </div>
 
                 <label className={styles.label}>
-                  Notat (valgfritt)
-                  <textarea className={styles.textarea} value={notes} onChange={(ev) => setNotes(ev.target.value)} disabled={saving} placeholder="F.eks. ta med helsekort..." />
+                  {t.calendar.noteOptional}
+                  <textarea
+                    className={styles.textarea}
+                    value={notes}
+                    onChange={(ev) => setNotes(ev.target.value)}
+                    disabled={saving}
+                    placeholder={t.calendar.notePlaceholder}
+                  />
                 </label>
 
                 <div className={styles.modalActions}>
-                  <button type="button" className={styles.secondaryBtn} onClick={closeModal} disabled={saving}>
-                    Avbryt
+                  <button
+                    type="button"
+                    className={styles.secondaryBtn}
+                    onClick={closeModal}
+                    disabled={saving}
+                  >
+                    {t.calendar.cancel}
                   </button>
                   <button className={styles.primaryBtn} type="submit" disabled={saving}>
-                    {saving ? 'Lagrer…' : 'Opprett'}
+                    {saving ? t.calendar.saving : t.calendar.create}
                   </button>
                 </div>
               </form>

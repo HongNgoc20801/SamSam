@@ -1,9 +1,11 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { useRouter, useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
+import { ArrowLeft, FileText, ShieldCheck, UploadCloud, X } from 'lucide-react'
+
 import styles from './UploadChildDoc.module.css'
-import { FileText, UploadCloud, X, ArrowLeft, ShieldCheck } from 'lucide-react'
+import { useTranslations } from '@/app/lib/i18n/useTranslations'
 
 const DOCS_SLUG = 'child_documents'
 const MAX_FILE_SIZE = 10 * 1024 * 1024
@@ -29,14 +31,16 @@ function extractErrorMessage(raw: string, parsed: any, fallback: string) {
   )
 }
 
-function normalizeId(v: unknown): string | number | null {
-  if (v === null || v === undefined || v === '') return null
-  if (typeof v === 'number') return v
-  if (typeof v === 'string') {
-    const trimmed = v.trim()
+function normalizeId(value: unknown): string | number | null {
+  if (value === null || value === undefined || value === '') return null
+  if (typeof value === 'number') return value
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
     if (!trimmed) return null
     return /^\d+$/.test(trimmed) ? Number(trimmed) : trimmed
   }
+
   return null
 }
 
@@ -52,6 +56,9 @@ export default function UploadChildDocPage() {
   const params = useParams<{ id: string }>()
   const childId = params?.id
 
+  const t = useTranslations()
+  const td = t.uploadChildDoc
+
   const [file, setFile] = useState<File | null>(null)
   const [title, setTitle] = useState('')
   const [category, setCategory] = useState<Category>('other')
@@ -60,12 +67,12 @@ export default function UploadChildDocPage() {
   const [error, setError] = useState('')
 
   const canSubmit = useMemo(() => {
-    return !!childId && !!file && !!title.trim() && !loading
+    return Boolean(childId && file && title.trim() && !loading)
   }, [childId, file, title, loading])
 
-  async function uploadToMedia(f: File) {
+  async function uploadToMedia(selectedFile: File) {
     const form = new FormData()
-    form.append('file', f)
+    form.append('file', selectedFile)
 
     const res = await fetch('/api/media', {
       method: 'POST',
@@ -77,17 +84,18 @@ export default function UploadChildDocPage() {
     const json = safeJsonParse(raw)
 
     if (!res.ok) {
-      const msg = extractErrorMessage(raw, json, `Upload media failed (${res.status})`)
-      throw new Error(`Media upload failed: ${msg}`)
+      const msg = extractErrorMessage(raw, json, td.uploadMediaFailed)
+      throw new Error(msg)
     }
 
     const mediaId = json?.id ?? json?.doc?.id
+
     if (mediaId === null || mediaId === undefined || mediaId === '') {
       console.error('[uploadToMedia] unexpected response', { status: res.status, raw, json })
-      throw new Error('Media upload succeeded, but no media id was returned.')
+      throw new Error(td.uploadMediaNoId)
     }
 
-    return { mediaId, raw, json }
+    return mediaId
   }
 
   async function createChildDocument(input: {
@@ -108,15 +116,16 @@ export default function UploadChildDocPage() {
     const json = safeJsonParse(raw)
 
     if (!res.ok) {
-      const msg = extractErrorMessage(raw, json, `Create document failed (${res.status})`)
-      throw new Error(`Document creation failed: ${msg}`)
+      const msg = extractErrorMessage(raw, json, td.createDocumentFailed)
+      throw new Error(msg)
     }
 
-    return { raw, json }
+    return json
   }
 
-  async function onSubmit(e: React.FormEvent) {
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
+
     if (!canSubmit || !file || !childId) return
 
     setError('')
@@ -129,29 +138,29 @@ export default function UploadChildDocPage() {
     ]
 
     if (!allowedTypes.includes(file.type)) {
-      setError('Only PDF, JPG, PNG, or WEBP files are allowed.')
+      setError(td.onlyAllowedTypes)
       return
     }
 
     if (file.size > MAX_FILE_SIZE) {
-      setError('File is too large. Maximum size is 10MB.')
+      setError(td.fileTooLarge)
       return
     }
 
     setLoading(true)
 
     try {
-      const mediaRes = await uploadToMedia(file)
+      const mediaId = await uploadToMedia(file)
 
       const normalizedChildId = normalizeId(childId)
-      const normalizedMediaId = normalizeId(mediaRes.mediaId)
+      const normalizedMediaId = normalizeId(mediaId)
 
       if (!normalizedChildId) {
-        throw new Error('Missing or invalid child id.')
+        throw new Error(td.invalidChildId)
       }
 
       if (!normalizedMediaId) {
-        throw new Error('Missing or invalid uploaded media id.')
+        throw new Error(td.invalidMediaId)
       }
 
       const payload = {
@@ -168,7 +177,7 @@ export default function UploadChildDocPage() {
       router.refresh()
     } catch (err: any) {
       console.error('[UploadChildDoc] ERROR', err)
-      setError(err?.message || 'Something went wrong.')
+      setError(err?.message || td.unknownError)
     } finally {
       setLoading(false)
     }
@@ -178,22 +187,21 @@ export default function UploadChildDocPage() {
     <div className={styles.page}>
       <div className={styles.shell}>
         <div className={styles.header}>
-           <button
+          <button
             type="button"
             className={styles.ghostBtn}
             onClick={() => router.back()}
             disabled={loading}
           >
             <ArrowLeft size={16} />
-            Back
+            {td.back}
           </button>
+
           <div className={styles.headerText}>
-          <div className={styles.kicker}>Child documents</div>
-          <h1 className={styles.title}>Upload document</h1>
-          <p className={styles.sub}>
-            Add a document to this child profile in a clear, structured way.
-          </p>
-        </div>
+            <div className={styles.kicker}>{td.kicker}</div>
+            <h1 className={styles.title}>{td.pageTitle}</h1>
+            <p className={styles.sub}>{td.pageHint}</p>
+          </div>
         </div>
 
         <form onSubmit={onSubmit} className={styles.card}>
@@ -201,16 +209,15 @@ export default function UploadChildDocPage() {
             <div className={styles.cardTopIcon}>
               <ShieldCheck size={18} />
             </div>
+
             <div>
-              <div className={styles.cardTitle}>Document details</div>
-              <div className={styles.cardSub}>
-                Supported files: PDF, JPG, PNG, WEBP. Maximum size: 10MB.
-              </div>
+              <div className={styles.cardTitle}>{td.detailsTitle}</div>
+              <div className={styles.cardSub}>{td.detailsHint}</div>
             </div>
           </div>
 
           <div className={styles.field}>
-            <label className={styles.label}>File</label>
+            <label className={styles.label}>{td.file}</label>
 
             <label className={`${styles.uploadBox} ${file ? styles.uploadBoxActive : ''}`}>
               <input
@@ -229,10 +236,8 @@ export default function UploadChildDocPage() {
                   <div className={styles.uploadIcon}>
                     <UploadCloud size={24} />
                   </div>
-                  <div className={styles.uploadTitle}>Choose a file to upload</div>
-                  <div className={styles.uploadSub}>
-                    Click to browse your device
-                  </div>
+                  <div className={styles.uploadTitle}>{td.chooseFile}</div>
+                  <div className={styles.uploadSub}>{td.browseDevice}</div>
                 </div>
               ) : (
                 <div className={styles.filePreview}>
@@ -244,7 +249,7 @@ export default function UploadChildDocPage() {
                     <div className={styles.fileInfo}>
                       <div className={styles.fileName}>{file.name}</div>
                       <div className={styles.fileMeta}>
-                        {file.type || 'Unknown type'} • {prettyFileSize(file.size)}
+                        {file.type || td.unknownType} • {prettyFileSize(file.size)}
                       </div>
                     </div>
                   </div>
@@ -257,7 +262,7 @@ export default function UploadChildDocPage() {
                       setFile(null)
                     }}
                     disabled={loading}
-                    aria-label="Remove file"
+                    aria-label={td.removeFile}
                   >
                     <X size={16} />
                   </button>
@@ -268,44 +273,46 @@ export default function UploadChildDocPage() {
 
           <div className={styles.gridTwo}>
             <div className={styles.field}>
-              <label className={styles.label}>Title</label>
+              <label className={styles.label}>{td.title}</label>
               <input
                 className={styles.input}
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 disabled={loading}
-                placeholder="Eg: Birth certificate / Vaccine record"
+                placeholder={td.titlePlaceholder}
               />
             </div>
 
             <div className={styles.field}>
-              <label className={styles.label}>Category</label>
+              <label className={styles.label}>{td.category}</label>
               <select
                 className={styles.input}
                 value={category}
                 onChange={(e) => setCategory(e.target.value as Category)}
                 disabled={loading}
               >
-                <option value="agreement">Agreements</option>
-                <option value="school">School</option>
-                <option value="health">Health</option>
-                <option value="id">ID</option>
-                <option value="other">Other</option>
+                <option value="agreement">{td.categoryAgreement}</option>
+                <option value="school">{td.categorySchool}</option>
+                <option value="health">{td.categoryHealth}</option>
+                <option value="id">{td.categoryId}</option>
+                <option value="other">{td.categoryOther}</option>
               </select>
             </div>
           </div>
 
           <div className={styles.field}>
-            <label className={styles.label}>Note (short)</label>
+            <label className={styles.label}>{td.noteShort}</label>
             <input
               className={styles.input}
               value={noteShort}
               onChange={(e) => setNoteShort(e.target.value)}
               disabled={loading}
               maxLength={160}
-              placeholder="Optional short context for the other parent"
+              placeholder={td.notePlaceholder}
             />
-            <div className={styles.hint}>{noteShort.length}/160 characters</div>
+            <div className={styles.hint}>
+              {noteShort.length}/160 {td.characters}
+            </div>
           </div>
 
           {error ? <div className={styles.error}>⚠ {error}</div> : null}
@@ -317,7 +324,7 @@ export default function UploadChildDocPage() {
               onClick={() => router.back()}
               disabled={loading}
             >
-              Cancel
+              {td.cancel}
             </button>
 
             <button
@@ -325,7 +332,7 @@ export default function UploadChildDocPage() {
               className={styles.primaryBtn}
               disabled={!canSubmit}
             >
-              {loading ? 'Uploading…' : 'Upload document'}
+              {loading ? td.uploading : td.upload}
             </button>
           </div>
         </form>

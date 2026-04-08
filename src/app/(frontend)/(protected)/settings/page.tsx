@@ -12,15 +12,17 @@ function SettingTile({
   description,
   checked,
   onChange,
+  disabled = false,
 }: {
   title: string
   description: string
   checked: boolean
   onChange: (value: boolean) => void
+  disabled?: boolean
 }) {
   return (
-    <div className={styles.tile}>
-      <div>
+    <div className={`${styles.tile} ${disabled ? styles.tileDisabled : ''}`}>
+      <div className={styles.tileContent}>
         <h3 className={styles.tileTitle}>{title}</h3>
         <p className={styles.tileDescription}>{description}</p>
       </div>
@@ -29,6 +31,7 @@ function SettingTile({
         <input
           type="checkbox"
           checked={checked}
+          disabled={disabled}
           onChange={(e) => onChange(e.target.checked)}
         />
         <span className={styles.toggleTrack}></span>
@@ -50,7 +53,7 @@ function PrivacyRow({
 }) {
   return (
     <button className={styles.privacyRow} type="button" onClick={onClick}>
-      <div>
+      <div className={styles.privacyLeft}>
         <p className={styles.privacyTitle}>{title}</p>
         <p className={styles.privacyDescription}>{description}</p>
       </div>
@@ -69,9 +72,13 @@ export default function SettingsPage() {
   const t = useTranslations()
 
   const [language, setLanguage] = useState<AppLanguage>('no')
+
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true)
   const [notifyCalendarChanges, setNotifyCalendarChanges] = useState(true)
   const [notifyExpenseUpdates, setNotifyExpenseUpdates] = useState(true)
   const [notifyStatusUpdates, setNotifyStatusUpdates] = useState(true)
+  const [notifyDocumentUpdates, setNotifyDocumentUpdates] = useState(true)
+
   const [sharePhoneWithFamily, setSharePhoneWithFamily] = useState(true)
   const [shareAddressWithFamily, setShareAddressWithFamily] = useState(false)
 
@@ -83,9 +90,13 @@ export default function SettingsPage() {
     if (!settings) return
 
     setLanguage(settings.language ?? 'no')
+
+    setNotificationsEnabled(settings.notificationsEnabled ?? true)
     setNotifyCalendarChanges(settings.notifyCalendarChanges ?? true)
     setNotifyExpenseUpdates(settings.notifyExpenseUpdates ?? true)
     setNotifyStatusUpdates(settings.notifyStatusUpdates ?? true)
+    setNotifyDocumentUpdates(settings.notifyDocumentUpdates ?? true)
+
     setSharePhoneWithFamily(settings.sharePhoneWithFamily ?? true)
     setShareAddressWithFamily(settings.shareAddressWithFamily ?? false)
   }, [settings])
@@ -99,9 +110,11 @@ export default function SettingsPage() {
 
     const nextSettings: UserSettings = {
       language,
+      notificationsEnabled,
       notifyCalendarChanges,
       notifyExpenseUpdates,
       notifyStatusUpdates,
+      notifyDocumentUpdates,
       sharePhoneWithFamily,
       shareAddressWithFamily,
     }
@@ -160,14 +173,48 @@ export default function SettingsPage() {
         <div className={styles.headerBlock}>
           <p className={styles.eyebrow}>{t.settings.pageKicker}</p>
           <h1 className={styles.pageTitle}>{t.settings.title}</h1>
+          <p className={styles.pageIntro}>
+            {t.settings.pageDescription ??
+              'Manage language, privacy, and in-app notification preferences.'}
+          </p>
         </div>
 
         <div className={styles.layout}>
           <div className={styles.mainColumn}>
             <section className={styles.section}>
               <div className={styles.sectionTop}>
-                <h2 className={styles.sectionTitle}>{t.settings.notifications}</h2>
-                <span className={styles.gridLabel}>{t.settings.gridLabel}</span>
+                <div>
+                  <h2 className={styles.sectionTitle}>{t.settings.notifications}</h2>
+                  <p className={styles.sectionDescription}>
+                    {t.settings.notificationsDescription ??
+                      'Choose which in-app updates you want to receive.'}
+                  </p>
+                </div>
+
+                <span className={styles.gridLabel}>
+                  {t.settings.gridLabel ?? 'GRID'}
+                </span>
+              </div>
+
+              <div className={styles.masterTile}>
+                <div className={styles.masterTileContent}>
+                  <h3 className={styles.masterTitle}>
+                    {t.settings.allNotifications ?? 'All notifications'}
+                  </h3>
+                  <p className={styles.masterDescription}>
+                    {t.settings.allNotificationsDescription ??
+                      'Turn all in-app notifications on or off.'}
+                  </p>
+                </div>
+
+                <label className={styles.toggle}>
+                  <input
+                    type="checkbox"
+                    checked={notificationsEnabled}
+                    onChange={(e) => setNotificationsEnabled(e.target.checked)}
+                  />
+                  <span className={styles.toggleTrack}></span>
+                </label>
               </div>
 
               <div className={styles.tileGrid}>
@@ -176,6 +223,7 @@ export default function SettingsPage() {
                   description={t.settings.calendarDescription}
                   checked={notifyCalendarChanges}
                   onChange={setNotifyCalendarChanges}
+                  disabled={!notificationsEnabled}
                 />
 
                 <SettingTile
@@ -183,6 +231,7 @@ export default function SettingsPage() {
                   description={t.settings.expensesDescription}
                   checked={notifyExpenseUpdates}
                   onChange={setNotifyExpenseUpdates}
+                  disabled={!notificationsEnabled}
                 />
 
                 <SettingTile
@@ -190,12 +239,32 @@ export default function SettingsPage() {
                   description={t.settings.statusDescription}
                   checked={notifyStatusUpdates}
                   onChange={setNotifyStatusUpdates}
+                  disabled={!notificationsEnabled}
+                />
+
+                <SettingTile
+                  title={t.settings.documents ?? 'Documents'}
+                  description={
+                    t.settings.documentsDescription ??
+                    'Get notified when documents are uploaded, replaced, or changed.'
+                  }
+                  checked={notifyDocumentUpdates}
+                  onChange={setNotifyDocumentUpdates}
+                  disabled={!notificationsEnabled}
                 />
               </div>
             </section>
 
             <section className={styles.section}>
-              <h2 className={styles.sectionTitle}>{t.settings.privacy}</h2>
+              <div className={styles.sectionTop}>
+                <div>
+                  <h2 className={styles.sectionTitle}>{t.settings.privacy}</h2>
+                  <p className={styles.sectionDescription}>
+                    {t.settings.privacyDescription ??
+                      'Control what other family members can see.'}
+                  </p>
+                </div>
+              </div>
 
               <div className={styles.privacyStack}>
                 <PrivacyRow
@@ -260,7 +329,11 @@ export default function SettingsPage() {
                   {t.settings.updatePassword}
                 </button>
 
-                <button className={styles.darkButton} type="button" onClick={handleLogout}>
+                <button
+                  className={styles.darkButton}
+                  type="button"
+                  onClick={handleLogout}
+                >
                   {t.settings.logout}
                 </button>
               </div>

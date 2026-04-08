@@ -32,6 +32,14 @@
   color: #24324a;
 }
 
+.pageIntro {
+  margin: 14px 0 0;
+  max-width: 720px;
+  font-size: 15px;
+  line-height: 1.75;
+  color: #6b7280;
+}
+
 .layout {
   display: grid;
   grid-template-columns: minmax(0, 1.7fr) 340px;
@@ -70,7 +78,7 @@
 
 .sectionTop {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 14px;
   flex-wrap: wrap;
@@ -86,12 +94,51 @@
   color: #24324a;
 }
 
+.sectionDescription {
+  margin: 10px 0 0;
+  font-size: 14px;
+  line-height: 1.7;
+  color: #6b7280;
+  max-width: 560px;
+}
+
 .gridLabel {
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: #94a3b8;
+}
+
+.masterTile {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 18px;
+  margin-bottom: 14px;
+  background: #eef4ff;
+  border: 1px solid rgba(47, 91, 211, 0.12);
+  border-radius: 18px;
+}
+
+.masterTileContent {
+  max-width: 500px;
+}
+
+.masterTitle {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.1;
+  font-weight: 800;
+  color: #24324a;
+}
+
+.masterDescription {
+  margin: 8px 0 0;
+  font-size: 13px;
+  line-height: 1.7;
+  color: #5f6f86;
 }
 
 .tileGrid {
@@ -104,11 +151,18 @@
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  min-height: 150px;
+  gap: 18px;
+  min-height: 160px;
   padding: 18px;
   background: #ffffff;
   border: 1px solid rgba(31, 41, 55, 0.06);
   border-radius: 18px;
+  transition: 0.18s ease;
+}
+
+.tileContent {
+  display: grid;
+  gap: 8px;
 }
 
 .tileTitle {
@@ -121,11 +175,20 @@
 }
 
 .tileDescription {
-  margin: 10px 0 0;
+  margin: 0;
   font-size: 13px;
   line-height: 1.75;
   color: #6b7280;
   max-width: 260px;
+}
+
+.tileDisabled {
+  opacity: 0.52;
+}
+
+.tileDisabled .tileTitle,
+.tileDisabled .tileDescription {
+  color: #94a3b8;
 }
 
 .toggle {
@@ -133,7 +196,7 @@
   display: inline-flex;
   width: 56px;
   height: 32px;
-  margin-top: 18px;
+  margin-top: auto;
 }
 
 .toggle input {
@@ -171,6 +234,15 @@
   transform: translateX(24px);
 }
 
+.toggle input:disabled + .toggleTrack {
+  background: #dbe2ea;
+  cursor: not-allowed;
+}
+
+.toggle input:disabled + .toggleTrack::before {
+  box-shadow: none;
+}
+
 .privacyStack {
   display: grid;
   gap: 12px;
@@ -192,6 +264,10 @@
 
 .privacyRow:hover {
   background: #f8fbff;
+}
+
+.privacyLeft {
+  min-width: 0;
 }
 
 .privacyTitle {
@@ -338,13 +414,13 @@
   font-weight: 700;
   cursor: pointer;
   transition: 0.18s ease;
+  border-radius: 14px;
 }
 
 .primaryButton {
   border: none;
   background: #2f5bd3;
   color: #ffffff;
-  border-radius: 14px;
 }
 
 .primaryButton:hover {
@@ -355,7 +431,6 @@
   border: 1px solid rgba(47, 91, 211, 0.14);
   background: #ffffff;
   color: #24324a;
-  border-radius: 14px;
 }
 
 .secondaryButton:hover {
@@ -415,12 +490,21 @@
     border-radius: 18px;
   }
 
-  .tileGrid {
-    grid-template-columns: 1fr;
+  .pageTitle {
+    font-size: clamp(34px, 10vw, 52px);
   }
 
   .sectionTitle {
     font-size: 22px;
+  }
+
+  .masterTile {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .tileGrid {
+    grid-template-columns: 1fr;
   }
 
   .bottomActions {

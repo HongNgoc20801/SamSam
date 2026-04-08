@@ -1,5 +1,6 @@
 import type { CollectionConfig } from 'payload'
 import { logAudit } from '@/app/lib/logAudit'
+import { notifyFamily } from '@/app/lib/notifications/notifyFamily'
 
 function getCollectionSlug(req: any) {
   return req?.user?.collection ?? req?.user?._collection
@@ -34,6 +35,7 @@ function getFamilyIdFromUser(req: any) {
 
 function asText(v: any) {
   if (v === null || v === undefined) return ''
+
   if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') {
     return String(v)
   }
@@ -66,7 +68,7 @@ async function canMutateByFamily(req: any, id: string | number) {
   const eventDoc = await req.payload
     .findByID({
       collection: 'calendar-events',
-      id: id as any,
+      id,
       overrideAccess: true,
       depth: 0,
     })
@@ -106,7 +108,10 @@ async function getChildSnapshot(req: any, childValue: any) {
 
 export const CalendarEvents: CollectionConfig = {
   slug: 'calendar-events',
-  admin: { useAsTitle: 'title' },
+
+  admin: {
+    useAsTitle: 'title',
+  },
 
   access: {
     create: ({ req }) => !!req.user && (isAdmin(req) || isCustomer(req)),
@@ -118,17 +123,19 @@ export const CalendarEvents: CollectionConfig = {
       const familyId = getFamilyIdFromUser(req)
       if (!familyId) return false
 
-      return { family: { equals: familyId } }
+      return {
+        family: { equals: familyId },
+      }
     },
 
     update: async ({ req, id }) => {
       if (!id) return false
-      return canMutateByFamily(req, id as any)
+      return canMutateByFamily(req, id)
     },
 
     delete: async ({ req, id }) => {
       if (!id) return false
-      return canMutateByFamily(req, id as any)
+      return canMutateByFamily(req, id)
     },
   },
 
@@ -143,6 +150,7 @@ export const CalendarEvents: CollectionConfig = {
         if (!familyId || !userId) return data
 
         const childId = (data as any)?.child
+
         if (!childId) {
           throw new Error('Missing child')
         }
@@ -175,7 +183,13 @@ export const CalendarEvents: CollectionConfig = {
         if (!req?.user || !doc) return
 
         const familyId = getRelId(doc?.family)
+        const actorUserId = getRelId(req?.user?.id)
+
         const currentChild = await getChildSnapshot(req, doc?.child)
+
+        /**
+         * CREATE
+         */
 
         if (operation === 'create') {
           await logAudit(req, {
@@ -190,19 +204,29 @@ export const CalendarEvents: CollectionConfig = {
             relatedToRole: 'both',
             summary: 'Created calendar event',
             targetLabel: doc?.title,
+          })
+
+          await notifyFamily(req, {
+            familyId,
+            actorUserId,
+            childId: currentChild.childId,
+            type: 'calendar',
+            event: 'created',
+            title: 'New calendar event',
+            message: `${doc?.title || 'An event'} was added`,
+            link: '/calendar',
             meta: {
-              title: doc?.title,
+              eventId: doc?.id,
               childName: currentChild.childName,
-              status: doc?.status,
-              previousStatus: null,
-              startAt: doc?.startAt,
-              endAt: doc?.endAt,
-              notes: doc?.notes || '',
-              allDay: !!doc?.allDay,
             },
           })
+
           return
         }
+
+        /**
+         * UPDATE
+         */
 
         if (operation === 'update') {
           const changes: Array<{ field: string; from?: any; to?: any }> = []
@@ -216,8 +240,6 @@ export const CalendarEvents: CollectionConfig = {
           pushChange(changes, 'allDay', !!previousDoc?.allDay, !!doc?.allDay)
 
           if (!changes.length) return
-
-          const previousChild = await getChildSnapshot(req, previousDoc?.child)
 
           await logAudit(req, {
             familyId,
@@ -235,16 +257,20 @@ export const CalendarEvents: CollectionConfig = {
             summary: 'Updated calendar event',
             targetLabel: doc?.title,
             changes,
+          })
+
+          await notifyFamily(req, {
+            familyId,
+            actorUserId,
+            childId: currentChild.childId,
+            type: 'calendar',
+            event: 'updated',
+            title: 'Calendar event updated',
+            message: `${doc?.title || 'An event'} was updated`,
+            link: '/calendar',
             meta: {
-              title: doc?.title,
+              eventId: doc?.id,
               childName: currentChild.childName,
-              previousChildName: previousChild.childName || null,
-              status: doc?.status,
-              previousStatus: previousDoc?.status || null,
-              startAt: doc?.startAt,
-              endAt: doc?.endAt,
-              notes: doc?.notes || '',
-              allDay: !!doc?.allDay,
             },
           })
         }
@@ -255,29 +281,38 @@ export const CalendarEvents: CollectionConfig = {
       async ({ doc, req }: any) => {
         if (!req?.user || !doc) return
 
+        const actorUserId = getRelId(req?.user?.id)
+
         const childSnapshot = await getChildSnapshot(req, doc?.child)
 
+        const familyId = getRelId(doc?.family)
+
         await logAudit(req, {
-          familyId: getRelId(doc?.family),
+          familyId,
           childId: childSnapshot.childId,
           childName: childSnapshot.childName,
           action: 'event.delete',
           entityType: 'event',
           entityId: String(doc?.id),
           scope: 'calendar',
-          severity: doc?.status === 'important' ? 'important' : 'important',
+          severity: 'important',
           relatedToRole: 'both',
           summary: 'Deleted calendar event',
           targetLabel: doc?.title,
+        })
+
+        await notifyFamily(req, {
+          familyId,
+          actorUserId,
+          childId: childSnapshot.childId,
+          type: 'calendar',
+          event: 'deleted',
+          title: 'Calendar event removed',
+          message: `${doc?.title || 'An event'} was removed`,
+          link: '/calendar',
           meta: {
-            title: doc?.title,
+            eventId: doc?.id,
             childName: childSnapshot.childName,
-            status: doc?.status,
-            previousStatus: null,
-            startAt: doc?.startAt,
-            endAt: doc?.endAt,
-            notes: doc?.notes || '',
-            allDay: !!doc?.allDay,
           },
         })
       },
@@ -292,6 +327,7 @@ export const CalendarEvents: CollectionConfig = {
       required: true,
       index: true,
     },
+
     {
       name: 'child',
       type: 'relationship',
@@ -300,8 +336,16 @@ export const CalendarEvents: CollectionConfig = {
       index: true,
     },
 
-    { name: 'title', type: 'text', required: true },
-    { name: 'notes', type: 'textarea' },
+    {
+      name: 'title',
+      type: 'text',
+      required: true,
+    },
+
+    {
+      name: 'notes',
+      type: 'textarea',
+    },
 
     {
       name: 'status',
@@ -315,10 +359,23 @@ export const CalendarEvents: CollectionConfig = {
       ],
     },
 
-    { name: 'startAt', type: 'date', required: true },
-    { name: 'endAt', type: 'date', required: true },
+    {
+      name: 'startAt',
+      type: 'date',
+      required: true,
+    },
 
-    { name: 'allDay', type: 'checkbox', defaultValue: false },
+    {
+      name: 'endAt',
+      type: 'date',
+      required: true,
+    },
+
+    {
+      name: 'allDay',
+      type: 'checkbox',
+      defaultValue: false,
+    },
 
     {
       name: 'createdBy',

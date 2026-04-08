@@ -6,6 +6,7 @@ import styles from '../(protected)/protectedLayout.module.css'
 import Brand from './Brand/Brand'
 import CopyButton from '../../(frontend)/components/CopyButton'
 import LogoutButton from '../../(frontend)/components/LogoutButton'
+import NotificationBell from '../../(frontend)/components/notifications/NotificationBell'
 import { useTranslations } from '@/app/lib/i18n/useTranslations'
 
 function Icon({
@@ -156,6 +157,10 @@ export default function ProtectedSidebar({
     <aside className={styles.sidebar} aria-label="Sidebar">
       <div className={styles.brandWrap}>
         <Brand />
+      </div>
+
+      <div className={styles.sidebarTopTools}>
+        <NotificationBell />
       </div>
 
       <nav className={styles.nav} aria-label={t.sidebar.navAria}>

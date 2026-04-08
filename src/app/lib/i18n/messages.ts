@@ -38,6 +38,13 @@ export const messages = {
       helpSupport: 'Støtte og hjelp',
       helpCenter: 'Hjelpesenter',
       contactSupport: 'Kontakt support',
+      pageDescription: 'Administrer språk, personvern og varsler i appen.',
+      notificationsDescription: 'Velg hvilke oppdateringer i appen du vil motta.',
+      allNotifications: 'Alle varsler',
+      allNotificationsDescription: 'Slå alle varsler i appen av eller på.',
+      privacyDescription: 'Kontroller hvilken informasjon andre familiemedlemmer kan se.',
+       documents: 'Dokumenter',
+      documentsDescription: 'Få varsler når dokumenter lastes opp eller oppdateres.',
     },
 
     sidebar: {
@@ -1031,6 +1038,14 @@ editProfilePage: {
       helpSupport: 'Help and support',
       helpCenter: 'Help Center',
       contactSupport: 'Contact Support',
+      pageDescription: 'Manage language, privacy, and in-app notification preferences.',
+      notificationsDescription: 'Choose which in-app updates you want to receive.',
+      allNotifications: 'All notifications',
+      allNotificationsDescription: 'Turn all in-app notifications on or off.',
+      privacyDescription: 'Control what other family members can see.',
+     
+      documents: 'Documents',
+     documentsDescription: 'Get notified when documents are uploaded or updated.',
     },
 
     sidebar: {

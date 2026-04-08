@@ -1,5 +1,6 @@
 import type { CollectionConfig, Where } from 'payload'
 import { logAudit } from '@/app/lib/logAudit'
+import { notifyFamily } from '@/app/lib/notifications/notifyFamily'
 
 function getCollectionSlug(req: any) {
   return req?.user?.collection ?? req?.user?._collection
@@ -40,6 +41,7 @@ function normalizeRelId(v: any): string | number | null {
 
 function normalizeRelArray(v: any): Array<string | number> {
   if (!Array.isArray(v)) return []
+
   return v
     .map((item) => normalizeRelId(item))
     .filter((item): item is string | number => item !== null)
@@ -63,7 +65,16 @@ function normalizeCommentsArray(v: any) {
         createdAt: item.createdAt || new Date().toISOString(),
       }
     })
-    .filter(Boolean)
+    .filter(
+      (
+        item,
+      ): item is {
+        author: string | number | null
+        authorName: string
+        content: string
+        createdAt: string
+      } => !!item,
+    )
 }
 
 function getFamilyIdFromUser(req: any) {
@@ -87,6 +98,7 @@ function getAuthorName(req: any) {
 function asText(v: any) {
   if (v === null || v === undefined) return ''
   if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') return String(v)
+
   try {
     return JSON.stringify(v)
   } catch {
@@ -155,7 +167,9 @@ function buildFullPostData(post: any, patch: any = {}) {
         ? cleanText(patch.title, 120) || undefined
         : cleanText(post?.title, 120) || undefined,
     content: cleanText(
-      patch && Object.prototype.hasOwnProperty.call(patch, 'content') ? patch.content : post?.content,
+      patch && Object.prototype.hasOwnProperty.call(patch, 'content')
+        ? patch.content
+        : post?.content,
       5000,
     ),
     important:
@@ -317,7 +331,7 @@ export const Posts: CollectionConfig = {
             id: postId,
             req,
             overrideAccess: true,
-            depth: 1,
+            depth: 0,
           })
 
           if (!post) {
@@ -341,13 +355,14 @@ export const Posts: CollectionConfig = {
             }),
             req,
             overrideAccess: true,
-            depth: 1,
+            depth: 0,
           })
 
           const { childId, childName, postLabel, meta } = await buildPostAuditMeta(req, updated)
+          const familyId = getFamilyIdFromDoc(updated)
 
           await logAudit(req, {
-            familyId: getFamilyIdFromDoc(updated),
+            familyId,
             childId,
             childName,
             action: hasLiked ? 'post.unlike' : 'post.like',
@@ -361,6 +376,20 @@ export const Posts: CollectionConfig = {
             summary: hasLiked ? 'Removed like from post' : 'Liked post',
             meta,
           })
+
+          if (familyId) {
+            await notifyFamily(req, {
+              familyId,
+              actorUserId: userId,
+              childId,
+              type: 'status',
+              event: 'liked',
+              title: hasLiked ? 'Post like removed' : 'Post liked',
+              message: postLabel,
+              link: '/oppdateringer',
+              meta,
+            })
+          }
 
           return Response.json({ ok: true, doc: updated })
         } catch (error: any) {
@@ -399,7 +428,7 @@ export const Posts: CollectionConfig = {
             id: postId,
             req,
             overrideAccess: true,
-            depth: 1,
+            depth: 0,
           })
 
           if (!post) {
@@ -428,13 +457,14 @@ export const Posts: CollectionConfig = {
             }),
             req,
             overrideAccess: true,
-            depth: 1,
+            depth: 0,
           })
 
           const { childId, childName, postLabel, meta } = await buildPostAuditMeta(req, updated)
+          const familyId = getFamilyIdFromDoc(updated)
 
           await logAudit(req, {
-            familyId: getFamilyIdFromDoc(updated),
+            familyId,
             childId,
             childName,
             action: 'post.comment.create',
@@ -451,6 +481,23 @@ export const Posts: CollectionConfig = {
               commentLength: content.length,
             },
           })
+
+          if (familyId) {
+            await notifyFamily(req, {
+              familyId,
+              actorUserId: userId,
+              childId,
+              type: 'status',
+              event: 'commented',
+              title: 'New comment',
+              message: postLabel,
+              link: '/oppdateringer',
+              meta: {
+                ...meta,
+                commentLength: content.length,
+              },
+            })
+          }
 
           return Response.json({ ok: true, doc: updated })
         } catch (error: any) {
@@ -575,7 +622,9 @@ export const Posts: CollectionConfig = {
                 ? normalizeRelArray(next.attachments)
                 : normalizeRelArray(originalDoc?.attachments),
             likes:
-              'likes' in next ? normalizeRelArray(next.likes) : normalizeRelArray(originalDoc?.likes),
+              'likes' in next
+                ? normalizeRelArray(next.likes)
+                : normalizeRelArray(originalDoc?.likes),
             comments:
               'comments' in next
                 ? normalizeCommentsArray(next.comments)
@@ -592,6 +641,7 @@ export const Posts: CollectionConfig = {
         if (!req?.user || !doc) return
 
         const familyId = getFamilyIdFromDoc(doc)
+        const actorUserId = normalizeRelId(req?.user?.id)
         const { childId, childName, postLabel, meta, isChildUpdate } =
           await buildPostAuditMeta(req, doc)
 
@@ -611,6 +661,21 @@ export const Posts: CollectionConfig = {
             summary: isChildUpdate ? 'Created child update post' : 'Created family post',
             meta,
           })
+
+          if (familyId) {
+            await notifyFamily(req, {
+              familyId,
+              actorUserId,
+              childId,
+              type: 'status',
+              event: 'created',
+              title: isChildUpdate ? 'New child update' : 'New family post',
+              message: postLabel,
+              link: '/oppdateringer',
+              meta,
+            })
+          }
+
           return
         }
 
@@ -646,6 +711,20 @@ export const Posts: CollectionConfig = {
             changes,
             meta,
           })
+
+          if (familyId) {
+            await notifyFamily(req, {
+              familyId,
+              actorUserId,
+              childId,
+              type: 'status',
+              event: 'updated',
+              title: 'Post updated',
+              message: postLabel,
+              link: '/oppdateringer',
+              meta,
+            })
+          }
         }
       },
     ],
@@ -654,11 +733,14 @@ export const Posts: CollectionConfig = {
       async ({ doc, req }: any) => {
         if (!req?.user || !doc) return
 
+        const actorUserId = normalizeRelId(req?.user?.id)
         const { childId, childName, postLabel, meta, isChildUpdate } =
           await buildPostAuditMeta(req, doc)
 
+        const familyId = getFamilyIdFromDoc(doc)
+
         await logAudit(req, {
-          familyId: getFamilyIdFromDoc(doc),
+          familyId,
           childId,
           childName,
           action: 'post.delete',
@@ -672,6 +754,20 @@ export const Posts: CollectionConfig = {
           summary: isChildUpdate ? 'Deleted child update post' : 'Deleted family post',
           meta,
         })
+
+        if (familyId) {
+          await notifyFamily(req, {
+            familyId,
+            actorUserId,
+            childId,
+            type: 'status',
+            event: 'deleted',
+            title: 'Post deleted',
+            message: postLabel,
+            link: '/oppdateringer',
+            meta,
+          })
+        }
       },
     ],
   },

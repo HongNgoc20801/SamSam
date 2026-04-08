@@ -16,10 +16,15 @@ export async function getCurrentSettings(): Promise<UserSettings | null> {
 
   return {
     language: data.language ?? 'no',
-    notifyCalendarChanges: !!data.notifyCalendarChanges,
-    notifyExpenseUpdates: !!data.notifyExpenseUpdates,
-    notifyStatusUpdates: !!data.notifyStatusUpdates,
-    sharePhoneWithFamily: !!data.sharePhoneWithFamily,
-    shareAddressWithFamily: !!data.shareAddressWithFamily,
+
+    notificationsEnabled: data.notificationsEnabled ?? true,
+
+    notifyCalendarChanges: data.notifyCalendarChanges ?? true,
+    notifyExpenseUpdates: data.notifyExpenseUpdates ?? true,
+    notifyStatusUpdates: data.notifyStatusUpdates ?? true,
+    notifyDocumentUpdates: data.notifyDocumentUpdates ?? true,  
+
+    sharePhoneWithFamily: data.sharePhoneWithFamily ?? true,
+    shareAddressWithFamily: data.shareAddressWithFamily ?? false,
   }
 }

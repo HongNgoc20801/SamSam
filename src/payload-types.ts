@@ -79,6 +79,7 @@ export interface Config {
     child_documents: ChildDocument;
     audit_logs: AuditLog;
     'calendar-events': CalendarEvent;
+    notifications: Notification;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
@@ -97,6 +98,7 @@ export interface Config {
     child_documents: ChildDocumentsSelect<false> | ChildDocumentsSelect<true>;
     audit_logs: AuditLogsSelect<false> | AuditLogsSelect<true>;
     'calendar-events': CalendarEventsSelect<false> | CalendarEventsSelect<true>;
+    notifications: NotificationsSelect<false> | NotificationsSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -352,9 +354,11 @@ export interface Customer {
   avatar?: (number | null) | Media;
   family?: (number | null) | Family;
   language?: ('no' | 'en') | null;
+  notificationsEnabled?: boolean | null;
   notifyCalendarChanges?: boolean | null;
   notifyExpenseUpdates?: boolean | null;
   notifyStatusUpdates?: boolean | null;
+  notifyDocumentUpdates?: boolean | null;
   sharePhoneWithFamily?: boolean | null;
   shareAddressWithFamily?: boolean | null;
   updatedAt: string;
@@ -583,6 +587,34 @@ export interface CalendarEvent {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "notifications".
+ */
+export interface Notification {
+  id: number;
+  recipient: number | Customer;
+  family?: (number | null) | Family;
+  child?: (number | null) | Child;
+  type: 'calendar' | 'expense' | 'status' | 'documents';
+  event: 'created' | 'updated' | 'deleted' | 'confirmed' | 'commented' | 'liked' | 'uploaded' | 'replaced';
+  title: string;
+  message?: string | null;
+  link?: string | null;
+  isRead?: boolean | null;
+  readAt?: string | null;
+  meta?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
 export interface PayloadKv {
@@ -648,6 +680,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'calendar-events';
         value: number | CalendarEvent;
+      } | null)
+    | ({
+        relationTo: 'notifications';
+        value: number | Notification;
       } | null);
   globalSlug?: string | null;
   user:
@@ -973,9 +1009,11 @@ export interface CustomersSelect<T extends boolean = true> {
   avatar?: T;
   family?: T;
   language?: T;
+  notificationsEnabled?: T;
   notifyCalendarChanges?: T;
   notifyExpenseUpdates?: T;
   notifyStatusUpdates?: T;
+  notifyDocumentUpdates?: T;
   sharePhoneWithFamily?: T;
   shareAddressWithFamily?: T;
   updatedAt?: T;
@@ -1140,6 +1178,25 @@ export interface CalendarEventsSelect<T extends boolean = true> {
   endAt?: T;
   allDay?: T;
   createdBy?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "notifications_select".
+ */
+export interface NotificationsSelect<T extends boolean = true> {
+  recipient?: T;
+  family?: T;
+  child?: T;
+  type?: T;
+  event?: T;
+  title?: T;
+  message?: T;
+  link?: T;
+  isRead?: T;
+  readAt?: T;
+  meta?: T;
   updatedAt?: T;
   createdAt?: T;
 }

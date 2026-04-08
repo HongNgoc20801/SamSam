@@ -1,18 +1,23 @@
 import type { CollectionConfig } from 'payload'
 import { logAudit } from '@/app/lib/logAudit'
+import { notifyFamily } from '@/app/lib/notifications/notifyFamily'
 
 function getCollectionSlug(req: any) {
   return req?.user?.collection ?? req?.user?._collection
 }
+
 function isAdmin(req: any) {
   return getCollectionSlug(req) === 'users'
 }
+
 function isCustomer(req: any) {
   const slug = getCollectionSlug(req)
   if (slug === 'customers') return true
+
   const u: any = req?.user
   if (u?.role === 'customer') return true
   if (u?.type === 'customer') return true
+
   return false
 }
 
@@ -20,6 +25,16 @@ function getFamilyIdFromUser(req: any) {
   const u: any = req?.user
   if (!u) return null
   return typeof u.family === 'string' ? u.family : u.family?.id ?? null
+}
+
+function getFamilyIdFromDoc(doc: any) {
+  return typeof doc?.family === 'string' ? doc.family : doc?.family?.id ?? null
+}
+
+function getRelId(v: any) {
+  if (v == null) return null
+  if (typeof v === 'string' || typeof v === 'number') return v
+  return v?.id ?? null
 }
 
 function cleanPhone(v: any) {
@@ -36,9 +51,13 @@ function pick(obj: any, keys: string[]) {
   for (const k of keys) out[k] = obj?.[k]
   return out
 }
+
 function asText(v: any) {
   if (v === null || v === undefined) return ''
-  if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') return String(v)
+  if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') {
+    return String(v)
+  }
+
   try {
     return JSON.stringify(v)
   } catch {
@@ -57,13 +76,8 @@ function pushChange(
   }
 }
 
-function getFamilyIdFromDoc(doc: any) {
-  return typeof doc?.family === 'string' ? doc.family : doc?.family?.id ?? null
-}
-
 /**
  * Những field này mà thay đổi sau khi đã CONFIRMED thì nên reset lại về PENDING.
- * (đúng tinh thần Samsam: single source of truth + re-acknowledge)
  */
 const IMPORTANT_FIELDS = [
   'fullName',
@@ -78,7 +92,10 @@ const IMPORTANT_FIELDS = [
 
 export const Children: CollectionConfig = {
   slug: 'children',
-  admin: { useAsTitle: 'fullName' },
+
+  admin: {
+    useAsTitle: 'fullName',
+  },
 
   access: {
     create: ({ req }) => !!req.user && (isAdmin(req) || isCustomer(req)),
@@ -86,16 +103,20 @@ export const Children: CollectionConfig = {
     read: ({ req }) => {
       if (!req.user) return false
       if (isAdmin(req)) return true
+
       const familyId = getFamilyIdFromUser(req)
       if (!familyId) return false
+
       return { family: { equals: familyId } }
     },
 
     update: ({ req }) => {
       if (!req.user) return false
       if (isAdmin(req)) return true
+
       const familyId = getFamilyIdFromUser(req)
       if (!familyId) return false
+
       return { family: { equals: familyId } }
     },
 
@@ -106,16 +127,19 @@ export const Children: CollectionConfig = {
     beforeChange: [
       async (args: any) => {
         const { data, req, operation } = args
-        // Payload version khác nhau có thể dùng originalDoc hoặc doc/previousDoc
         const originalDoc = args?.originalDoc ?? args?.previousDoc ?? args?.doc ?? null
 
         const next: any = { ...(data ?? {}) }
 
-        // ---- normalize basic
+        /**
+         * normalize basic
+         */
         if (next.fullName) next.fullName = String(next.fullName).trim()
         if (next.nationalId) next.nationalId = String(next.nationalId).replace(/\s+/g, '')
 
-        // ---- normalize emergencyContacts (phones)
+        /**
+         * normalize emergencyContacts
+         */
         if (Array.isArray(next?.emergencyContacts)) {
           next.emergencyContacts = next.emergencyContacts
             .map((c: any) => {
@@ -124,6 +148,7 @@ export const Children: CollectionConfig = {
                     .map((p: any) => ({ value: cleanPhone(p?.value) }))
                     .filter((p: any) => p.value)
                 : []
+
               return {
                 ...c,
                 name: String(c?.name ?? '').trim(),
@@ -132,15 +157,16 @@ export const Children: CollectionConfig = {
                 phones,
               }
             })
-            // giữ contact nếu có name + có ít nhất 1 phone
             .filter((c: any) => c.name && c.phones?.length)
         }
 
-        // ensure one primary
+        /**
+         * ensure one primary contact
+         */
         if (Array.isArray(next?.emergencyContacts) && next.emergencyContacts.length) {
           const hasPrimary = next.emergencyContacts.some((c: any) => c.isPrimary)
           if (!hasPrimary) next.emergencyContacts[0].isPrimary = true
-          // nếu nhiều primary thì chỉ giữ primary đầu tiên
+
           let found = false
           next.emergencyContacts = next.emergencyContacts.map((c: any) => {
             if (!c.isPrimary) return c
@@ -152,23 +178,35 @@ export const Children: CollectionConfig = {
           })
         }
 
-        // ---- normalize medical tags + gp phones
+        /**
+         * normalize medical
+         */
         if (next?.medical) {
           if (Array.isArray(next.medical.allergies)) {
             next.medical.allergies = next.medical.allergies
               .map((x: any) => ({ value: String(x?.value ?? '').trim() }))
               .filter((x: any) => x.value)
           }
+
           if (Array.isArray(next.medical.conditions)) {
             next.medical.conditions = next.medical.conditions
               .map((x: any) => ({ value: String(x?.value ?? '').trim() }))
               .filter((x: any) => x.value)
           }
-          if (next.medical.notesShort) next.medical.notesShort = String(next.medical.notesShort).slice(0, 160)
+
+          if (next.medical.notesShort) {
+            next.medical.notesShort = String(next.medical.notesShort).slice(0, 160)
+          }
 
           if (next.medical.gp) {
-            if (next.medical.gp.name) next.medical.gp.name = String(next.medical.gp.name).trim()
-            if (next.medical.gp.clinic) next.medical.gp.clinic = String(next.medical.gp.clinic).trim()
+            if (next.medical.gp.name) {
+              next.medical.gp.name = String(next.medical.gp.name).trim()
+            }
+
+            if (next.medical.gp.clinic) {
+              next.medical.gp.clinic = String(next.medical.gp.clinic).trim()
+            }
+
             if (Array.isArray(next.medical.gp.phones)) {
               next.medical.gp.phones = next.medical.gp.phones
                 .map((p: any) => ({ value: cleanPhone(p?.value) }))
@@ -177,22 +215,32 @@ export const Children: CollectionConfig = {
           }
         }
 
-        // ---- normalize school
+        /**
+         * normalize school
+         */
         if (next?.school) {
-          if (next.school.schoolName) next.school.schoolName = String(next.school.schoolName).trim()
-          if (next.school.className) next.school.className = String(next.school.className).trim()
-          if (next.school.mainTeacher) next.school.mainTeacher = String(next.school.mainTeacher).trim()
+          if (next.school.schoolName) {
+            next.school.schoolName = String(next.school.schoolName).trim()
+          }
+          if (next.school.className) {
+            next.school.className = String(next.school.className).trim()
+          }
+          if (next.school.mainTeacher) {
+            next.school.mainTeacher = String(next.school.mainTeacher).trim()
+          }
         }
 
-        // ==========================================================
-        // CREATE: set family/createdBy/status
-        // ==========================================================
+        /**
+         * CREATE
+         */
         if (operation === 'create') {
           const familyId = getFamilyIdFromUser(req)
           const userId = (req.user as any)?.id
 
           if (!next.family && !familyId) {
-            throw new Error('Your account is not in a family group yet. Please create/join a family before creating a child profile.')
+            throw new Error(
+              'Your account is not in a family group yet. Please create/join a family before creating a child profile.',
+            )
           }
 
           return {
@@ -205,26 +253,28 @@ export const Children: CollectionConfig = {
           }
         }
 
-        // ==========================================================
-        // UPDATE logic: confirm + reset pending
-        // ==========================================================
+        /**
+         * UPDATE
+         */
         if (operation === 'update') {
           const userId = (req.user as any)?.id
 
-          // ---- 1) Handle CONFIRM request
-          // Client sẽ PATCH { status: 'confirmed' }
-          // Server sẽ:
-          // - chặn createdBy confirm
-          // - set confirmedBy/confirmedAt
           const wantsConfirm = next?.status === 'confirmed'
           const wasPending = originalDoc?.status === 'pending'
 
+          /**
+           * confirm flow
+           */
           if (wantsConfirm && wasPending) {
             const createdById =
-              typeof originalDoc?.createdBy === 'string' ? originalDoc.createdBy : originalDoc?.createdBy?.id
+              typeof originalDoc?.createdBy === 'string'
+                ? originalDoc.createdBy
+                : originalDoc?.createdBy?.id
 
             if (createdById && createdById === userId) {
-              throw new Error('You cannot confirm a child profile that you created. The other parent must confirm it.')
+              throw new Error(
+                'You cannot confirm a child profile that you created. The other parent must confirm it.',
+              )
             }
 
             next.status = 'confirmed'
@@ -233,31 +283,28 @@ export const Children: CollectionConfig = {
             return next
           }
 
-          // ---- 2) Auto reset to PENDING if record was CONFIRMED and important fields changed
-          // (trừ trường hợp request chỉ để confirm / hoặc status unchanged)
+          /**
+           * reset confirmed -> pending if important data changed
+           */
           const wasConfirmed = originalDoc?.status === 'confirmed'
 
           if (wasConfirmed) {
             const merged = { ...(originalDoc ?? {}), ...(next ?? {}) }
 
-            // nếu chỉ update status/read-only stuff, không reset
-            // Chúng ta check thay đổi trên IMPORTANT_FIELDS
             const prevKey = stableJson(pick(originalDoc, IMPORTANT_FIELDS as any))
             const nextKey = stableJson(pick(merged, IMPORTANT_FIELDS as any))
 
             if (prevKey !== nextKey) {
-              // reset về pending
               next.status = 'pending'
               next.confirmedBy = null
               next.confirmedAt = null
             }
           }
 
-          // ---- 3) If someone tries to manually set confirmedBy/confirmedAt (client), override
-          // (để tránh gian lận)
+          /**
+           * prevent client from spoofing confirm fields
+           */
           if ('confirmedBy' in next || 'confirmedAt' in next) {
-            // chỉ cho phép set confirmedBy/At thông qua flow confirm ở trên.
-            // còn lại: xoá nếu client gửi bừa.
             if (!(next.status === 'confirmed' && originalDoc?.status === 'pending')) {
               delete next.confirmedBy
               delete next.confirmedAt
@@ -270,123 +317,210 @@ export const Children: CollectionConfig = {
         return next
       },
     ],
-afterChange: [
-  async ({ doc, previousDoc, operation, req }: any) => {
-    if (!req?.user || !doc) return
 
-    const childId = doc?.id ?? null
-    const familyId = getFamilyIdFromDoc(doc)
+    afterChange: [
+      async ({ doc, previousDoc, operation, req }: any) => {
+        if (!req?.user || !doc) return
 
-    if (operation === 'create') {
-      await logAudit(req, {
-        familyId,
-        childId,
-        action: 'child.create',
-        entityType: 'child',
-        entityId: String(doc?.id),
-        summary: 'Created child profile',
-        meta: {
-          childName: doc?.fullName,
-          status: doc?.status,
-        },
-      })
-      return
-    }
+        const childId = doc?.id ?? null
+        const familyId = getFamilyIdFromDoc(doc)
+        const actorUserId = getRelId(req?.user?.id)
 
-    if (operation === 'update') {
-      const prevStatus = previousDoc?.status
-      const nextStatus = doc?.status
-      const isConfirm = prevStatus === 'pending' && nextStatus === 'confirmed'
+        /**
+         * CREATE
+         */
+        if (operation === 'create') {
+          await logAudit(req, {
+            familyId,
+            childId,
+            action: 'child.create',
+            entityType: 'child',
+            entityId: String(doc?.id),
+            summary: 'Created child profile',
+            meta: {
+              childName: doc?.fullName,
+              status: doc?.status,
+            },
+          })
 
-      // 1) Confirm action: chỉ log ngắn gọn, KHÔNG kèm changes
-      if (isConfirm) {
-        await logAudit(req, {
-          familyId,
-          childId,
-          action: 'child.confirm',
-          entityType: 'child',
-          entityId: String(doc?.id),
-          summary: 'Confirmed child profile',
-          meta: {
-            childName: doc?.fullName,
-            previousStatus: prevStatus,
-            status: nextStatus,
-            confirmedAt: doc?.confirmedAt ?? null,
-          },
-        })
-        return
-      }
+          await notifyFamily(req, {
+            familyId,
+            actorUserId,
+            childId,
+            type: 'status',
+            event: 'created',
+            title: 'Child profile created',
+            message: `${doc?.fullName || 'A child profile'} was created.`,
+            link: `/child-info/${doc?.id}`,
+            meta: {
+              childName: doc?.fullName,
+              status: doc?.status,
+            },
+          })
 
-      // 2) Update action: chỉ dùng cho update thật sự
-      const changes: Array<{ field: string; from?: any; to?: any }> = []
+          return
+        }
 
-      pushChange(changes, 'fullName', previousDoc?.fullName, doc?.fullName)
-      pushChange(changes, 'birthDate', previousDoc?.birthDate, doc?.birthDate)
-      pushChange(changes, 'gender', previousDoc?.gender, doc?.gender)
-      pushChange(changes, 'nationalId', previousDoc?.nationalId, doc?.nationalId)
-      pushChange(changes, 'status', previousDoc?.status, doc?.status)
-      pushChange(changes, 'avatar', previousDoc?.avatar, doc?.avatar)
+        /**
+         * UPDATE
+         */
+        if (operation === 'update') {
+          const prevStatus = previousDoc?.status
+          const nextStatus = doc?.status
+          const isConfirm = prevStatus === 'pending' && nextStatus === 'confirmed'
 
-      pushChange(changes, 'school.schoolName', previousDoc?.school?.schoolName, doc?.school?.schoolName)
-      pushChange(changes, 'school.className', previousDoc?.school?.className, doc?.school?.className)
-      pushChange(changes, 'school.mainTeacher', previousDoc?.school?.mainTeacher, doc?.school?.mainTeacher)
+          /**
+           * confirm action
+           */
+          if (isConfirm) {
+            await logAudit(req, {
+              familyId,
+              childId,
+              action: 'child.confirm',
+              entityType: 'child',
+              entityId: String(doc?.id),
+              summary: 'Confirmed child profile',
+              meta: {
+                childName: doc?.fullName,
+                previousStatus: prevStatus,
+                status: nextStatus,
+                confirmedAt: doc?.confirmedAt ?? null,
+              },
+            })
 
-      pushChange(changes, 'medical.bloodType', previousDoc?.medical?.bloodType, doc?.medical?.bloodType)
-      pushChange(changes, 'medical.notesShort', previousDoc?.medical?.notesShort, doc?.medical?.notesShort)
-      pushChange(
-        changes,
-        'medical.allergies',
-        JSON.stringify(previousDoc?.medical?.allergies ?? []),
-        JSON.stringify(doc?.medical?.allergies ?? []),
-      )
-      pushChange(
-        changes,
-        'medical.conditions',
-        JSON.stringify(previousDoc?.medical?.conditions ?? []),
-        JSON.stringify(doc?.medical?.conditions ?? []),
-      )
-      pushChange(
-        changes,
-        'medical.gp',
-        JSON.stringify(previousDoc?.medical?.gp ?? {}),
-        JSON.stringify(doc?.medical?.gp ?? {}),
-      )
-      pushChange(
-        changes,
-        'emergencyContacts',
-        JSON.stringify(previousDoc?.emergencyContacts ?? []),
-        JSON.stringify(doc?.emergencyContacts ?? []),
-      )
+            await notifyFamily(req, {
+              familyId,
+              actorUserId,
+              childId,
+              type: 'status',
+              event: 'confirmed',
+              title: 'Child profile confirmed',
+              message: `${doc?.fullName || 'Child profile'} was confirmed.`,
+              link: `/child-info/${doc?.id}`,
+              meta: {
+                childName: doc?.fullName,
+                previousStatus: prevStatus,
+                status: nextStatus,
+                confirmedAt: doc?.confirmedAt ?? null,
+              },
+            })
 
-      if (!changes.length) return
+            return
+          }
 
-      const wasResetToPending =
-        prevStatus === 'confirmed' &&
-        nextStatus === 'pending' &&
-        changes.some((c) => c.field === 'status')
+          /**
+           * real update action
+           */
+          const changes: Array<{ field: string; from?: any; to?: any }> = []
 
-      await logAudit(req, {
-        familyId,
-        childId,
-        action: 'child.update',
-        entityType: 'child',
-        entityId: String(doc?.id),
-        summary: 'Updated child profile',
-        changes,
-        meta: {
-          childName: doc?.fullName,
-          previousStatus: prevStatus,
-          status: nextStatus,
-          wasResetToPending,
-        },
-      })
-    }
-  },
-],
+          pushChange(changes, 'fullName', previousDoc?.fullName, doc?.fullName)
+          pushChange(changes, 'birthDate', previousDoc?.birthDate, doc?.birthDate)
+          pushChange(changes, 'gender', previousDoc?.gender, doc?.gender)
+          pushChange(changes, 'nationalId', previousDoc?.nationalId, doc?.nationalId)
+          pushChange(changes, 'status', previousDoc?.status, doc?.status)
+          pushChange(changes, 'avatar', previousDoc?.avatar, doc?.avatar)
+
+          pushChange(
+            changes,
+            'school.schoolName',
+            previousDoc?.school?.schoolName,
+            doc?.school?.schoolName,
+          )
+          pushChange(
+            changes,
+            'school.className',
+            previousDoc?.school?.className,
+            doc?.school?.className,
+          )
+          pushChange(
+            changes,
+            'school.mainTeacher',
+            previousDoc?.school?.mainTeacher,
+            doc?.school?.mainTeacher,
+          )
+
+          pushChange(
+            changes,
+            'medical.bloodType',
+            previousDoc?.medical?.bloodType,
+            doc?.medical?.bloodType,
+          )
+          pushChange(
+            changes,
+            'medical.notesShort',
+            previousDoc?.medical?.notesShort,
+            doc?.medical?.notesShort,
+          )
+          pushChange(
+            changes,
+            'medical.allergies',
+            JSON.stringify(previousDoc?.medical?.allergies ?? []),
+            JSON.stringify(doc?.medical?.allergies ?? []),
+          )
+          pushChange(
+            changes,
+            'medical.conditions',
+            JSON.stringify(previousDoc?.medical?.conditions ?? []),
+            JSON.stringify(doc?.medical?.conditions ?? []),
+          )
+          pushChange(
+            changes,
+            'medical.gp',
+            JSON.stringify(previousDoc?.medical?.gp ?? {}),
+            JSON.stringify(doc?.medical?.gp ?? {}),
+          )
+          pushChange(
+            changes,
+            'emergencyContacts',
+            JSON.stringify(previousDoc?.emergencyContacts ?? []),
+            JSON.stringify(doc?.emergencyContacts ?? []),
+          )
+
+          if (!changes.length) return
+
+          const wasResetToPending =
+            prevStatus === 'confirmed' &&
+            nextStatus === 'pending' &&
+            changes.some((c) => c.field === 'status')
+
+          await logAudit(req, {
+            familyId,
+            childId,
+            action: 'child.update',
+            entityType: 'child',
+            entityId: String(doc?.id),
+            summary: 'Updated child profile',
+            changes,
+            meta: {
+              childName: doc?.fullName,
+              previousStatus: prevStatus,
+              status: nextStatus,
+              wasResetToPending,
+            },
+          })
+
+          await notifyFamily(req, {
+            familyId,
+            actorUserId,
+            childId,
+            type: 'status',
+            event: 'updated',
+            title: 'Child profile updated',
+            message: `${doc?.fullName || 'A child profile'} was updated.`,
+            link: `/child-info/${doc?.id}`,
+            meta: {
+              childName: doc?.fullName,
+              previousStatus: prevStatus,
+              status: nextStatus,
+              wasResetToPending,
+            },
+          })
+        }
+      },
+    ],
   },
 
   fields: [
-    // scope
     {
       name: 'family',
       type: 'relationship',
@@ -395,8 +529,8 @@ afterChange: [
       index: true,
     },
 
-    // identity
     { name: 'fullName', label: 'Full name', type: 'text', required: true },
+
     { name: 'birthDate', label: 'Birth date', type: 'date', required: true },
 
     {
@@ -413,17 +547,17 @@ afterChange: [
       ],
     },
 
-    // avatar
     {
       name: 'avatar',
       label: 'Avatar',
       type: 'upload',
       relationTo: 'media',
       required: false,
-      admin: { description: 'Upload an image (JPG/PNG).' },
+      admin: {
+        description: 'Upload an image (JPG/PNG).',
+      },
     },
 
-    // admin
     {
       name: 'nationalId',
       label: 'Số định danh (11 số)',
@@ -437,7 +571,6 @@ afterChange: [
       },
     },
 
-    // medical
     {
       name: 'medical',
       type: 'group',
@@ -476,7 +609,11 @@ afterChange: [
           type: 'array',
           fields: [{ name: 'value', type: 'text', required: true }],
         },
-        { name: 'notesShort', label: 'Medical note (short)', type: 'text' },
+        {
+          name: 'notesShort',
+          label: 'Medical note (short)',
+          type: 'text',
+        },
         {
           name: 'gp',
           label: 'Primary doctor (GP)',
@@ -494,7 +631,6 @@ afterChange: [
       ],
     },
 
-    // school
     {
       name: 'school',
       type: 'group',
@@ -506,17 +642,27 @@ afterChange: [
       ],
     },
 
-    // emergencyContacts
     {
       name: 'emergencyContacts',
       label: 'Emergency contacts',
       type: 'array',
       validate: (value: any) => {
-        if (!Array.isArray(value) || value.length === 0) return 'Please add at least one emergency contact.'
-        const ok = value.every((c: any) => c?.name && Array.isArray(c?.phones) && c.phones.length > 0)
-        if (!ok) return 'Each emergency contact must have a name and at least one phone number.'
+        if (!Array.isArray(value) || value.length === 0) {
+          return 'Please add at least one emergency contact.'
+        }
+
+        const ok = value.every(
+          (c: any) => c?.name && Array.isArray(c?.phones) && c.phones.length > 0,
+        )
+        if (!ok) {
+          return 'Each emergency contact must have a name and at least one phone number.'
+        }
+
         const hasPrimary = value.some((c: any) => !!c?.isPrimary)
-        if (!hasPrimary) return 'Please select one primary emergency contact.'
+        if (!hasPrimary) {
+          return 'Please select one primary emergency contact.'
+        }
+
         return true
       },
       fields: [
@@ -556,7 +702,6 @@ afterChange: [
       ],
     },
 
-    // workflow
     {
       name: 'status',
       type: 'select',
@@ -568,8 +713,21 @@ afterChange: [
       ],
     },
 
-    { name: 'createdBy', type: 'relationship', relationTo: 'customers' },
-    { name: 'confirmedBy', type: 'relationship', relationTo: 'customers' },
-    { name: 'confirmedAt', type: 'date' },
+    {
+      name: 'createdBy',
+      type: 'relationship',
+      relationTo: 'customers',
+    },
+
+    {
+      name: 'confirmedBy',
+      type: 'relationship',
+      relationTo: 'customers',
+    },
+
+    {
+      name: 'confirmedAt',
+      type: 'date',
+    },
   ],
 }

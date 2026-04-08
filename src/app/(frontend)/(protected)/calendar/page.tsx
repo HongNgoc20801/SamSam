@@ -16,7 +16,7 @@ import { format, parse, startOfWeek, getDay, addDays, startOfDay } from 'date-fn
 import { nb } from 'date-fns/locale'
 
 type Child = { id: string | number; fullName: string; status?: string }
-type EventStatus = 'admin' | 'personal' | 'important' | 'child'
+type EventStatus = 'admin' | 'personal' | 'important' | 'child' | 'payment'
 
 type CalEventDoc = {
   id: string | number
@@ -90,7 +90,9 @@ const STATUS_COLORS: Record<EventStatus, string> = {
   personal: '#2ECC71',
   important: '#FF4D6D',
   child: '#9B6CFF',
+  payment: '#F59E0B',
 }
+
 
 function getEventColor(s?: EventStatus) {
   return (s && STATUS_COLORS[s]) || '#9CA3AF'
@@ -572,6 +574,7 @@ export default function CalendarPage() {
     personal: styles.evtPersonal,
     important: styles.evtImportant,
     child: styles.evtChild,
+    payment: styles.evtPayment,
   }
 
   if (loading) return <div className={styles.loading}>Laster…</div>

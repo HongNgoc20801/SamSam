@@ -882,6 +882,20 @@
   border-radius: 999px;
 }
 .actionEdit:hover { filter: brightness(0.96); }
+.evtPayment { background: #F59E0B !important; }
+
+.accent_payment { background: #F59E0B; }
+
+.status_payment {
+  background: #fffbeb;
+  color: #b45309;
+  border-color: #fde68a;
+}
+
+.status_payment .badgeStatusIcon {
+  background: #f59e0b;
+  color: #fff;
+}
 
 @media (max-width: 520px) {
   .detailTitle { font-size: 34px; }

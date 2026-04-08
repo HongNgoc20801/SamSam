@@ -22,7 +22,11 @@ function getFamilyIdFromUser(req: any) {
   return getRelId(u.family)
 }
 
-// ✅ check quyền update/delete theo family (không dùng doc để khỏi lỗi TS)
+function getReqContext(req: any) {
+  if (!req.context) req.context = {}
+  return req.context
+}
+
 async function canMutateByFamily(req: any, id: string | number) {
   if (!req?.user) return false
   if (isAdmin(req)) return true
@@ -34,7 +38,7 @@ async function canMutateByFamily(req: any, id: string | number) {
     .findByID({
       collection: 'calendar-events',
       id: id as any,
-      overrideAccess: true, // ✅ bắt buộc để đọc doc khi access đang check
+      overrideAccess: true,
       depth: 0,
     })
     .catch(() => null)
@@ -75,7 +79,6 @@ export const CalendarEvents: CollectionConfig = {
   hooks: {
     beforeChange: [
       async ({ data, req, operation }) => {
-        // chỉ set auto khi create
         if (operation !== 'create') return data
 
         const familyId = getFamilyIdFromUser(req)
@@ -83,21 +86,22 @@ export const CalendarEvents: CollectionConfig = {
         if (!familyId || !userId) return data
 
         const childId = (data as any)?.child
-        if (!childId) throw new Error('Missing child')
 
-        const child = await req.payload
-          .findByID({
-            collection: 'children',
-            id: childId,
-            overrideAccess: true,
-            depth: 0,
-          })
-          .catch(() => null)
+        if (childId) {
+          const child = await req.payload
+            .findByID({
+              collection: 'children',
+              id: childId,
+              overrideAccess: true,
+              depth: 0,
+            })
+            .catch(() => null)
 
-        const childFamilyId = getRelId((child as any)?.family)
+          const childFamilyId = getRelId((child as any)?.family)
 
-        if (!childFamilyId || String(childFamilyId) !== String(familyId)) {
-          throw new Error('Child does not belong to your family.')
+          if (!childFamilyId || String(childFamilyId) !== String(familyId)) {
+            throw new Error('Child does not belong to your family.')
+          }
         }
 
         return {
@@ -105,6 +109,51 @@ export const CalendarEvents: CollectionConfig = {
           family: (data as any)?.family ?? familyId,
           createdBy: (data as any)?.createdBy ?? userId,
         }
+      },
+    ],
+
+    beforeDelete: [
+      async ({ req, id }: any) => {
+        if (!req?.user || !id) return
+
+        const eventDoc = await req.payload
+          .findByID({
+            collection: 'calendar-events',
+            id: id as any,
+            overrideAccess: true,
+            depth: 0,
+          })
+          .catch(() => null)
+
+        const ctx = getReqContext(req)
+        ctx.__linkedEconomyTransactionId = getRelId((eventDoc as any)?.linkedEconomyTransaction)
+      },
+    ],
+
+    afterDelete: [
+      async ({ req }: any) => {
+        if (!req?.user) return
+
+        const ctx = getReqContext(req)
+
+        if (ctx.__skipCalendarToEconomyCascade) {
+          ctx.__skipCalendarToEconomyCascade = false
+          return
+        }
+
+        const linkedEconomyTransactionId = ctx.__linkedEconomyTransactionId
+        if (!linkedEconomyTransactionId) return
+
+        ctx.__skipEconomyToCalendarCascade = true
+
+        await req.payload
+          .delete({
+            collection: 'economy-transactions',
+            id: linkedEconomyTransactionId,
+            overrideAccess: true,
+            req,
+          })
+          .catch(() => null)
       },
     ],
   },
@@ -121,7 +170,14 @@ export const CalendarEvents: CollectionConfig = {
       name: 'child',
       type: 'relationship',
       relationTo: 'children',
-      required: true,
+      required: false,
+      index: true,
+    },
+    {
+      name: 'linkedEconomyTransaction',
+      type: 'relationship',
+      relationTo: 'economy-transactions',
+      required: false,
       index: true,
     },
 
@@ -137,6 +193,7 @@ export const CalendarEvents: CollectionConfig = {
         { label: 'Personlig', value: 'personal' },
         { label: 'Viktig', value: 'important' },
         { label: 'Barn', value: 'child' },
+        { label: 'Betaling', value: 'payment' },
       ],
     },
 

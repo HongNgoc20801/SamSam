@@ -705,9 +705,9 @@ export default function OppdateringerPage() {
                 aria-label="Filter posts by type"
                 title="Filter posts by type"
               >
-                <option value="all">All posts</option>
-                <option value="general">General updates</option>
-                <option value="child-update">Child updates</option>
+                <option value="all">Alle innlegg</option>
+                <option value="general">Generelle oppdateringer</option>
+                <option value="child-update">Barneoppdateringer</option>
               </select>
             </div>
 
@@ -719,7 +719,7 @@ export default function OppdateringerPage() {
                 aria-label="Filter posts by child"
                 title="Filter posts by child"
               >
-                <option value="all">All children</option>
+                <option value="all">Alle barn</option>
                 {children.map((child) => (
                   <option key={String(child.id)} value={String(child.id)}>
                     {child.fullName}
@@ -733,7 +733,7 @@ export default function OppdateringerPage() {
               className={styles.clearFilterBtn}
               onClick={resetFilters}
             >
-              Reset filters
+              Tilbakestill filtre
             </button>
           </div>
         </div>
@@ -797,8 +797,8 @@ export default function OppdateringerPage() {
                           <span className={styles.author}>{displayAuthorName}</span>
                         </div>
 
-                        {isMine ? <span className={styles.mineBadge}>You</span> : null}
-                        {post.important ? <span className={styles.importantBadge}>Important</span> : null}
+                        {isMine ? <span className={styles.mineBadge}>Du</span> : null}
+                        {post.important ? <span className={styles.importantBadge}>Viktig</span> : null}
                       </div>
 
                       <div className={styles.postMeta}>
@@ -922,14 +922,14 @@ export default function OppdateringerPage() {
                     }}
                     disabled={saving}
                   >
-                    <option value="general">General update</option>
-                    <option value="child-update">Child update</option>
+                    <option value="general">Generell oppdatering</option>
+                    <option value="child-update">Barneoppdatering</option>
                   </select>
                 </label>
 
                 {type === 'child-update' ? (
                   <label className={styles.label}>
-                    Child
+                    Barn
                     <select
                       className={styles.select}
                       value={childId}
@@ -948,7 +948,7 @@ export default function OppdateringerPage() {
               </div>
 
               <label className={styles.label}>
-                Title (optional)
+                Tittel (valgfritt)
                 <input
                   className={styles.input}
                   value={title}
@@ -960,7 +960,7 @@ export default function OppdateringerPage() {
               </label>
 
               <label className={styles.label}>
-                Content
+                Innhold
                 <textarea
                   className={styles.textarea}
                   value={content}
@@ -972,7 +972,7 @@ export default function OppdateringerPage() {
               </label>
 
               <label className={styles.label}>
-                Images (optional)
+                Bilder (valgfritt)
                 <input
                   className={styles.fileInput}
                   type="file"
@@ -988,7 +988,7 @@ export default function OppdateringerPage() {
 
               {existingAttachments.length > 0 ? (
                 <div className={styles.attachmentBlock}>
-                  <div className={styles.attachmentLabel}>Current images</div>
+                  <div className={styles.attachmentLabel}>Gjeldende bilder</div>
                   <div className={styles.uploadPreviewGrid}>
                     {existingAttachments.map((img) => (
                       <div key={String(img.id)} className={styles.uploadPreviewItem}>
@@ -1010,7 +1010,7 @@ export default function OppdateringerPage() {
                           }
                           disabled={saving}
                         >
-                          Remove
+                          Fjern
                         </button>
                       </div>
                     ))}
@@ -1020,7 +1020,7 @@ export default function OppdateringerPage() {
 
               {filePreviews.length > 0 ? (
                 <div className={styles.attachmentBlock}>
-                  <div className={styles.attachmentLabel}>New images</div>
+                  <div className={styles.attachmentLabel}>Nye bilder</div>
                   <div className={styles.uploadPreviewGrid}>
                     {filePreviews.map((img, index) => (
                       <div key={`${img.name}-${index}`} className={styles.uploadPreviewItem}>
@@ -1033,7 +1033,7 @@ export default function OppdateringerPage() {
                           }
                           disabled={saving}
                         >
-                          Remove
+                          Fjern
                         </button>
                       </div>
                     ))}
@@ -1048,7 +1048,7 @@ export default function OppdateringerPage() {
                   onChange={(e) => setImportant(e.target.checked)}
                   disabled={saving}
                 />
-                <span>Mark as important</span>
+                <span>Marker som viktig</span>
               </label>
 
               <div className={styles.modalActions}>
@@ -1059,7 +1059,7 @@ export default function OppdateringerPage() {
                     onClick={() => onDeletePost(editingId)}
                     disabled={saving}
                   >
-                    Delete
+                    Slett
                   </button>
                 ) : null}
 
@@ -1069,7 +1069,7 @@ export default function OppdateringerPage() {
                   onClick={closeModal}
                   disabled={saving}
                 >
-                  Cancel
+                  Avbryt
                 </button>
 
                 <button className={styles.primaryBtn} type="submit" disabled={!canSubmit}>
@@ -1079,7 +1079,7 @@ export default function OppdateringerPage() {
                       : 'Lagrer…'
                     : modalMode === 'create'
                       ? 'Publiser innlegg'
-                      : 'Save changes'}
+                      : 'Lagre endringer'}
                 </button>
               </div>
             </form>
@@ -1103,7 +1103,7 @@ export default function OppdateringerPage() {
           <div className={styles.commentModalBackdrop} onMouseDown={closeCommentModal}>
             <div className={styles.commentModal} onMouseDown={(e) => e.stopPropagation()}>
               <div className={styles.commentModalHeader}>
-                <div className={styles.commentModalTitle}>Post</div>
+                <div className={styles.commentModalTitle}>Innlegg</div>
                 <button
                   type="button"
                   className={styles.commentModalClose}
@@ -1134,10 +1134,10 @@ export default function OppdateringerPage() {
                         </div>
 
                         {String(getId(activeCommentPost.author) || '') === String(myId || '') ? (
-                          <span className={styles.mineBadge}>You</span>
+                          <span className={styles.mineBadge}>Du</span>
                         ) : null}
                         {activeCommentPost.important ? (
-                          <span className={styles.importantBadge}>Important</span>
+                          <span className={styles.importantBadge}>Viktig</span>
                         ) : null}
                       </div>
 

@@ -57,6 +57,12 @@ type AuditLogListLabels = {
   fieldAllDay: string
   fieldFallback: string
 
+  fieldCategoryAgreement?: string
+  fieldCategorySchool?: string
+  fieldCategoryHealth?: string
+  fieldCategoryId?: string
+  fieldCategoryOther?: string
+
   statusAdmin: string
   statusPersonal: string
   statusImportant: string
@@ -90,7 +96,6 @@ type AuditLogListLabels = {
   commentedOnPost: string
   didActivity: string
 }
-
 export function fmtDateTime(
   value?: string | null,
   locale = 'nb-NO',
@@ -113,7 +118,48 @@ export function fmtDateTime(
   })
 }
 
-export function actorDisplayName(a: AuditLog, labels?: Pick<AuditLogListLabels, 'system' | 'unknownUser'>) {
+export function fmtDateOnly(
+  value?: string | null,
+  locale = 'nb-NO',
+  timeZone = 'Europe/Oslo',
+  empty = '—',
+) {
+  if (!value) return empty
+
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return empty
+
+  return date.toLocaleDateString(locale, {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  })
+}
+
+export function fmtTimeOnly(
+  value?: string | null,
+  locale = 'nb-NO',
+  timeZone = 'Europe/Oslo',
+  empty = '—',
+) {
+  if (!value) return empty
+
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return empty
+
+  return date.toLocaleTimeString(locale, {
+    timeZone,
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  })
+}
+
+export function actorDisplayName(
+  a: AuditLog,
+  labels?: Pick<AuditLogListLabels, 'system' | 'unknownUser'>,
+) {
   const raw = String(a?.actorName || '').trim()
 
   if (raw) {
@@ -266,9 +312,47 @@ export function fieldLabel(
   return map[field || ''] || field || labels?.fieldFallback || 'Field'
 }
 
-export function renderChangeValue(v?: string, empty = '—') {
+function normalizeStatusDisplay(
+  value?: string,
+  labels?: Pick<
+    AuditLogListLabels,
+    'statusAdmin' | 'statusPersonal' | 'statusImportant' | 'statusChild'
+  >,
+) {
+  const s = String(value || '').toLowerCase()
+
+  if (!s) return ''
+  if (s === 'admin') return labels?.statusAdmin || 'Admin'
+  if (s === 'personal') return labels?.statusPersonal || 'Personal'
+  if (s === 'important') return labels?.statusImportant || 'Important'
+  if (s === 'child') return labels?.statusChild || 'Child'
+
+  return value || ''
+}
+
+export function renderChangeValue(
+  v?: string,
+  empty = '—',
+  labels?: Pick<
+    AuditLogListLabels,
+    'statusAdmin' | 'statusPersonal' | 'statusImportant' | 'statusChild'
+  >,
+  locale = 'nb-NO',
+) {
   const value = String(v ?? '').trim()
   if (!value) return empty
+
+  if (value === 'true') return 'Yes'
+  if (value === 'false') return 'No'
+
+  const statusValue = normalizeStatusDisplay(value, labels)
+  if (statusValue && statusValue !== value) return statusValue
+
+  const maybeDate = new Date(value)
+  if (!Number.isNaN(maybeDate.getTime()) && value.includes('T')) {
+    return fmtDateTime(value, locale)
+  }
+
   if (value.length > 120) return `${value.slice(0, 120)}…`
   return value
 }
@@ -307,6 +391,24 @@ function statusLabel(
   return status || ''
 }
 
+function documentCategoryLabel(
+  category?: string,
+  labels?: Pick<
+    AuditLogListLabels,
+    | 'fieldCategoryAgreement'
+    | 'fieldCategorySchool'
+    | 'fieldCategoryHealth'
+    | 'fieldCategoryId'
+    | 'fieldCategoryOther'
+  >,
+) {
+  if (category === 'agreement') return labels?.fieldCategoryAgreement || 'Agreement'
+  if (category === 'school') return labels?.fieldCategorySchool || 'School'
+  if (category === 'health') return labels?.fieldCategoryHealth || 'Health'
+  if (category === 'id') return labels?.fieldCategoryId || 'ID'
+  return labels?.fieldCategoryOther || 'Other'
+}
+
 export function getAuditTarget(a: AuditLog) {
   const meta = a.meta || {}
 
@@ -314,17 +416,38 @@ export function getAuditTarget(a: AuditLog) {
   if (meta.childName && a.entityType === 'child') return meta.childName
   if (meta.title) return meta.title
 
-  return a.entityId ? `#${a.entityId}` : ''
+  return a.targetLabel || (a.entityId ? `#${a.entityId}` : '')
 }
 
-function buildEventSub(meta: any, a: AuditLog, labels?: AuditLogListLabels, changesCount = 0) {
+function buildEventSub(
+  meta: any,
+  a: AuditLog,
+  labels?: AuditLogListLabels,
+  locale = 'nb-NO',
+  changesCount = 0,
+) {
   const childName = getChildName(a)
   const parts: string[] = []
 
   if (childName) parts.push(`${labels?.forChild || 'for'} ${childName}`)
 
   if (meta?.startAt && meta?.endAt) {
-    parts.push(`${fmtDateTime(meta.startAt)} → ${fmtDateTime(meta.endAt)}`)
+    const sameDay =
+      fmtDateOnly(meta.startAt, locale) === fmtDateOnly(meta.endAt, locale)
+
+    if (meta?.allDay) {
+      parts.push(
+        sameDay
+          ? fmtDateOnly(meta.startAt, locale)
+          : `${fmtDateOnly(meta.startAt, locale)} → ${fmtDateOnly(meta.endAt, locale)}`,
+      )
+    } else {
+      parts.push(
+        sameDay
+          ? `${fmtDateOnly(meta.startAt, locale)} • ${fmtTimeOnly(meta.startAt, locale)}–${fmtTimeOnly(meta.endAt, locale)}`
+          : `${fmtDateTime(meta.startAt, locale)} → ${fmtDateTime(meta.endAt, locale)}`,
+      )
+    }
   }
 
   const currentStatus = statusLabel(meta?.status, labels)
@@ -380,7 +503,11 @@ function buildPostSentence(
   } ${labels?.generalPost || 'family post'}`
 }
 
-export function auditPretty(a: AuditLog, labels?: AuditLogListLabels) {
+export function auditPretty(
+  a: AuditLog,
+  labels?: AuditLogListLabels,
+  locale = 'nb-NO',
+) {
   const action = String(a.action || '').toLowerCase()
   const meta = a.meta || {}
   const changes = Array.isArray(a.changes) ? a.changes : []
@@ -414,24 +541,24 @@ export function auditPretty(a: AuditLog, labels?: AuditLogListLabels) {
   if (action === 'event.create') {
     return {
       sentence: labels?.createdCalendarEvent || 'created calendar event',
-      target: meta?.title || '',
-      sub: buildEventSub(meta, a, labels),
+      target: meta?.title || a.targetLabel || '',
+      sub: buildEventSub(meta, a, labels, locale),
     }
   }
 
   if (action === 'event.update') {
     return {
       sentence: labels?.updatedCalendarEvent || 'updated calendar event',
-      target: meta?.title || '',
-      sub: buildEventSub(meta, a, labels, changes.length),
+      target: meta?.title || a.targetLabel || '',
+      sub: buildEventSub(meta, a, labels, locale, changes.length),
     }
   }
 
   if (action === 'event.delete') {
     return {
       sentence: labels?.deletedCalendarEvent || 'deleted calendar event',
-      target: meta?.title || '',
-      sub: buildEventSub(meta, a, labels),
+      target: meta?.title || a.targetLabel || '',
+      sub: buildEventSub(meta, a, labels, locale),
     }
   }
 
@@ -442,7 +569,7 @@ export function auditPretty(a: AuditLog, labels?: AuditLogListLabels) {
       sub: buildDocumentSub(
         a,
         meta?.documentCategory
-          ? `${meta.documentCategory} • v${meta?.version ?? 1}`
+          ? `${documentCategoryLabel(meta.documentCategory, labels)} • v${meta?.version ?? 1}`
           : `v${meta?.version ?? 1}`,
         labels,
       ),
@@ -456,7 +583,7 @@ export function auditPretty(a: AuditLog, labels?: AuditLogListLabels) {
       sub: buildDocumentSub(
         a,
         meta?.documentCategory
-          ? `${meta.documentCategory} • v${meta?.version ?? 1}`
+          ? `${documentCategoryLabel(meta.documentCategory, labels)} • v${meta?.version ?? 1}`
           : `v${meta?.version ?? 1}`,
         labels,
       ),
@@ -464,16 +591,22 @@ export function auditPretty(a: AuditLog, labels?: AuditLogListLabels) {
   }
 
   if (action === 'doc.update') {
+    const detailParts: string[] = []
+
+    if (meta?.documentCategory) {
+      detailParts.push(documentCategoryLabel(meta.documentCategory, labels))
+    }
+
+    if (changes.length > 0) {
+      detailParts.push(`${changes.length} ${labels?.fieldsChanged || 'fields changed'}`)
+    } else {
+      detailParts.push(`v${meta?.version ?? 1}`)
+    }
+
     return {
       sentence: labels?.updatedDocument || 'updated document',
       target: meta?.documentTitle || '',
-      sub: buildDocumentSub(
-        a,
-        changes.length > 0
-          ? `${changes.length} ${labels?.fieldsChanged || 'fields changed'}`
-          : `v${meta?.version ?? 1}`,
-        labels,
-      ),
+      sub: buildDocumentSub(a, detailParts.join(' • '), labels),
     }
   }
 
@@ -484,7 +617,7 @@ export function auditPretty(a: AuditLog, labels?: AuditLogListLabels) {
       sub: buildDocumentSub(
         a,
         meta?.documentCategory
-          ? `${meta.documentCategory} • v${meta?.version ?? 1}`
+          ? `${documentCategoryLabel(meta.documentCategory, labels)} • v${meta?.version ?? 1}`
           : `v${meta?.version ?? 1}`,
         labels,
       ),

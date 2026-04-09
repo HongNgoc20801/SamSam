@@ -37,9 +37,12 @@ export type AuditSeverity = 'info' | 'important' | 'critical'
 export type AuditMeta = {
   childId?: string | number
   childName?: string
+
   documentTitle?: string
   documentCategory?: string
   version?: number
+  fileName?: string
+  replaces?: string | number | null
 
   status?: string
   previousStatus?: string
@@ -55,6 +58,8 @@ export type AuditMeta = {
   startAt?: string
   endAt?: string
   notes?: string
+  allDay?: boolean
+
   amount?: number | string
   currency?: string
 

@@ -124,6 +124,7 @@ export const messages = {
       deleteFailed: 'Kunne ikke slette.',
       deleteConfirm: 'Slette denne avtalen?',
       childStatusUnknown: 'ukjent',
+      
     },
 
     updates: {
@@ -1125,6 +1126,7 @@ editProfilePage: {
       deleteFailed: 'Could not delete.',
       deleteConfirm: 'Delete this event?',
       childStatusUnknown: 'unknown',
+      
     },
 
     updates: {

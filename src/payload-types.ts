@@ -78,8 +78,12 @@ export interface Config {
     children: Child;
     child_documents: ChildDocument;
     audit_logs: AuditLog;
-    'calendar-events': CalendarEvent;
     notifications: Notification;
+    'economy-transactions': EconomyTransaction;
+    'bank-connections': BankConnection;
+    'bank-transactions': BankTransaction;
+    'bank-transfers': BankTransfer;
+    'calendar-events': CalendarEvent;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
@@ -97,8 +101,12 @@ export interface Config {
     children: ChildrenSelect<false> | ChildrenSelect<true>;
     child_documents: ChildDocumentsSelect<false> | ChildDocumentsSelect<true>;
     audit_logs: AuditLogsSelect<false> | AuditLogsSelect<true>;
-    'calendar-events': CalendarEventsSelect<false> | CalendarEventsSelect<true>;
     notifications: NotificationsSelect<false> | NotificationsSelect<true>;
+    'economy-transactions': EconomyTransactionsSelect<false> | EconomyTransactionsSelect<true>;
+    'bank-connections': BankConnectionsSelect<false> | BankConnectionsSelect<true>;
+    'bank-transactions': BankTransactionsSelect<false> | BankTransactionsSelect<true>;
+    'bank-transfers': BankTransfersSelect<false> | BankTransfersSelect<true>;
+    'calendar-events': CalendarEventsSelect<false> | CalendarEventsSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -211,7 +219,7 @@ export interface LandingPage {
     title: string;
     subtitle: string;
     description: string;
-    image: number | Media;
+    image?: (number | null) | Media;
     primaryCTA: {
       label: string;
       url: string;
@@ -569,24 +577,6 @@ export interface AuditLog {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "calendar-events".
- */
-export interface CalendarEvent {
-  id: number;
-  family: number | Family;
-  child: number | Child;
-  title: string;
-  notes?: string | null;
-  status?: ('admin' | 'personal' | 'important' | 'child') | null;
-  startAt: string;
-  endAt: string;
-  allDay?: boolean | null;
-  createdBy?: (number | null) | Customer;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "notifications".
  */
 export interface Notification {
@@ -610,6 +600,144 @@ export interface Notification {
     | number
     | boolean
     | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "economy-transactions".
+ */
+export interface EconomyTransaction {
+  id: number;
+  family: number | Family;
+  createdBy: number | Customer;
+  paidBy: number | Customer;
+  child?: (number | null) | Child;
+  title: string;
+  description?: string | null;
+  type: 'expense' | 'income';
+  category:
+    | 'food'
+    | 'housing'
+    | 'transport'
+    | 'health'
+    | 'school'
+    | 'activities'
+    | 'clothes'
+    | 'bills'
+    | 'salary'
+    | 'other';
+  amount: number;
+  currency: string;
+  status: 'paid' | 'pending';
+  transactionDate: string;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "bank-connections".
+ */
+export interface BankConnection {
+  id: number;
+  family: number | Family;
+  connectionScope: 'family' | 'personal';
+  ownerCustomer?: (number | null) | Customer;
+  provider: 'enable-banking' | 'neonomics';
+  status: 'pending' | 'connected' | 'expired' | 'failed';
+  state?: string | null;
+  externalSessionId?: string | null;
+  externalAccountId?: string | null;
+  bankName?: string | null;
+  accountName?: string | null;
+  maskedAccount?: string | null;
+  currentBalance?: number | null;
+  currency?: string | null;
+  connectedAt?: string | null;
+  lastSyncedAt?: string | null;
+  lastError?: string | null;
+  isActive?: boolean | null;
+  meta?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "bank-transactions".
+ */
+export interface BankTransaction {
+  id: number;
+  family: number | Family;
+  bankConnection: number | BankConnection;
+  transactionKey: string;
+  externalTransactionId: string;
+  direction: 'in' | 'out';
+  amount: number;
+  currency: string;
+  bookingDate?: string | null;
+  valueDate?: string | null;
+  description?: string | null;
+  raw?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "bank-transfers".
+ */
+export interface BankTransfer {
+  id: number;
+  family: number | Family;
+  initiatedBy: number | Customer;
+  initiatedByName: string;
+  fromConnection: number | BankConnection;
+  toConnection: number | BankConnection;
+  amount: number;
+  currency: string;
+  note?: string | null;
+  status: 'completed' | 'failed';
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "calendar-events".
+ */
+export interface CalendarEvent {
+  id: number;
+  family: number | Family;
+  child: number | Child;
+  title: string;
+  notes?: string | null;
+  status?: ('admin' | 'personal' | 'important' | 'child') | null;
+  startAt: string;
+  endAt: string;
+  allDay?: boolean | null;
+  createdBy?:
+    | ({
+        relationTo: 'customers';
+        value: number | Customer;
+      } | null)
+    | ({
+        relationTo: 'users';
+        value: number | User;
+      } | null);
   updatedAt: string;
   createdAt: string;
 }
@@ -678,12 +806,28 @@ export interface PayloadLockedDocument {
         value: number | AuditLog;
       } | null)
     | ({
-        relationTo: 'calendar-events';
-        value: number | CalendarEvent;
-      } | null)
-    | ({
         relationTo: 'notifications';
         value: number | Notification;
+      } | null)
+    | ({
+        relationTo: 'economy-transactions';
+        value: number | EconomyTransaction;
+      } | null)
+    | ({
+        relationTo: 'bank-connections';
+        value: number | BankConnection;
+      } | null)
+    | ({
+        relationTo: 'bank-transactions';
+        value: number | BankTransaction;
+      } | null)
+    | ({
+        relationTo: 'bank-transfers';
+        value: number | BankTransfer;
+      } | null)
+    | ({
+        relationTo: 'calendar-events';
+        value: number | CalendarEvent;
       } | null);
   globalSlug?: string | null;
   user:
@@ -1166,23 +1310,6 @@ export interface AuditLogsSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "calendar-events_select".
- */
-export interface CalendarEventsSelect<T extends boolean = true> {
-  family?: T;
-  child?: T;
-  title?: T;
-  notes?: T;
-  status?: T;
-  startAt?: T;
-  endAt?: T;
-  allDay?: T;
-  createdBy?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "notifications_select".
  */
 export interface NotificationsSelect<T extends boolean = true> {
@@ -1197,6 +1324,105 @@ export interface NotificationsSelect<T extends boolean = true> {
   isRead?: T;
   readAt?: T;
   meta?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "economy-transactions_select".
+ */
+export interface EconomyTransactionsSelect<T extends boolean = true> {
+  family?: T;
+  createdBy?: T;
+  paidBy?: T;
+  child?: T;
+  title?: T;
+  description?: T;
+  type?: T;
+  category?: T;
+  amount?: T;
+  currency?: T;
+  status?: T;
+  transactionDate?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "bank-connections_select".
+ */
+export interface BankConnectionsSelect<T extends boolean = true> {
+  family?: T;
+  connectionScope?: T;
+  ownerCustomer?: T;
+  provider?: T;
+  status?: T;
+  state?: T;
+  externalSessionId?: T;
+  externalAccountId?: T;
+  bankName?: T;
+  accountName?: T;
+  maskedAccount?: T;
+  currentBalance?: T;
+  currency?: T;
+  connectedAt?: T;
+  lastSyncedAt?: T;
+  lastError?: T;
+  isActive?: T;
+  meta?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "bank-transactions_select".
+ */
+export interface BankTransactionsSelect<T extends boolean = true> {
+  family?: T;
+  bankConnection?: T;
+  transactionKey?: T;
+  externalTransactionId?: T;
+  direction?: T;
+  amount?: T;
+  currency?: T;
+  bookingDate?: T;
+  valueDate?: T;
+  description?: T;
+  raw?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "bank-transfers_select".
+ */
+export interface BankTransfersSelect<T extends boolean = true> {
+  family?: T;
+  initiatedBy?: T;
+  initiatedByName?: T;
+  fromConnection?: T;
+  toConnection?: T;
+  amount?: T;
+  currency?: T;
+  note?: T;
+  status?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "calendar-events_select".
+ */
+export interface CalendarEventsSelect<T extends boolean = true> {
+  family?: T;
+  child?: T;
+  title?: T;
+  notes?: T;
+  status?: T;
+  startAt?: T;
+  endAt?: T;
+  allDay?: T;
+  createdBy?: T;
   updatedAt?: T;
   createdAt?: T;
 }

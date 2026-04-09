@@ -96,12 +96,12 @@ function matchesSearch(a: AuditLog, q: string) {
     a.entityType,
     a.meta?.title,
     a.meta?.documentTitle,
+    a.meta?.documentCategory,
     a.meta?.childName,
     a.childNameSnapshot,
   ]
     .map((v) => String(v || '').toLowerCase())
     .join(' ')
-
   return haystack.includes(query)
 }
 
@@ -301,11 +301,11 @@ export default function AuditLogList({
                 {group.items.map((a) => {
                   const Icon = getActionIcon(a.action)
                   const who = actorDisplayName(a, td)
-                  const pretty = auditPretty(a, td)
+                  const pretty = auditPretty(a, td, locale)
                   const changes = Array.isArray(a.changes) ? a.changes : []
 
                   const expanded = !!expandedIds[String(a.id)]
-                  const showExpandButton = changes.length > 0 && !compact
+                  const showExpandButton = changes.length > 0
 
                   return (
                     <div
@@ -378,13 +378,13 @@ export default function AuditLogList({
 
                                 <div className={styles.auditChangeValues}>
                                   <span className={styles.auditChangeFrom}>
-                                    {renderChangeValue(c.from, td.noValue)}
+                                    {renderChangeValue(c.from, td.noValue, td, locale)}
                                   </span>
 
                                   <span className={styles.auditChangeArrow}>→</span>
 
                                   <span className={styles.auditChangeTo}>
-                                    {renderChangeValue(c.to, td.noValue)}
+                                    {renderChangeValue(c.to, td.noValue, td, locale)}
                                   </span>
                                 </div>
                               </div>

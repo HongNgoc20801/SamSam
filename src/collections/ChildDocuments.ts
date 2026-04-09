@@ -107,6 +107,14 @@ async function getChildSnapshot(req: any, childValue: any) {
   }
 }
 
+function getFileNameFromDocFile(fileValue: any) {
+  if (!fileValue) return undefined
+  if (typeof fileValue === 'object') {
+    return fileValue?.filename || fileValue?.name || undefined
+  }
+  return undefined
+}
+
 export const ChildDocuments: CollectionConfig = {
   slug: 'child_documents',
 
@@ -303,139 +311,156 @@ export const ChildDocuments: CollectionConfig = {
     ],
 
     afterChange: [
-  async ({ doc, previousDoc, operation, req }: any) => {
-    if (!req?.user || !doc) return
+      async ({ doc, previousDoc, operation, req }: any) => {
+        if (!req?.user || !doc) return
 
-    const familyId = getFamilyIdFromDoc(doc)
-    const actorUserId = normalizeRelId(req?.user?.id)
+        const familyId = getFamilyIdFromDoc(doc)
+        const actorUserId = normalizeRelId(req?.user?.id)
+        const { childId, childName } = await getChildSnapshot(req, doc?.child)
 
-    const { childId, childName } = await getChildSnapshot(req, doc?.child)
+        if (operation === 'create') {
+          await logAudit(req, {
+            familyId,
+            childId,
+            childName,
+            action: doc?.replaces ? 'doc.replace' : 'doc.upload',
+            entityType: 'document',
+            entityId: String(doc?.id),
+            scope: 'documents',
+            severity: 'important',
+            relatedToRole: 'both',
+            targetLabel: doc?.title,
+            summary: doc?.replaces ? 'Replaced document' : 'Uploaded document',
+            meta: {
+              childId,
+              childName,
+              documentTitle: doc?.title,
+              documentCategory: doc?.category,
+              version: doc?.version ?? 1,
+              fileName: getFileNameFromDocFile(doc?.file),
+              replaces: normalizeRelId(doc?.replaces),
+            },
+          })
 
-    /**
-     * CREATE / REPLACE
-     */
+          await notifyFamily(req, {
+            familyId,
+            actorUserId,
+            childId,
+            type: 'documents',
+            event: doc?.replaces ? 'replaced' : 'uploaded',
+            title: doc?.replaces ? 'Document replaced' : 'Document uploaded',
+            message: `${doc?.title || 'A document'} was uploaded.`,
+            link: `/child-documents`,
+            meta: {
+              childName,
+              documentTitle: doc?.title,
+              documentCategory: doc?.category,
+              version: doc?.version,
+            },
+          })
 
-    if (operation === 'create') {
-      await logAudit(req, {
-        familyId,
-        childId,
-        childName,
-        action: doc?.replaces ? 'doc.replace' : 'doc.upload',
-        entityType: 'document',
-        entityId: String(doc?.id),
-        scope: 'documents',
-        severity: 'important',
-        relatedToRole: 'both',
-        targetLabel: doc?.title,
-        summary: doc?.replaces ? 'Replaced document' : 'Uploaded document',
-      })
+          return
+        }
 
-      await notifyFamily(req, {
-        familyId,
-        actorUserId,
-        childId,
-        type: 'documents',
-        event: doc?.replaces ? 'replaced' : 'uploaded',
-        title: doc?.replaces ? 'Document replaced' : 'Document uploaded',
-        message: `${doc?.title || 'A document'} was uploaded.`,
-        link: `/child-documents`,
-        meta: {
-          childName,
-          documentTitle: doc?.title,
-          version: doc?.version,
-        },
-      })
+        if (operation === 'update') {
+          const changes: Array<{ field: string; from?: any; to?: any }> = []
 
-      return
-    }
+          pushChange(changes, 'title', previousDoc?.title, doc?.title)
+          pushChange(changes, 'category', previousDoc?.category, doc?.category)
+          pushChange(changes, 'noteShort', previousDoc?.noteShort, doc?.noteShort)
 
-    /**
-     * UPDATE
-     */
+          if (!changes.length) return
 
-    if (operation === 'update') {
-      const changes: Array<{ field: string; from?: any; to?: any }> = []
+          await logAudit(req, {
+            familyId,
+            childId,
+            childName,
+            action: 'doc.update',
+            entityType: 'document',
+            entityId: String(doc?.id),
+            scope: 'documents',
+            severity: 'important',
+            relatedToRole: 'both',
+            targetLabel: doc?.title,
+            summary: 'Updated document',
+            changes,
+            meta: {
+              childId,
+              childName,
+              documentTitle: doc?.title,
+              documentCategory: doc?.category,
+              version: doc?.version ?? 1,
+              changedFields: changes.map((c) => c.field),
+            },
+          })
 
-      pushChange(changes, 'title', previousDoc?.title, doc?.title)
-      pushChange(changes, 'category', previousDoc?.category, doc?.category)
-      pushChange(changes, 'noteShort', previousDoc?.noteShort, doc?.noteShort)
-
-      if (!changes.length) return
-
-      await logAudit(req, {
-        familyId,
-        childId,
-        childName,
-        action: 'doc.update',
-        entityType: 'document',
-        entityId: String(doc?.id),
-        scope: 'documents',
-        severity: 'important',
-        relatedToRole: 'both',
-        targetLabel: doc?.title,
-        summary: 'Updated document',
-        changes,
-      })
-
-      await notifyFamily(req, {
-        familyId,
-        actorUserId,
-        childId,
-        type: 'documents',
-        event: 'updated',
-        title: 'Document updated',
-        message: `${doc?.title || 'A document'} was updated.`,
-        link: `/child-documents`,
-        meta: {
-          childName,
-          documentTitle: doc?.title,
-          version: doc?.version,
-        },
-      })
-    }
-  },
-],
-
-   afterDelete: [
-  async ({ doc, req }: any) => {
-    if (!req?.user || !doc) return
-
-    const actorUserId = normalizeRelId(req?.user?.id)
-
-    const { childId, childName } = await getChildSnapshot(req, doc?.child)
-
-    const familyId = getFamilyIdFromDoc(doc)
-
-    await logAudit(req, {
-      familyId,
-      childId,
-      childName,
-      action: 'doc.delete',
-      entityType: 'document',
-      entityId: String(doc?.id),
-      scope: 'documents',
-      severity: 'important',
-      relatedToRole: 'both',
-      targetLabel: doc?.title,
-      summary: 'Deleted document',
-    })
-
-    await notifyFamily(req, {
-      familyId,
-      actorUserId,
-      childId,
-      type: 'documents',
-      event: 'deleted',
-      title: 'Document deleted',
-      message: `${doc?.title || 'A document'} was deleted.`,
-      link: `/child-documents`,
-      meta: {
-        childName,
-        documentTitle: doc?.title,
+          await notifyFamily(req, {
+            familyId,
+            actorUserId,
+            childId,
+            type: 'documents',
+            event: 'updated',
+            title: 'Document updated',
+            message: `${doc?.title || 'A document'} was updated.`,
+            link: `/child-documents`,
+            meta: {
+              childName,
+              documentTitle: doc?.title,
+              documentCategory: doc?.category,
+              version: doc?.version,
+            },
+          })
+        }
       },
-    })
-  },
-],
+    ],
+
+    afterDelete: [
+      async ({ doc, req }: any) => {
+        if (!req?.user || !doc) return
+
+        const actorUserId = normalizeRelId(req?.user?.id)
+        const { childId, childName } = await getChildSnapshot(req, doc?.child)
+        const familyId = getFamilyIdFromDoc(doc)
+
+        await logAudit(req, {
+          familyId,
+          childId,
+          childName,
+          action: 'doc.delete',
+          entityType: 'document',
+          entityId: String(doc?.id),
+          scope: 'documents',
+          severity: 'important',
+          relatedToRole: 'both',
+          targetLabel: doc?.title,
+          summary: 'Deleted document',
+          meta: {
+            childId,
+            childName,
+            documentTitle: doc?.title,
+            documentCategory: doc?.category,
+            version: doc?.version ?? 1,
+          },
+        })
+
+        await notifyFamily(req, {
+          familyId,
+          actorUserId,
+          childId,
+          type: 'documents',
+          event: 'deleted',
+          title: 'Document deleted',
+          message: `${doc?.title || 'A document'} was deleted.`,
+          link: `/child-documents`,
+          meta: {
+            childName,
+            documentTitle: doc?.title,
+            documentCategory: doc?.category,
+            version: doc?.version,
+          },
+        })
+      },
+    ],
   },
 
   fields: [

@@ -14,7 +14,12 @@ import { format, parse, startOfWeek, getDay, addDays, startOfDay } from 'date-fn
 import { nb } from 'date-fns/locale'
 import { useTranslations } from '@/app/lib/i18n/useTranslations'
 
-type Child = { id: string | number; fullName: string; status?: string }
+type Child = {
+  id: string | number
+  fullName: string
+  status?: string
+}
+
 type EventStatus = 'admin' | 'personal' | 'important' | 'child'
 
 type CalEventDoc = {
@@ -41,6 +46,25 @@ type RBCEvent = RBCBaseEvent & {
   start: Date
   end: Date
   resource: RBCResource
+}
+
+type ModalMode = 'create' | 'view' | 'edit'
+
+const locales = { 'no-NO': nb }
+
+const localizer = dateFnsLocalizer({
+  format,
+  parse,
+  startOfWeek: () => startOfWeek(new Date(), { locale: nb }),
+  getDay,
+  locales,
+})
+
+const STATUS_COLORS: Record<EventStatus, string> = {
+  admin: '#4F7CFF',
+  personal: '#2ECC71',
+  important: '#FF4D6D',
+  child: '#9B6CFF',
 }
 
 function normalizeID(v: string) {
@@ -75,38 +99,48 @@ function isAllDayRange(start: Date, end: Date) {
   )
 }
 
-const locales = { 'no-NO': nb }
-const localizer = dateFnsLocalizer({
-  format,
-  parse,
-  startOfWeek: () => startOfWeek(new Date(), { locale: nb }),
-  getDay,
-  locales,
-})
-
-const STATUS_COLORS: Record<EventStatus, string> = {
-  admin: '#4F7CFF',
-  personal: '#2ECC71',
-  important: '#FF4D6D',
-  child: '#9B6CFF',
+function getEventColor(status?: EventStatus) {
+  return (status && STATUS_COLORS[status]) || '#9CA3AF'
 }
 
-function getEventColor(s?: EventStatus) {
-  return (s && STATUS_COLORS[s]) || '#9CA3AF'
+function getInitials(name?: string) {
+  const n = (name || '').trim()
+  if (!n) return '?'
+  const parts = n.split(/\s+/).slice(0, 2)
+  return parts.map((p) => p[0]?.toUpperCase()).join('')
+}
+
+function normalizeTimes(startStr: string, endStr: string) {
+  const startD = new Date(startStr)
+  let endD = new Date(endStr)
+
+  const isMidnightNextDay =
+    endD.getHours() === 0 &&
+    endD.getMinutes() === 0 &&
+    endD.toDateString() !== startD.toDateString()
+
+  if (isMidnightNextDay) {
+    endD = new Date(startD)
+    endD.setHours(23, 59, 0, 0)
+  }
+
+  return { startD, endD }
 }
 
 export default function CalendarPage() {
   const t = useTranslations()
 
   const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+
   const [children, setChildren] = useState<Child[]>([])
   const [docs, setDocs] = useState<CalEventDoc[]>([])
-  const [error, setError] = useState('')
 
   const [filterChild, setFilterChild] = useState<'all' | string>('all')
 
   const [open, setOpen] = useState(false)
-  const [mode, setMode] = useState<'create' | 'view' | 'edit'>('create')
+  const [mode, setMode] = useState<ModalMode>('create')
   const [activeEvent, setActiveEvent] = useState<RBCEvent | null>(null)
 
   const [childId, setChildId] = useState('')
@@ -115,7 +149,6 @@ export default function CalendarPage() {
   const [notes, setNotes] = useState('')
   const [startAt, setStartAt] = useState('')
   const [endAt, setEndAt] = useState('')
-  const [saving, setSaving] = useState(false)
 
   const [currentDate, setCurrentDate] = useState<Date>(new Date())
   const [view, setView] = useState<any>(Views.MONTH)
@@ -123,116 +156,64 @@ export default function CalendarPage() {
   const hasChildren = children.length > 0
 
   const childNameById = useMemo(() => {
-    const m = new Map<string, string>()
-    children.forEach((c) => m.set(String(c.id), c.fullName))
-    return m
+    const map = new Map<string, string>()
+    children.forEach((c) => map.set(String(c.id), c.fullName))
+    return map
   }, [children])
-
-  async function loadAll() {
-    setLoading(true)
-    setError('')
-    try {
-      const [cRes, eRes] = await Promise.all([
-        fetch('/api/children?limit=100&sort=createdAt', {
-          credentials: 'include',
-          cache: 'no-store',
-        }),
-        fetch('/api/calendar-events?limit=500&sort=-startAt', {
-          credentials: 'include',
-          cache: 'no-store',
-        }),
-      ])
-
-      const cRaw = await cRes.text()
-      const eRaw = await eRes.text()
-
-      let cData: any = {}
-      let eData: any = {}
-      try {
-        cData = JSON.parse(cRaw)
-      } catch {}
-      try {
-        eData = JSON.parse(eRaw)
-      } catch {}
-
-      if (!cRes.ok) {
-        throw new Error(
-          cData?.message ||
-            cData?.errors?.[0]?.message ||
-            cRaw ||
-            `Children failed: ${cRes.status}`,
-        )
-      }
-      if (!eRes.ok) {
-        throw new Error(
-          eData?.message ||
-            eData?.errors?.[0]?.message ||
-            eRaw ||
-            `Events failed: ${eRes.status}`,
-        )
-      }
-
-      setChildren(cData?.docs ?? [])
-      setDocs(eData?.docs ?? [])
-    } catch (err: any) {
-      setError(err?.message || t.calendar.networkError)
-      setChildren([])
-      setDocs([])
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    loadAll()
-  }, [])
 
   const events: RBCEvent[] = useMemo(() => {
     const mapped = (docs ?? [])
-      .map((d) => {
-        const start = new Date(d.startAt)
-        const end = new Date(d.endAt)
+      .map((doc) => {
+        const start = new Date(doc.startAt)
+        const end = new Date(doc.endAt)
+
         if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return null
 
-        const cid = typeof d.child === 'object' && d.child ? (d.child as any).id : d.child
-        const cidStr = cid != null ? String(cid) : undefined
-        const childName = cidStr ? childNameById.get(cidStr) : undefined
+        const rawChildId =
+          typeof doc.child === 'object' && doc.child ? (doc.child as any).id : doc.child
 
-        const ev: RBCEvent = {
-          id: String(d.id),
-          title: d.title,
+        const childIdStr = rawChildId != null ? String(rawChildId) : undefined
+        const childName = childIdStr ? childNameById.get(childIdStr) : undefined
+
+        const event: RBCEvent = {
+          id: String(doc.id),
+          title: doc.title,
           start,
           end,
-          allDay: Boolean(d.allDay),
+          allDay: Boolean(doc.allDay),
           resource: {
-            notes: d.notes,
-            childId: cidStr,
+            notes: doc.notes,
+            childId: childIdStr,
             childName,
-            status: d.status,
+            status: doc.status,
           },
         }
-        return ev
+
+        return event
       })
       .filter(Boolean) as RBCEvent[]
 
     if (filterChild === 'all') return mapped
-    return mapped.filter((e) => e.resource.childId === filterChild)
+    return mapped.filter((event) => event.resource.childId === filterChild)
   }, [docs, childNameById, filterChild])
 
   const dotsByDay = useMemo(() => {
     const map = new Map<string, string[]>()
-    for (const ev of events) {
-      const color = getEventColor(ev.resource.status)
-      let cur = startOfDay(ev.start)
-      const last = startOfDay(ev.end)
-      while (cur.getTime() <= last.getTime()) {
-        const key = format(cur, 'yyyy-MM-dd')
-        const arr = map.get(key) ?? []
-        arr.push(color)
-        map.set(key, arr)
-        cur = addDays(cur, 1)
+
+    for (const event of events) {
+      const color = getEventColor(event.resource.status)
+      let current = startOfDay(event.start)
+      const last = startOfDay(event.end)
+
+      while (current.getTime() <= last.getTime()) {
+        const key = format(current, 'yyyy-MM-dd')
+        const list = map.get(key) ?? []
+        list.push(color)
+        map.set(key, list)
+        current = addDays(current, 1)
       }
     }
+
     return map
   }, [events])
 
@@ -249,24 +230,17 @@ export default function CalendarPage() {
     setOpen(false)
     setMode('create')
     setActiveEvent(null)
-    resetForm()
     setError('')
+    resetForm()
   }
 
-  function getInitials(name?: string) {
-    const n = (name || '').trim()
-    if (!n) return '?'
-    const parts = n.split(/\s+/).slice(0, 2)
-    return parts.map((p) => p[0]?.toUpperCase()).join('')
-  }
-
-  function fillFormFromEvent(ev: RBCEvent) {
-    setChildId(ev.resource.childId ?? '')
-    setStatus((ev.resource.status ?? 'admin') as EventStatus)
-    setTitle(ev.title ?? '')
-    setNotes(ev.resource.notes ?? '')
-    setStartAt(toLocalInputValue(ev.start))
-    setEndAt(toLocalInputValue(ev.end))
+  function fillFormFromEvent(event: RBCEvent) {
+    setChildId(event.resource.childId ?? '')
+    setStatus((event.resource.status ?? 'admin') as EventStatus)
+    setTitle(event.title ?? '')
+    setNotes(event.resource.notes ?? '')
+    setStartAt(toLocalInputValue(event.start))
+    setEndAt(toLocalInputValue(event.end))
   }
 
   function openCreateWithRange(start: Date, end: Date) {
@@ -275,40 +249,89 @@ export default function CalendarPage() {
     setActiveEvent(null)
     setOpen(true)
 
-    let s = start
-    let e = end
+    let nextStart = start
+    let nextEnd = end
 
     if (isAllDayRange(start, end)) {
-      s = setTime(start, 9, 0)
-      e = setTime(start, 9, 30)
+      nextStart = setTime(start, 9, 0)
+      nextEnd = setTime(start, 9, 30)
     }
 
-    setStartAt(toLocalInputValue(s))
-    setEndAt(toLocalInputValue(e))
+    setStartAt(toLocalInputValue(nextStart))
+    setEndAt(toLocalInputValue(nextEnd))
 
-    if (filterChild !== 'all') setChildId(filterChild)
-  }
-
-  function normalizeTimes(startStr: string, endStr: string) {
-    const startD = new Date(startStr)
-    let endD = new Date(endStr)
-
-    const isMidnightNextDay =
-      endD.getHours() === 0 &&
-      endD.getMinutes() === 0 &&
-      endD.toDateString() !== startD.toDateString()
-
-    if (isMidnightNextDay) {
-      endD = new Date(startD)
-      endD.setHours(23, 59, 0, 0)
+    if (filterChild !== 'all') {
+      setChildId(filterChild)
     }
-
-    return { startD, endD }
   }
+
+  async function parseApiResponse(res: Response) {
+    const raw = await res.text()
+    let json: any = {}
+
+    try {
+      json = JSON.parse(raw)
+    } catch {}
+
+    return { raw, json }
+  }
+
+  async function loadAll() {
+    setLoading(true)
+    setError('')
+
+    try {
+      const [childrenRes, eventsRes] = await Promise.all([
+        fetch('/api/children?limit=100&sort=createdAt', {
+          credentials: 'include',
+          cache: 'no-store',
+        }),
+        fetch('/api/calendar-events?limit=500&sort=-startAt', {
+          credentials: 'include',
+          cache: 'no-store',
+        }),
+      ])
+
+      const [{ raw: childrenRaw, json: childrenJson }, { raw: eventsRaw, json: eventsJson }] =
+        await Promise.all([parseApiResponse(childrenRes), parseApiResponse(eventsRes)])
+
+      if (!childrenRes.ok) {
+        throw new Error(
+          childrenJson?.message ||
+            childrenJson?.errors?.[0]?.message ||
+            childrenRaw ||
+            `Children failed (${childrenRes.status})`,
+        )
+      }
+
+      if (!eventsRes.ok) {
+        throw new Error(
+          eventsJson?.message ||
+            eventsJson?.errors?.[0]?.message ||
+            eventsRaw ||
+            `Events failed (${eventsRes.status})`,
+        )
+      }
+
+      setChildren(childrenJson?.docs ?? [])
+      setDocs(eventsJson?.docs ?? [])
+    } catch (err: any) {
+      setError(err?.message || t.calendar.networkError)
+      setChildren([])
+      setDocs([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadAll()
+  }, [])
 
   async function createEvent(e: React.FormEvent) {
     e.preventDefault()
     if (saving) return
+
     setError('')
 
     if (!hasChildren) return setError(t.calendar.mustAddChildBeforeCreate)
@@ -320,39 +343,46 @@ export default function CalendarPage() {
     if (endD.getTime() <= startD.getTime()) return setError(t.calendar.endAfterStart)
 
     setSaving(true)
+
     try {
-      const childValue = normalizeID(childId)
+      const payload = {
+        child: normalizeID(childId),
+        title: title.trim(),
+        notes: notes.trim() || undefined,
+        startAt: startD.toISOString(),
+        endAt: endD.toISOString(),
+        status,
+      }
 
       const res = await fetch('/api/calendar-events', {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          child: childValue,
-          title: title.trim(),
-          notes: notes.trim() || undefined,
-          startAt: startD.toISOString(),
-          endAt: endD.toISOString(),
-          status,
-        }),
+        body: JSON.stringify(payload),
       })
 
-      const raw = await res.text()
-      let j: any = {}
-      try {
-        j = JSON.parse(raw)
-      } catch {}
+      const { raw, json } = await parseApiResponse(res)
 
       if (!res.ok) {
-        const msg = j?.message || j?.errors?.[0]?.message || raw || t.calendar.createFailed
-        throw new Error(msg)
+        console.error('POST /api/calendar-events failed', {
+          status: res.status,
+          payload,
+          raw,
+          parsed: json,
+        })
+
+        throw new Error(
+          json?.message ||
+            json?.errors?.[0]?.message ||
+            raw ||
+            `Create failed (${res.status})`,
+        )
       }
 
-      resetForm()
-      setOpen(false)
+      closeModal()
       await loadAll()
     } catch (err: any) {
-      setError(err?.message || t.calendar.genericError)
+      setError(err?.message || t.calendar.createFailed || t.calendar.genericError)
     } finally {
       setSaving(false)
     }
@@ -362,6 +392,7 @@ export default function CalendarPage() {
     e.preventDefault()
     if (saving) return
     if (!activeEvent) return
+
     setError('')
 
     if (!hasChildren) return setError(t.calendar.mustAddChildBeforeCreate)
@@ -373,38 +404,47 @@ export default function CalendarPage() {
     if (endD.getTime() <= startD.getTime()) return setError(t.calendar.endAfterStart)
 
     setSaving(true)
+
     try {
-      const childValue = normalizeID(childId)
+      const payload = {
+        child: normalizeID(childId),
+        title: title.trim(),
+        notes: notes.trim() || undefined,
+        startAt: startD.toISOString(),
+        endAt: endD.toISOString(),
+        status,
+      }
 
       const res = await fetch(`/api/calendar-events/${activeEvent.id}`, {
         method: 'PATCH',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          child: childValue,
-          title: title.trim(),
-          notes: notes.trim() || undefined,
-          startAt: startD.toISOString(),
-          endAt: endD.toISOString(),
-          status,
-        }),
+        body: JSON.stringify(payload),
       })
 
-      const raw = await res.text()
-      let j: any = {}
-      try {
-        j = JSON.parse(raw)
-      } catch {}
+      const { raw, json } = await parseApiResponse(res)
 
       if (!res.ok) {
-        const msg = j?.message || j?.errors?.[0]?.message || raw || t.calendar.updateFailed
-        throw new Error(msg)
+        console.error('PATCH /api/calendar-events failed', {
+          status: res.status,
+          eventId: activeEvent.id,
+          payload,
+          raw,
+          parsed: json,
+        })
+
+        throw new Error(
+          json?.message ||
+            json?.errors?.[0]?.message ||
+            raw ||
+            `Update failed (${res.status})`,
+        )
       }
 
       closeModal()
       await loadAll()
     } catch (err: any) {
-      setError(err?.message || t.calendar.genericError)
+      setError(err?.message || t.calendar.updateFailed || t.calendar.genericError)
     } finally {
       setSaving(false)
     }
@@ -412,28 +452,37 @@ export default function CalendarPage() {
 
   async function deleteEvent(id: string) {
     if (!confirm(t.calendar.deleteConfirm)) return
+
     setError('')
+
     try {
       const res = await fetch(`/api/calendar-events/${id}`, {
         method: 'DELETE',
         credentials: 'include',
       })
 
-      const raw = await res.text()
-      let j: any = {}
-      try {
-        j = JSON.parse(raw)
-      } catch {}
+      const { raw, json } = await parseApiResponse(res)
 
       if (!res.ok) {
-        const msg = j?.message || j?.errors?.[0]?.message || raw || t.calendar.deleteFailed
-        throw new Error(msg)
+        console.error('DELETE /api/calendar-events failed', {
+          status: res.status,
+          eventId: id,
+          raw,
+          parsed: json,
+        })
+
+        throw new Error(
+          json?.message ||
+            json?.errors?.[0]?.message ||
+            raw ||
+            `Delete failed (${res.status})`,
+        )
       }
 
       closeModal()
       await loadAll()
     } catch (err: any) {
-      setError(err?.message || t.calendar.genericError)
+      setError(err?.message || t.calendar.deleteFailed || t.calendar.genericError)
     }
   }
 
@@ -523,6 +572,7 @@ export default function CalendarPage() {
   function MonthEvent({ event }: any) {
     const ev = event as RBCEvent
     const color = getEventColor(ev.resource.status)
+
     return (
       <div className={styles.monthEvent}>
         <span className={styles.monthBar} style={{ backgroundColor: color }} />
@@ -566,7 +616,6 @@ export default function CalendarPage() {
     const date: Date = props.value
     const key = format(date, 'yyyy-MM-dd')
     const dots = (dotsByDay.get(key) ?? []).slice(0, 4)
-
     const onlyChild = Children.only(props.children) as any
 
     return cloneElement(onlyChild, {
@@ -593,7 +642,9 @@ export default function CalendarPage() {
     child: styles.evtChild,
   }
 
-  if (loading) return <div className={styles.loading}>{t.calendar.loading}</div>
+  if (loading) {
+    return <div className={styles.loading}>{t.calendar.loading}</div>
+  }
 
   return (
     <div className={styles.wrapper}>
@@ -613,9 +664,9 @@ export default function CalendarPage() {
               disabled={!hasChildren}
             >
               <option value="all">{t.calendar.allChildren}</option>
-              {children.map((c) => (
-                <option key={String(c.id)} value={String(c.id)}>
-                  {c.fullName}
+              {children.map((child) => (
+                <option key={String(child.id)} value={String(child.id)}>
+                  {child.fullName}
                 </option>
               ))}
             </select>
@@ -671,12 +722,14 @@ export default function CalendarPage() {
             if (!hasChildren) return
             openCreateWithRange(slot.start as Date, slot.end as Date)
           }}
-          onSelectEvent={(ev: RBCEvent) => {
+          onSelectEvent={(event: RBCEvent) => {
             setMode('view')
-            setActiveEvent(ev)
+            setActiveEvent(event)
             setOpen(true)
           }}
-          tooltipAccessor={(ev: RBCEvent) => (ev.resource.childName ? ev.resource.childName : '')}
+          tooltipAccessor={(event: RBCEvent) =>
+            event.resource.childName ? event.resource.childName : ''
+          }
           components={{
             toolbar: Toolbar as any,
             dateCellWrapper: DateCellWrapper as any,
@@ -689,10 +742,10 @@ export default function CalendarPage() {
           scrollToTime={new Date(1970, 0, 1, 0, 0)}
           step={30}
           timeslots={2}
-          eventPropGetter={(ev: RBCEvent) => {
-            const s = (ev.resource.status ?? 'admin') as EventStatus
+          eventPropGetter={(event: RBCEvent) => {
+            const eventStatus = (event.resource.status ?? 'admin') as EventStatus
             if (view === Views.MONTH) return { className: styles.evtMonth }
-            return { className: `${styles.evt} ${STATUS_CLASS[s]}` }
+            return { className: `${styles.evt} ${STATUS_CLASS[eventStatus]}` }
           }}
         />
       </div>
@@ -702,7 +755,7 @@ export default function CalendarPage() {
           <div className={styles.modal} onMouseDown={(e) => e.stopPropagation()}>
             {mode === 'view' && activeEvent ? (
               (() => {
-                const s = (activeEvent.resource.status ?? 'admin') as EventStatus
+                const eventStatus = (activeEvent.resource.status ?? 'admin') as EventStatus
                 const childName = activeEvent.resource.childName || ''
                 const initials = getInitials(childName)
 
@@ -717,7 +770,9 @@ export default function CalendarPage() {
 
                 return (
                   <div className={styles.detailWrap}>
-                    <div className={`${styles.detailTopAccent} ${styles[`accent_${s}`]}`} />
+                    <div
+                      className={`${styles.detailTopAccent} ${styles[`accent_${eventStatus}`]}`}
+                    />
 
                     <div className={styles.detailHeader}>
                       <div className={styles.detailType}>
@@ -745,10 +800,14 @@ export default function CalendarPage() {
                         </span>
                       ) : null}
 
-                      <span className={`${styles.badgeStatus} ${styles[`status_${s}`]}`}>
+                      <span
+                        className={`${styles.badgeStatus} ${styles[`status_${eventStatus}`]}`}
+                      >
                         <span className={styles.badgeStatusIcon}>!</span>
                         <span className={styles.badgeText}>
-                          {s === 'important' ? t.calendar.importantUpper : s.toUpperCase()}
+                          {eventStatus === 'important'
+                            ? t.calendar.importantUpper
+                            : eventStatus.toUpperCase()}
                         </span>
                       </span>
                     </div>
@@ -826,14 +885,14 @@ export default function CalendarPage() {
                   <select
                     className={styles.select}
                     value={childId}
-                    onChange={(ev) => setChildId(ev.target.value)}
+                    onChange={(e) => setChildId(e.target.value)}
                     disabled={saving}
                   >
                     <option value="">{t.calendar.selectPlaceholder}</option>
-                    {children.map((c) => (
-                      <option key={String(c.id)} value={String(c.id)}>
-                        {c.fullName}{' '}
-                        {c.status ? `(${c.status})` : `(${t.calendar.childStatusUnknown})`}
+                    {children.map((child) => (
+                      <option key={String(child.id)} value={String(child.id)}>
+                        {child.fullName}{' '}
+                        {child.status ? `(${child.status})` : `(${t.calendar.childStatusUnknown})`}
                       </option>
                     ))}
                   </select>
@@ -859,7 +918,7 @@ export default function CalendarPage() {
                   <input
                     className={styles.input}
                     value={title}
-                    onChange={(ev) => setTitle(ev.target.value)}
+                    onChange={(e) => setTitle(e.target.value)}
                     disabled={saving}
                   />
                 </label>
@@ -871,7 +930,7 @@ export default function CalendarPage() {
                       className={styles.input}
                       type="datetime-local"
                       value={startAt}
-                      onChange={(ev) => setStartAt(ev.target.value)}
+                      onChange={(e) => setStartAt(e.target.value)}
                       disabled={saving}
                     />
                   </label>
@@ -882,7 +941,7 @@ export default function CalendarPage() {
                       className={styles.input}
                       type="datetime-local"
                       value={endAt}
-                      onChange={(ev) => setEndAt(ev.target.value)}
+                      onChange={(e) => setEndAt(e.target.value)}
                       disabled={saving}
                     />
                   </label>
@@ -893,7 +952,7 @@ export default function CalendarPage() {
                   <textarea
                     className={styles.textarea}
                     value={notes}
-                    onChange={(ev) => setNotes(ev.target.value)}
+                    onChange={(e) => setNotes(e.target.value)}
                     disabled={saving}
                   />
                 </label>
@@ -907,6 +966,7 @@ export default function CalendarPage() {
                   >
                     {t.calendar.cancel}
                   </button>
+
                   <button className={styles.primaryBtn} type="submit" disabled={saving}>
                     {saving ? t.calendar.saving : t.calendar.saveChanges}
                   </button>
@@ -931,14 +991,14 @@ export default function CalendarPage() {
                   <select
                     className={styles.select}
                     value={childId}
-                    onChange={(ev) => setChildId(ev.target.value)}
+                    onChange={(e) => setChildId(e.target.value)}
                     disabled={saving}
                   >
                     <option value="">{t.calendar.selectPlaceholder}</option>
-                    {children.map((c) => (
-                      <option key={String(c.id)} value={String(c.id)}>
-                        {c.fullName}{' '}
-                        {c.status ? `(${c.status})` : `(${t.calendar.childStatusUnknown})`}
+                    {children.map((child) => (
+                      <option key={String(child.id)} value={String(child.id)}>
+                        {child.fullName}{' '}
+                        {child.status ? `(${child.status})` : `(${t.calendar.childStatusUnknown})`}
                       </option>
                     ))}
                   </select>
@@ -964,7 +1024,7 @@ export default function CalendarPage() {
                   <input
                     className={styles.input}
                     value={title}
-                    onChange={(ev) => setTitle(ev.target.value)}
+                    onChange={(e) => setTitle(e.target.value)}
                     disabled={saving}
                     placeholder={t.calendar.titlePlaceholder}
                   />
@@ -977,7 +1037,7 @@ export default function CalendarPage() {
                       className={styles.input}
                       type="datetime-local"
                       value={startAt}
-                      onChange={(ev) => setStartAt(ev.target.value)}
+                      onChange={(e) => setStartAt(e.target.value)}
                       disabled={saving}
                     />
                   </label>
@@ -988,7 +1048,7 @@ export default function CalendarPage() {
                       className={styles.input}
                       type="datetime-local"
                       value={endAt}
-                      onChange={(ev) => setEndAt(ev.target.value)}
+                      onChange={(e) => setEndAt(e.target.value)}
                       disabled={saving}
                     />
                   </label>
@@ -999,7 +1059,7 @@ export default function CalendarPage() {
                   <textarea
                     className={styles.textarea}
                     value={notes}
-                    onChange={(ev) => setNotes(ev.target.value)}
+                    onChange={(e) => setNotes(e.target.value)}
                     disabled={saving}
                     placeholder={t.calendar.notePlaceholder}
                   />
@@ -1014,6 +1074,7 @@ export default function CalendarPage() {
                   >
                     {t.calendar.cancel}
                   </button>
+
                   <button className={styles.primaryBtn} type="submit" disabled={saving}>
                     {saving ? t.calendar.saving : t.calendar.create}
                   </button>

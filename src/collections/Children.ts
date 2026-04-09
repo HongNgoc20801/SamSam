@@ -712,18 +712,16 @@ export const Children: CollectionConfig = {
         { label: 'Confirmed', value: 'confirmed' },
       ],
     },
-
-    {
-      name: 'createdBy',
-      type: 'relationship',
-      relationTo: 'customers',
-    },
-
-    {
-      name: 'confirmedBy',
-      type: 'relationship',
-      relationTo: 'customers',
-    },
+{
+  name: 'createdBy',
+  type: 'relationship',
+  relationTo: 'customers',
+},
+{
+  name: 'confirmedBy',
+  type: 'relationship',
+  relationTo: 'customers',
+},
 
     {
       name: 'confirmedAt',

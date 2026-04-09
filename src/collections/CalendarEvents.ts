@@ -2,8 +2,14 @@ import type { CollectionConfig } from 'payload'
 import { logAudit } from '@/app/lib/logAudit'
 import { notifyFamily } from '@/app/lib/notifications/notifyFamily'
 
+type ChangeItem = {
+  field: string
+  from?: any
+  to?: any
+}
+
 function getCollectionSlug(req: any) {
-  return req?.user?.collection ?? req?.user?._collection
+  return req?.user?.collection ?? req?.user?._collection ?? null
 }
 
 function isAdmin(req: any) {
@@ -21,9 +27,14 @@ function isCustomer(req: any) {
   return false
 }
 
+function getActorRelation(req: any): 'customers' | 'users' {
+  return getCollectionSlug(req) === 'users' ? 'users' : 'customers'
+}
+
 function getRelId(v: any) {
   if (v == null) return null
   if (typeof v === 'string' || typeof v === 'number') return v
+  if (typeof v === 'object' && 'value' in v) return v.value ?? null
   return v?.id ?? null
 }
 
@@ -33,9 +44,12 @@ function getFamilyIdFromUser(req: any) {
   return getRelId(u.family)
 }
 
+function getFamilyIdFromDoc(doc: any) {
+  return getRelId(doc?.family)
+}
+
 function asText(v: any) {
   if (v === null || v === undefined) return ''
-
   if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') {
     return String(v)
   }
@@ -47,25 +61,47 @@ function asText(v: any) {
   }
 }
 
-function pushChange(
-  changes: Array<{ field: string; from?: any; to?: any }>,
-  field: string,
-  from: any,
-  to: any,
-) {
-  if (asText(from) !== asText(to)) {
-    changes.push({ field, from, to })
+function normalizeStatusValue(status?: string) {
+  const s = String(status || '').trim().toLowerCase()
+  if (!s) return ''
+  if (s === 'admin') return 'admin'
+  if (s === 'personal') return 'personal'
+  if (s === 'important') return 'important'
+  if (s === 'child') return 'child'
+  return s
+}
+
+function normalizeChangeValue(field: string, value: any) {
+  if (value === null || value === undefined) return ''
+
+  if (field === 'startAt' || field === 'endAt') {
+    const d = new Date(value)
+    if (!Number.isNaN(d.getTime())) return d.toISOString()
+    return String(value)
+  }
+
+  if (field === 'allDay') {
+    return value ? 'true' : 'false'
+  }
+
+  if (field === 'status') {
+    return normalizeStatusValue(value)
+  }
+
+  return value
+}
+
+function pushChange(changes: ChangeItem[], field: string, from: any, to: any) {
+  const safeFrom = normalizeChangeValue(field, from)
+  const safeTo = normalizeChangeValue(field, to)
+
+  if (asText(safeFrom) !== asText(safeTo)) {
+    changes.push({ field, from: safeFrom, to: safeTo })
   }
 }
 
-async function canMutateByFamily(req: any, id: string | number) {
-  if (!req?.user) return false
-  if (isAdmin(req)) return true
-
-  const familyId = getFamilyIdFromUser(req)
-  if (!familyId) return false
-
-  const eventDoc = await req.payload
+async function getEventById(req: any, id: string | number) {
+  return req.payload
     .findByID({
       collection: 'calendar-events',
       id,
@@ -73,12 +109,17 @@ async function canMutateByFamily(req: any, id: string | number) {
       depth: 0,
     })
     .catch(() => null)
+}
 
-  if (!eventDoc) return false
-
-  const docFamilyId = getRelId((eventDoc as any).family)
-
-  return String(docFamilyId) === String(familyId)
+async function getChildById(req: any, id: string | number) {
+  return req.payload
+    .findByID({
+      collection: 'children',
+      id,
+      overrideAccess: true,
+      depth: 0,
+    })
+    .catch(() => null)
 }
 
 async function getChildSnapshot(req: any, childValue: any) {
@@ -91,18 +132,63 @@ async function getChildSnapshot(req: any, childValue: any) {
     }
   }
 
-  const child = await req.payload
-    .findByID({
-      collection: 'children',
-      id: childId,
-      overrideAccess: true,
-      depth: 0,
-    })
-    .catch(() => null)
+  const child = await getChildById(req, childId)
 
   return {
     childId,
     childName: child?.fullName || child?.name || '',
+  }
+}
+
+async function validateChildBelongsToFamily(req: any, childValue: any, familyId: any) {
+  const childId = getRelId(childValue)
+
+  if (!childId) {
+    throw new Error('Missing child')
+  }
+
+  const child = await getChildById(req, childId)
+  if (!child) {
+    throw new Error('Child not found')
+  }
+
+  const childFamilyId = getFamilyIdFromDoc(child)
+
+  if (!childFamilyId || String(childFamilyId) !== String(familyId)) {
+    throw new Error('Child does not belong to your family.')
+  }
+
+  return child
+}
+
+async function canAccessEventByFamily(req: any, id: string | number) {
+  if (!req?.user) return false
+  if (isAdmin(req)) return true
+
+  const familyId = getFamilyIdFromUser(req)
+  if (!familyId) return false
+
+  const eventDoc = await getEventById(req, id)
+  if (!eventDoc) return false
+
+  const docFamilyId = getFamilyIdFromDoc(eventDoc)
+  if (!docFamilyId) return false
+
+  return String(docFamilyId) === String(familyId)
+}
+
+function buildEventMeta(doc: any, childName?: string, previousDoc?: any) {
+  return {
+    title: doc?.title || '',
+    childName: childName || '',
+    startAt: doc?.startAt || undefined,
+    endAt: doc?.endAt || undefined,
+    status: normalizeStatusValue(doc?.status),
+    previousStatus: previousDoc?.status
+      ? normalizeStatusValue(previousDoc?.status)
+      : undefined,
+    allDay: !!doc?.allDay,
+    notes: doc?.notes || '',
   }
 }
 
@@ -111,6 +197,7 @@ export const CalendarEvents: CollectionConfig = {
 
   admin: {
     useAsTitle: 'title',
+    defaultColumns: ['title', 'child', 'status', 'startAt', 'endAt'],
   },
 
   access: {
@@ -124,57 +211,75 @@ export const CalendarEvents: CollectionConfig = {
       if (!familyId) return false
 
       return {
-        family: { equals: familyId },
+        family: {
+          equals: familyId,
+        },
       }
     },
 
     update: async ({ req, id }) => {
       if (!id) return false
-      return canMutateByFamily(req, id)
+      return canAccessEventByFamily(req, id)
     },
 
     delete: async ({ req, id }) => {
       if (!id) return false
-      return canMutateByFamily(req, id)
+      return canAccessEventByFamily(req, id)
     },
   },
 
   hooks: {
     beforeChange: [
-      async ({ data, req, operation }) => {
-        if (operation !== 'create') return data
+      async ({ data, req, operation, originalDoc }: any) => {
+        const next: any = { ...(data ?? {}) }
+
+        if (next.title) next.title = String(next.title).trim()
+        if (next.notes) next.notes = String(next.notes).trim()
+
+        if (!req?.user) return next
 
         const familyId = getFamilyIdFromUser(req)
-        const userId = getRelId((req.user as any)?.id)
+        const userId = getRelId(req.user?.id)
 
-        if (!familyId || !userId) return data
+        if (operation === 'create') {
+          if (!familyId) {
+            throw new Error('Your account is not linked to a family.')
+          }
 
-        const childId = (data as any)?.child
+          await validateChildBelongsToFamily(req, next.child, familyId)
 
-        if (!childId) {
-          throw new Error('Missing child')
+          return {
+            ...next,
+            family: next.family ?? familyId,
+            createdBy:
+              next.createdBy ??
+              (userId
+                ? {
+                    relationTo: getActorRelation(req),
+                    value: userId,
+                  }
+                : undefined),
+          }
         }
 
-        const child = await req.payload
-          .findByID({
-            collection: 'children',
-            id: childId,
-            overrideAccess: true,
-            depth: 0,
-          })
-          .catch(() => null)
+        if (operation === 'update') {
+          const currentFamilyId = getFamilyIdFromDoc(originalDoc) ?? familyId
 
-        const childFamilyId = getRelId((child as any)?.family)
+          if (!currentFamilyId) {
+            throw new Error('Event has no family assigned.')
+          }
 
-        if (!childFamilyId || String(childFamilyId) !== String(familyId)) {
-          throw new Error('Child does not belong to your family.')
+          const nextChild = next.child ?? originalDoc?.child
+          await validateChildBelongsToFamily(req, nextChild, currentFamilyId)
+
+          return {
+            ...next,
+            family: originalDoc?.family ?? currentFamilyId,
+            createdBy: originalDoc?.createdBy,
+          }
         }
 
-        return {
-          ...(data ?? {}),
-          family: (data as any)?.family ?? familyId,
-          createdBy: (data as any)?.createdBy ?? userId,
-        }
+        return next
       },
     ],
 
@@ -182,16 +287,13 @@ export const CalendarEvents: CollectionConfig = {
       async ({ doc, previousDoc, operation, req }: any) => {
         if (!req?.user || !doc) return
 
-        const familyId = getRelId(doc?.family)
+        const familyId = getFamilyIdFromDoc(doc)
         const actorUserId = getRelId(req?.user?.id)
-
         const currentChild = await getChildSnapshot(req, doc?.child)
 
-        /**
-         * CREATE
-         */
-
         if (operation === 'create') {
+          const meta = buildEventMeta(doc, currentChild.childName)
+
           await logAudit(req, {
             familyId,
             childId: currentChild.childId,
@@ -204,6 +306,7 @@ export const CalendarEvents: CollectionConfig = {
             relatedToRole: 'both',
             summary: 'Created calendar event',
             targetLabel: doc?.title,
+            meta,
           })
 
           await notifyFamily(req, {
@@ -217,19 +320,15 @@ export const CalendarEvents: CollectionConfig = {
             link: '/calendar',
             meta: {
               eventId: doc?.id,
-              childName: currentChild.childName,
+              ...meta,
             },
           })
 
           return
         }
 
-        /**
-         * UPDATE
-         */
-
         if (operation === 'update') {
-          const changes: Array<{ field: string; from?: any; to?: any }> = []
+          const changes: ChangeItem[] = []
 
           pushChange(changes, 'title', previousDoc?.title, doc?.title)
           pushChange(changes, 'child', getRelId(previousDoc?.child), getRelId(doc?.child))
@@ -240,6 +339,8 @@ export const CalendarEvents: CollectionConfig = {
           pushChange(changes, 'allDay', !!previousDoc?.allDay, !!doc?.allDay)
 
           if (!changes.length) return
+
+          const meta = buildEventMeta(doc, currentChild.childName, previousDoc)
 
           await logAudit(req, {
             familyId,
@@ -257,6 +358,7 @@ export const CalendarEvents: CollectionConfig = {
             summary: 'Updated calendar event',
             targetLabel: doc?.title,
             changes,
+            meta,
           })
 
           await notifyFamily(req, {
@@ -270,9 +372,11 @@ export const CalendarEvents: CollectionConfig = {
             link: '/calendar',
             meta: {
               eventId: doc?.id,
-              childName: currentChild.childName,
+              ...meta,
             },
           })
+
+          return
         }
       },
     ],
@@ -282,10 +386,9 @@ export const CalendarEvents: CollectionConfig = {
         if (!req?.user || !doc) return
 
         const actorUserId = getRelId(req?.user?.id)
-
+        const familyId = getFamilyIdFromDoc(doc)
         const childSnapshot = await getChildSnapshot(req, doc?.child)
-
-        const familyId = getRelId(doc?.family)
+        const meta = buildEventMeta(doc, childSnapshot.childName)
 
         await logAudit(req, {
           familyId,
@@ -299,6 +402,7 @@ export const CalendarEvents: CollectionConfig = {
           relatedToRole: 'both',
           summary: 'Deleted calendar event',
           targetLabel: doc?.title,
+          meta,
         })
 
         await notifyFamily(req, {
@@ -312,7 +416,7 @@ export const CalendarEvents: CollectionConfig = {
           link: '/calendar',
           meta: {
             eventId: doc?.id,
-            childName: childSnapshot.childName,
+            ...meta,
           },
         })
       },
@@ -327,7 +431,6 @@ export const CalendarEvents: CollectionConfig = {
       required: true,
       index: true,
     },
-
     {
       name: 'child',
       type: 'relationship',
@@ -335,18 +438,15 @@ export const CalendarEvents: CollectionConfig = {
       required: true,
       index: true,
     },
-
     {
       name: 'title',
       type: 'text',
       required: true,
     },
-
     {
       name: 'notes',
       type: 'textarea',
     },
-
     {
       name: 'status',
       type: 'select',
@@ -358,29 +458,25 @@ export const CalendarEvents: CollectionConfig = {
         { label: 'Barn', value: 'child' },
       ],
     },
-
     {
       name: 'startAt',
       type: 'date',
       required: true,
     },
-
     {
       name: 'endAt',
       type: 'date',
       required: true,
     },
-
     {
       name: 'allDay',
       type: 'checkbox',
       defaultValue: false,
     },
-
     {
       name: 'createdBy',
       type: 'relationship',
-      relationTo: 'customers',
+      relationTo: ['customers', 'users'],
     },
   ],
 }

@@ -34,7 +34,7 @@ export const LandingPage: CollectionConfig = {
         { name: "title", type: "text", required: true },
         { name: "subtitle", type: "textarea", required: true },
         { name: "description", type: "textarea", required: true },
-        { name: "image", type: "upload", relationTo: "media", required: true },
+        { name: "image", type: "upload", relationTo: "media"},
          {
           name: "primaryCTA",
           type: "group",

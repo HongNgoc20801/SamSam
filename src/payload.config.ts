@@ -16,6 +16,10 @@ import { ChildDocuments } from './collections/ChildDocuments'
 import { AuditLogs } from './collections/AuditLogs'
 import { AboutPage } from './collections/AboutPage'
 import { Posts } from './collections/Posts'
+import { EconomyTransactions } from './collections/EconomyTransactions'
+import { BankConnections } from './collections/BankConnections'
+import { BankTransactions } from './collections/BankTransactions'
+import { BankTransfers } from './collections/BankTransfers'
 import { Notifications } from './collections/Notifications'
 
 
@@ -30,7 +34,9 @@ export default buildConfig({
       baseDir: path.resolve(dirname),
     },
   },
-  collections: [Users, Media, LandingPage, Posts,AboutPage,Customers, Families, Children, ChildDocuments, AuditLogs, CalendarEvents, Notifications],
+  collections: [Users, Media, LandingPage, Posts,
+    AboutPage,Customers, Families, Children, ChildDocuments, AuditLogs, Notifications,
+    EconomyTransactions,BankConnections,BankTransactions,BankTransfers, CalendarEvents],
   editor: lexicalEditor(),
   secret: process.env.PAYLOAD_SECRET || '',
   typescript: {

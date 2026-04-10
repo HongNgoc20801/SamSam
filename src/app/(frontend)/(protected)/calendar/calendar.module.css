@@ -887,3 +887,81 @@
   .detailTitle { font-size: 34px; }
   .infoGrid { grid-template-columns: 1fr; }
 }
+.daySubRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.inlineMetaTag {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #3b5cff;
+  font-size: 10px;
+  font-weight: 1000;
+  line-height: 1;
+}
+
+.metaBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 999px;
+  padding: 10px 12px;
+  border: 1px solid #e5e7eb;
+  font-weight: 900;
+  font-size: 13px;
+  background: #f8fafc;
+  color: #111827;
+}
+
+.confirmationActions {
+  margin-top: 18px;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.confirmBtn,
+.declineBtn {
+  height: 42px;
+  padding: 0 16px;
+  border-radius: 999px;
+  font-weight: 1000;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.confirmBtn {
+  background: #111827;
+  color: #fff;
+  border-color: #111827;
+}
+
+.confirmBtn:hover {
+  filter: brightness(0.96);
+}
+
+.confirmBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.declineBtn {
+  background: #fff1f2;
+  color: #be123c;
+  border-color: #fecdd3;
+}
+
+.declineBtn:hover {
+  background: #ffe4e6;
+}
+
+.declineBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

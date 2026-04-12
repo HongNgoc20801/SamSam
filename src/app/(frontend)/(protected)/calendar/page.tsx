@@ -460,7 +460,6 @@ export default function CalendarPage() {
         cur = addDays(cur, 1)
       }
     }
-
     return map
   }, [events])
 
@@ -590,6 +589,8 @@ export default function CalendarPage() {
       handoverTo: eventType === 'handover' && handoverTo ? normalizeID(handoverTo) : null,
       responsibleParent: responsibleParent ? normalizeID(responsibleParent) : null,
     }
+
+    return { startD, endD }
   }
 
   async function createEvent(e: React.FormEvent) {
@@ -601,7 +602,6 @@ export default function CalendarPage() {
     if (validationError) return setError(validationError)
 
     setSaving(true)
-
     try {
       const res = await fetch('/api/calendar-events', {
         method: 'POST',
@@ -612,7 +612,6 @@ export default function CalendarPage() {
 
       const raw = await res.text()
       let j: any = {}
-
       try {
         j = JSON.parse(raw)
       } catch {}
@@ -641,7 +640,6 @@ export default function CalendarPage() {
     if (validationError) return setError(validationError)
 
     setSaving(true)
-
     try {
       const res = await fetch(`/api/calendar-events/${activeEvent.id}`, {
         method: 'PATCH',
@@ -652,7 +650,6 @@ export default function CalendarPage() {
 
       const raw = await res.text()
       let j: any = {}
-
       try {
         j = JSON.parse(raw)
       } catch {}
@@ -674,7 +671,6 @@ export default function CalendarPage() {
   async function deleteEvent(id: string) {
     if (!confirm('Delete this event?')) return
     setError('')
-
     try {
       const res = await fetch(`/api/calendar-events/${id}`, {
         method: 'DELETE',
@@ -683,7 +679,6 @@ export default function CalendarPage() {
 
       const raw = await res.text()
       let j: any = {}
-
       try {
         j = JSON.parse(raw)
       } catch {}
@@ -870,6 +865,7 @@ export default function CalendarPage() {
     const date: Date = props.value
     const key = format(date, 'yyyy-MM-dd')
     const dots = (dotsByDay.get(key) ?? []).slice(0, 4)
+
     const onlyChild = Children.only(props.children) as any
 
     return cloneElement(onlyChild, {

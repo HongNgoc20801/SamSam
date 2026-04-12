@@ -1,4 +1,3 @@
-
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { importPKCS8, SignJWT } from 'jose'
@@ -176,6 +175,8 @@ async function createEnableBankingJwt() {
     ? privateKeyPath
     : path.join(process.cwd(), privateKeyPath)
 
+  console.log('ENABLE BANKING PRIVATE KEY PATH', absoluteKeyPath)
+
   const privateKeyPem = await readFile(absoluteKeyPath, 'utf8')
   const key = await importPKCS8(privateKeyPem, 'RS256')
 
@@ -245,6 +246,11 @@ async function getAvailableAspsps(): Promise<EnableBankingAspsp[]> {
 async function findConfiguredAspsp() {
   const { aspspName, aspspCountry } = getEnableBankingConfig()
   const aspsps = await getAvailableAspsps()
+
+  console.log(
+    'ENABLE BANKING AVAILABLE ASPSPS',
+    aspsps.map((item) => `${item?.name} (${item?.country})`),
+  )
 
   const found = aspsps.find(
     (item) =>
@@ -426,6 +432,7 @@ export async function startOpenBankingConsent(args: {
   }
 
   if (isMockMode()) {
+    console.log('OPEN BANKING MOCK MODE: startOpenBankingConsent')
     return {
       redirectUrl: `${callbackUrl}?code=mock-code&state=${state}`,
       providerState: state,
@@ -492,6 +499,8 @@ export async function finishOpenBankingConsentSession(args: {
   }
 
   if (isMockMode()) {
+    console.log('OPEN BANKING MOCK MODE: finishOpenBankingConsentSession')
+
     const accounts = await loadMockAccounts()
     const bankName = 'Mock ASPSP'
 
@@ -549,6 +558,8 @@ export async function finalizeOpenBankingAccountSelection(args: {
   }
 
   if (isMockMode()) {
+    console.log('OPEN BANKING MOCK MODE: finalizeOpenBankingAccountSelection')
+
     const accounts = await loadMockAccounts()
     const selected = accounts.find((entry) => {
       const id = String(entry?.info?.uid || entry?.info?.resource_id || '').trim()
@@ -610,6 +621,8 @@ export async function syncOpenBankingConnection(connection: {
   }
 
   if (isMockMode()) {
+    console.log('OPEN BANKING MOCK MODE: syncOpenBankingConnection')
+
     const accounts = await loadMockAccounts()
     const selected = accounts.find((entry) => {
       const id = String(entry?.info?.uid || entry?.info?.resource_id || '').trim()

@@ -11,7 +11,6 @@ import { LandingPage } from './collections/LandingPage'
 import { Customers } from './collections/Customers'
 import { Families } from './collections/Families'
 import { Children } from './collections/Children'
-import { CalendarEvents } from './collections/CalendarEvents'
 import { ChildDocuments } from './collections/ChildDocuments'
 import { AuditLogs } from './collections/AuditLogs'
 import { AboutPage } from './collections/AboutPage'
@@ -21,6 +20,7 @@ import { BankConnections } from './collections/BankConnections'
 import { BankTransactions } from './collections/BankTransactions'
 import { BankTransfers } from './collections/BankTransfers'
 import { Notifications } from './collections/Notifications'
+import { CalendarEvents } from './collections/CalendarEvents'
 
 
 
@@ -36,7 +36,7 @@ export default buildConfig({
   },
   collections: [Users, Media, LandingPage, Posts,
     AboutPage,Customers, Families, Children, ChildDocuments, AuditLogs, Notifications,
-    EconomyTransactions,BankConnections,BankTransactions,BankTransfers, CalendarEvents],
+    EconomyTransactions,BankConnections,BankTransactions,BankTransfers,CalendarEvents,],
   editor: lexicalEditor(),
   secret: process.env.PAYLOAD_SECRET || '',
   typescript: {

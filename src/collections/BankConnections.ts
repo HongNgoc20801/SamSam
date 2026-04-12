@@ -5,6 +5,7 @@ import {
   type BankingProvider,
   buildBankingCallbackUrl,
   finishOpenBankingConsentSession,
+  finalizeOpenBankingAccountSelection,
   startOpenBankingConsent,
 } from '@/app/lib/openBanking'
 
@@ -150,14 +151,50 @@ function buildReadableConnectionsWhere(
 }
 
 function sanitizeAvailableAccounts(accounts: any[]) {
-  return accounts.map((item) => ({
-    externalAccountId: String(item?.externalAccountId || ''),
-    bankName: String(item?.bankName || ''),
-    accountName: String(item?.accountName || ''),
-    maskedAccount: String(item?.maskedAccount || ''),
-    currency: String(item?.currency || 'NOK'),
-    currentBalance: Number(item?.currentBalance || 0),
-  }))
+  return accounts
+    .map((item) => ({
+      externalAccountId: String(item?.externalAccountId || ''),
+      bankName: String(item?.bankName || ''),
+      accountName: String(item?.accountName || ''),
+      maskedAccount: String(item?.maskedAccount || ''),
+      currency: String(item?.currency || 'NOK'),
+      currentBalance: Number(item?.currentBalance || 0),
+    }))
+    .filter((item) => item.externalAccountId)
+}
+
+function getErrorMessage(error: any) {
+  if (!error) return 'Unknown bank connection error.'
+  if (typeof error === 'string') return error
+  return (
+    error?.message ||
+    error?.response?.data?.message ||
+    error?.cause?.message ||
+    'Unknown bank connection error.'
+  )
+}
+
+async function findCurrentConnection(
+  req: any,
+  connectionScope: 'family' | 'personal',
+  familyId: string | number,
+  userId?: string | number,
+) {
+  const where =
+    connectionScope === 'family'
+      ? buildFamilyConnectionWhere(familyId)
+      : buildPersonalConnectionWhere(familyId, userId as string | number)
+
+  const found = await req.payload.find({
+    collection: 'bank-connections',
+    where,
+    limit: 1,
+    sort: '-updatedAt',
+    overrideAccess: true,
+    depth: 0,
+  })
+
+  return found.docs?.[0] ?? null
 }
 
 export const BankConnections: CollectionConfig = {
@@ -214,35 +251,22 @@ export const BankConnections: CollectionConfig = {
             )
           }
 
-          const [familyFound, personalFound] = await Promise.all([
-            req.payload.find({
-              collection: 'bank-connections',
-              where: buildFamilyConnectionWhere(familyId),
-              limit: 1,
-              overrideAccess: true,
-              depth: 0,
-            }),
-            req.payload.find({
-              collection: 'bank-connections',
-              where: buildPersonalConnectionWhere(familyId, userId),
-              limit: 1,
-              overrideAccess: true,
-              depth: 0,
-            }),
+          const [familyBank, personalBank] = await Promise.all([
+            findCurrentConnection(req, 'family', familyId),
+            findCurrentConnection(req, 'personal', familyId, userId),
           ])
 
           return Response.json(
             {
-              familyBank: familyFound.docs?.[0] ?? null,
-              personalBank: personalFound.docs?.[0] ?? null,
+              familyBank,
+              personalBank,
             },
             { status: 200 },
           )
         } catch (error: any) {
           return Response.json(
             {
-              message:
-                error?.message || 'Could not load bank connection status.',
+              message: error?.message || 'Could not load bank connection status.',
             },
             { status: 500 },
           )
@@ -277,55 +301,38 @@ export const BankConnections: CollectionConfig = {
           }
 
           const body = await req.json().catch(() => ({} as any))
-          const provider = String(
-            body?.provider || 'enable-banking',
-          ) as BankingProvider
-
+          const provider = String(body?.provider || 'enable-banking') as BankingProvider
           const connectionScope = String(body?.connectionScope || 'family') as
             | 'family'
             | 'personal'
 
           if (!['enable-banking', 'neonomics'].includes(provider)) {
-            return Response.json(
-              { message: 'Unsupported provider.' },
-              { status: 400 },
-            )
+            return Response.json({ message: 'Unsupported provider.' }, { status: 400 })
           }
 
           if (!['family', 'personal'].includes(connectionScope)) {
-            return Response.json(
-              { message: 'Unsupported connection scope.' },
-              { status: 400 },
-            )
+            return Response.json({ message: 'Unsupported connection scope.' }, { status: 400 })
           }
 
           const state = crypto.randomUUID()
           const callbackUrl = buildBankingCallbackUrl(req)
 
-          const { redirectUrl } = await startOpenBankingConsent({
+          const consentResult: any = await startOpenBankingConsent({
             provider,
             state,
             callbackUrl,
           })
 
-          const existing =
-            connectionScope === 'family'
-              ? await req.payload.find({
-                  collection: 'bank-connections',
-                  where: buildFamilyConnectionWhere(familyId),
-                  limit: 1,
-                  overrideAccess: true,
-                  depth: 0,
-                })
-              : await req.payload.find({
-                  collection: 'bank-connections',
-                  where: buildPersonalConnectionWhere(familyId, userId),
-                  limit: 1,
-                  overrideAccess: true,
-                  depth: 0,
-                })
+          if (!consentResult?.redirectUrl) {
+            throw new Error('Bank provider did not return redirect URL.')
+          }
 
-          const current = existing.docs?.[0] ?? null
+          const current = await findCurrentConnection(
+            req,
+            connectionScope,
+            familyId,
+            connectionScope === 'personal' ? userId : undefined,
+          )
 
           const baseData = {
             provider,
@@ -336,14 +343,18 @@ export const BankConnections: CollectionConfig = {
             connectionScope,
             family: familyId,
             ownerCustomer: connectionScope === 'personal' ? userId : null,
-            externalSessionId: '',
+            externalSessionId: String(consentResult?.externalSessionId || ''),
             externalAccountId: '',
             bankName: '',
             accountName: '',
             maskedAccount: '',
             currentBalance: 0,
             currency: 'NOK',
-            meta: {},
+            meta: {
+              availableAccounts: [],
+              selectionRequired: false,
+              selectedAccount: null,
+            },
           }
 
           if (current?.id) {
@@ -363,11 +374,11 @@ export const BankConnections: CollectionConfig = {
             })
           }
 
-          return Response.json({ redirectUrl }, { status: 200 })
+          return Response.json({ redirectUrl: consentResult.redirectUrl }, { status: 200 })
         } catch (error: any) {
           return Response.json(
             {
-              message: error?.message || 'Could not start bank connection.',
+              message: getErrorMessage(error),
             },
             { status: 500 },
           )
@@ -379,21 +390,30 @@ export const BankConnections: CollectionConfig = {
       path: '/connect/callback',
       method: 'get',
       handler: async (req: any) => {
-        const fallbackOrigin = (() => {
-          try {
-            return new URL(req.url).origin
-          } catch {
-            return ''
-          }
-        })()
+        const url = new URL(req.url)
+        const origin = url.origin
+        const code = url.searchParams.get('code') || ''
+        const state = url.searchParams.get('state') || ''
+        const providerError = url.searchParams.get('error') || ''
+        const providerErrorDescription = url.searchParams.get('error_description') || ''
 
         try {
-          const url = new URL(req.url)
-          const code = url.searchParams.get('code') || ''
-          const state = url.searchParams.get('state') || ''
+          if (providerError) {
+            throw new Error(providerErrorDescription || providerError)
+          }
 
-          if (!code || !state) {
-            return Response.redirect(`${url.origin}/economy?bank=failed`, 302)
+          if (!code) {
+            return Response.redirect(
+              new URL('/economy?bank=failed&reason=missing_code', origin),
+              302,
+            )
+          }
+
+          if (!state) {
+            return Response.redirect(
+              new URL('/economy?bank=failed&reason=missing_state', origin),
+              302,
+            )
           }
 
           const found = await req.payload.find({
@@ -413,6 +433,7 @@ export const BankConnections: CollectionConfig = {
               ],
             },
             limit: 1,
+            sort: '-updatedAt',
             overrideAccess: true,
             depth: 0,
           })
@@ -420,17 +441,72 @@ export const BankConnections: CollectionConfig = {
           const connection = found.docs?.[0]
 
           if (!connection?.id) {
-            return Response.redirect(`${url.origin}/economy?bank=failed`, 302)
+            return Response.redirect(
+              new URL('/economy?bank=failed&reason=state_not_found', origin),
+              302,
+            )
           }
 
-          const result: any = await finishOpenBankingConsentSession({
+          const rawResult: any = await finishOpenBankingConsentSession({
             provider: connection.provider,
             code,
             callbackUrl: buildBankingCallbackUrl(req),
           })
 
+          console.log('BANK CALLBACK RAW RESULT', rawResult)
+
+          const providerResult = rawResult?.result ?? rawResult
+
+          const rawAccounts = Array.isArray(providerResult?.availableAccounts)
+            ? providerResult.availableAccounts
+            : Array.isArray(providerResult?.accounts)
+              ? providerResult.accounts
+              : []
+
+          function extractBalance(item: any) {
+            const raw =
+              item?.currentBalance ??
+              item?.balance ??
+              item?.availableBalance ??
+              item?.balances?.available ??
+              item?.balances?.current ??
+              item?.balance?.amount ??
+              item?.balances?.available?.amount ??
+              item?.balances?.current?.amount ??
+              0
+
+            const parsed = Number(raw)
+            return Number.isFinite(parsed) ? parsed : 0
+          }
+          console.log('BANK CALLBACK ACCOUNTS', JSON.stringify(rawAccounts, null, 2) ) 
+
           const availableAccounts = sanitizeAvailableAccounts(
-            Array.isArray(result?.availableAccounts) ? result.availableAccounts : [],
+            rawAccounts.map((item: any) => ({
+              externalAccountId:
+                item?.externalAccountId ||
+                item?.accountId ||
+                item?.id ||
+                '',
+              bankName:
+                item?.bankName ||
+                providerResult?.bankName ||
+                '',
+              accountName:
+                item?.accountName ||
+                item?.name ||
+                '',
+              maskedAccount:
+                item?.maskedAccount ||
+                item?.accountNumber ||
+                item?.iban ||
+                '',
+              currency:
+                item?.currency ||
+                item?.balances?.available?.currency ||
+                item?.balances?.current?.currency ||
+                'NOK',
+              currentBalance: extractBalance(item),
+            })),
           )
 
           if (availableAccounts.length > 1) {
@@ -439,7 +515,7 @@ export const BankConnections: CollectionConfig = {
               id: connection.id,
               data: {
                 status: 'pending',
-                externalSessionId: result?.externalSessionId || '',
+                externalSessionId: providerResult?.externalSessionId || '',
                 lastError: '',
                 state: '',
                 meta: {
@@ -456,33 +532,42 @@ export const BankConnections: CollectionConfig = {
 
           const selected =
             availableAccounts[0] ??
-            (result?.externalAccountId
+            (providerResult?.externalAccountId
               ? {
-                  externalAccountId: String(result.externalAccountId),
-                  bankName: String(result.bankName || ''),
-                  accountName: String(result.accountName || ''),
-                  maskedAccount: String(result.maskedAccount || ''),
-                  currency: String(result.currency || 'NOK'),
-                  currentBalance: Number(result.currentBalance || 0),
+                  externalAccountId: String(providerResult.externalAccountId),
+                  bankName: String(providerResult.bankName || ''),
+                  accountName: String(providerResult.accountName || ''),
+                  maskedAccount: String(providerResult.maskedAccount || ''),
+                  currency: String(providerResult.currency || 'NOK'),
                 }
               : null)
 
-          if (!selected) {
+          if (!selected?.externalAccountId) {
             throw new Error('No bank account returned from provider.')
           }
+
+          const finalized = await finalizeOpenBankingAccountSelection({
+            provider: connection.provider,
+            externalSessionId: String(
+              providerResult?.externalSessionId || rawResult?.externalSessionId || connection?.externalSessionId || '',
+            ),
+            externalAccountId: selected.externalAccountId,
+            bankName: selected.bankName,
+            selectableAccount: selected,
+          })
 
           await req.payload.update({
             collection: 'bank-connections',
             id: connection.id,
             data: {
               status: 'connected',
-              externalSessionId: result?.externalSessionId || '',
-              externalAccountId: selected.externalAccountId,
-              bankName: selected.bankName,
-              accountName: selected.accountName,
-              maskedAccount: selected.maskedAccount,
-              currentBalance: Number(selected.currentBalance || 0),
-              currency: selected.currency || 'NOK',
+              externalSessionId: finalized.externalSessionId || '',
+              externalAccountId: finalized.externalAccountId,
+              bankName: finalized.bankName,
+              accountName: finalized.accountName,
+              maskedAccount: finalized.maskedAccount,
+              currentBalance: Number(finalized.currentBalance || 0),
+              currency: finalized.currency || 'NOK',
               connectedAt: new Date().toISOString(),
               lastSyncedAt: new Date().toISOString(),
               lastError: '',
@@ -496,13 +581,13 @@ export const BankConnections: CollectionConfig = {
             overrideAccess: true,
             req,
           })
+          
 
-          return Response.redirect(`${url.origin}/economy?bank=connected`, 302)
+          return Response.redirect(new URL('/economy?bank=connected', origin), 302)
         } catch (error: any) {
-          try {
-            const url = new URL(req.url)
-            const state = url.searchParams.get('state') || ''
+          const reason = getErrorMessage(error)
 
+          try {
             if (state) {
               const found = await req.payload.find({
                 collection: 'bank-connections',
@@ -521,6 +606,7 @@ export const BankConnections: CollectionConfig = {
                   ],
                 },
                 limit: 1,
+                sort: '-updatedAt',
                 overrideAccess: true,
                 depth: 0,
               })
@@ -533,7 +619,7 @@ export const BankConnections: CollectionConfig = {
                   id: connection.id,
                   data: {
                     status: 'failed',
-                    lastError: error?.message || 'Connection failed.',
+                    lastError: reason,
                   } as any,
                   overrideAccess: true,
                   req,
@@ -541,12 +627,20 @@ export const BankConnections: CollectionConfig = {
               }
             }
 
-            return Response.redirect(`${url.origin}/economy?bank=failed`, 302)
-          } catch {
+            console.error('BANK CALLBACK FAILED', {
+              code,
+              state,
+              providerError,
+              providerErrorDescription,
+              reason,
+            })
+
             return Response.redirect(
-              `${fallbackOrigin}/economy?bank=failed`,
+              new URL(`/economy?bank=failed&reason=${encodeURIComponent(reason)}`, origin),
               302,
             )
+          } catch {
+            return Response.redirect(new URL('/economy?bank=failed', origin), 302)
           }
         }
       },
@@ -585,43 +679,22 @@ export const BankConnections: CollectionConfig = {
           const externalAccountId = String(body?.externalAccountId || '').trim()
 
           if (!externalAccountId) {
-            return Response.json(
-              { message: 'Missing external account id.' },
-              { status: 400 },
-            )
+            return Response.json({ message: 'Missing external account id.' }, { status: 400 })
           }
 
           if (!['family', 'personal'].includes(connectionScope)) {
-            return Response.json(
-              { message: 'Unsupported connection scope.' },
-              { status: 400 },
-            )
+            return Response.json({ message: 'Unsupported connection scope.' }, { status: 400 })
           }
 
-          const found =
-            connectionScope === 'family'
-              ? await req.payload.find({
-                  collection: 'bank-connections',
-                  where: buildFamilyConnectionWhere(familyId),
-                  limit: 1,
-                  overrideAccess: true,
-                  depth: 0,
-                })
-              : await req.payload.find({
-                  collection: 'bank-connections',
-                  where: buildPersonalConnectionWhere(familyId, userId),
-                  limit: 1,
-                  overrideAccess: true,
-                  depth: 0,
-                })
-
-          const connection = found.docs?.[0]
+          const connection = await findCurrentConnection(
+            req,
+            connectionScope,
+            familyId,
+            connectionScope === 'personal' ? userId : undefined,
+          )
 
           if (!connection?.id) {
-            return Response.json(
-              { message: 'No pending bank connection found.' },
-              { status: 404 },
-            )
+            return Response.json({ message: 'No pending bank connection found.' }, { status: 404 })
           }
 
           const availableAccounts = sanitizeAvailableAccounts(
@@ -635,23 +708,29 @@ export const BankConnections: CollectionConfig = {
           )
 
           if (!selected) {
-            return Response.json(
-              { message: 'Selected account was not found.' },
-              { status: 404 },
-            )
+            return Response.json({ message: 'Selected account was not found.' }, { status: 404 })
           }
+
+          const finalized = await finalizeOpenBankingAccountSelection({
+            provider: connection.provider,
+            externalSessionId: String(connection.externalSessionId || ''),
+            externalAccountId: selected.externalAccountId,
+            bankName: selected.bankName,
+            selectableAccount: selected,
+          })
 
           await req.payload.update({
             collection: 'bank-connections',
             id: connection.id,
             data: {
               status: 'connected',
-              externalAccountId: selected.externalAccountId,
-              bankName: selected.bankName,
-              accountName: selected.accountName,
-              maskedAccount: selected.maskedAccount,
-              currentBalance: Number(selected.currentBalance || 0),
-              currency: selected.currency || 'NOK',
+              externalSessionId: finalized.externalSessionId || String(connection.externalSessionId || ''),
+              externalAccountId: finalized.externalAccountId,
+              bankName: finalized.bankName,
+              accountName: finalized.accountName,
+              maskedAccount: finalized.maskedAccount,
+              currentBalance: Number(finalized.currentBalance || 0),
+              currency: finalized.currency || 'NOK',
               connectedAt: new Date().toISOString(),
               lastSyncedAt: new Date().toISOString(),
               lastError: '',
@@ -670,7 +749,7 @@ export const BankConnections: CollectionConfig = {
         } catch (error: any) {
           return Response.json(
             {
-              message: error?.message || 'Could not select bank account.',
+              message: getErrorMessage(error),
             },
             { status: 500 },
           )
@@ -699,24 +778,12 @@ export const BankConnections: CollectionConfig = {
             | 'family'
             | 'personal'
 
-          const found =
-            connectionScope === 'family'
-              ? await req.payload.find({
-                  collection: 'bank-connections',
-                  where: buildFamilyConnectionWhere(familyId),
-                  limit: 1,
-                  overrideAccess: true,
-                  depth: 0,
-                })
-              : await req.payload.find({
-                  collection: 'bank-connections',
-                  where: buildPersonalConnectionWhere(familyId, userId),
-                  limit: 1,
-                  overrideAccess: true,
-                  depth: 0,
-                })
-
-          const connection = found.docs?.[0]
+          const connection = await findCurrentConnection(
+            req,
+            connectionScope,
+            familyId,
+            connectionScope === 'personal' ? userId : undefined,
+          )
 
           if (!connection?.id) {
             return Response.json({ ok: true }, { status: 200 })
@@ -737,7 +804,7 @@ export const BankConnections: CollectionConfig = {
         } catch (error: any) {
           return Response.json(
             {
-              message: error?.message || 'Could not disconnect bank.',
+              message: getErrorMessage(error),
             },
             { status: 500 },
           )

@@ -1,47 +1,122 @@
 .wrapper {
   padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .title {
-  font-size: 24px;
-  font-weight: 600;
-  margin-bottom: 12px;
+  font-size: 28px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.subtitle {
+  margin: 6px 0 0;
+  color: #6b7280;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr;
+  gap: 20px;
 }
 
 .card {
-  margin-top: 12px;
-  padding: 16px;
-  border: 1px solid #ddd;
-  border-radius: 10px;
-  background-color: #fff;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 20px;
+  padding: 20px;
+}
+
+.heroCard {
+  min-height: 220px;
 }
 
 .cardTitle {
+  margin: 0 0 16px;
   font-size: 18px;
   font-weight: 600;
-  margin-bottom: 6px;
 }
 
-.cardText {
-  margin-bottom: 12px;
-  color: #444;
+.heroContent {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
 }
 
-.cta {
-  display: inline-block;
-  padding: 8px 14px;
-  border-radius: 6px;
-  background-color: #111;
-  color: #fff;
-  text-decoration: none;
+.heroMain {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.heroEvent {
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.heroMeta {
+  color: #6b7280;
+}
+
+.statusPill,
+.pendingBadge {
+  background: #eff6ff;
+  color: #2563eb;
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.listItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.itemTitle {
+  font-weight: 600;
+}
+
+.itemMeta {
+  color: #6b7280;
   font-size: 14px;
-}
-
-.cta:hover {
-  opacity: 0.9;
+  margin-top: 4px;
 }
 
 .empty {
-  font-size: 16px;
-  color: #666;
+  color: #9ca3af;
+}
+
+.state,
+.stateError {
+  padding: 24px;
+}
+
+.stateError {
+  color: #dc2626;
+}
+
+@media (max-width: 900px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
 }

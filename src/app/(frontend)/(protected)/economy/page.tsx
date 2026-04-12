@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import styles from './economy.module.css'
+import { fa } from 'payload/i18n/fa'
 
 type SelectableBankAccount = {
   externalAccountId: string
@@ -19,7 +20,7 @@ type BankConnection = {
   maskedAccount?: string
   currentBalance?: number
   currency?: string
-  status?: 'pending' | 'connected' | 'expired' | 'failed'
+  status?: 'not_connected' | 'pending' | 'connected' | 'expired' | 'failed'
   connectionScope?: 'family' | 'personal'
   lastSyncedAt?: string
   meta?: {
@@ -68,7 +69,39 @@ type EconomyTransactionDoc = {
   updatedAt?: string
   createdAt?: string
 }
+type BankConnectionStatus = 'not_connected' | 'pending' | 'connected' | 'expired' | 'failed'
+type ConnectedBankConnection = BankConnection & { status: 'connected' }
+function getBankStatus(connection: BankConnection | null): BankConnectionStatus {
+  const status = connection?.status
+  if (status === 'pending') return 'pending'
+  if (status === 'connected') return 'connected'
+  if (status === 'expired') return 'expired'
+  if (status === 'failed') return 'failed'
+  return 'not_connected'
+}
 
+function isConnectedBank(
+  connection: BankConnection | null,
+): connection is ConnectedBankConnection {
+  return connection !== null && connection.status === 'connected'
+}
+
+function needsAccountSelection(connection: BankConnection | null) {
+  return (
+    getBankStatus(connection) === 'pending' &&
+    Array.isArray(connection?.meta?.availableAccounts) &&
+    connection.meta.availableAccounts.length > 0 &&
+    connection.meta.selectionRequired !== false
+  )
+}
+
+function getBankStatusLabel(status: BankConnectionStatus) {
+  if (status === 'connected') return 'Connected'
+  if (status === 'pending') return 'Pending'
+  if (status === 'failed') return 'Failed'
+  if (status === 'expired') return 'Expired'
+  return 'Not connected'
+}
 const MONTH_LABELS = [
   'January',
   'February',
@@ -226,6 +259,8 @@ export default function EconomyPage() {
   const transferListRef = useRef<HTMLDivElement | null>(null)
 
   const fullName = useMemo(() => getFullName(me), [me])
+  const familyStatus = getBankStatus(familyBank)
+  const personalStatus = getBankStatus(personalBank)
 
   const pendingPayments = useMemo(() => {
     return [...economyTransactions]
@@ -304,7 +339,7 @@ export default function EconomyPage() {
       currency: string
     }> = []
 
-    if (familyBank?.status === 'connected') {
+    if (isConnectedBank(familyBank)) {
       items.push({
         scope: 'family',
         label: `Family bank • ${familyBank.bankName || 'Family bank'}`,
@@ -313,7 +348,7 @@ export default function EconomyPage() {
       })
     }
 
-    if (personalBank?.status === 'connected') {
+    if (isConnectedBank(personalBank)) {
       items.push({
         scope: 'personal',
         label: `Personal bank • ${personalBank.bankName || 'My bank'}`,
@@ -333,7 +368,7 @@ export default function EconomyPage() {
       currency: string
     }> = []
 
-    if (familyBank?.status === 'connected') {
+    if (isConnectedBank(familyBank)) {
       items.push({
         scope: 'family',
         label: `Family bank • ${familyBank.bankName || 'Family bank'}`,
@@ -342,7 +377,7 @@ export default function EconomyPage() {
       })
     }
 
-    if (personalBank?.status === 'connected') {
+    if (isConnectedBank(personalBank)) {
       items.push({
         scope: 'personal',
         label: `Personal bank • ${personalBank.bankName || 'My bank'}`,
@@ -356,11 +391,16 @@ export default function EconomyPage() {
 
   useEffect(() => {
     const bankState = searchParams.get('bank')
+    const reason = searchParams.get('reason')
 
     if (bankState === 'connected') {
       setSuccess('Bank connection completed successfully.')
     } else if (bankState === 'failed') {
-      setError('Bank connection failed. Please try again.')
+      setError(
+        reason
+          ? `Bank connection failed: ${reason}`
+          : 'Bank connection failed. Please try again.',
+      )
     } else if (bankState === 'select') {
       setSuccess('Choose which bank account you want to use for this connection.')
     }
@@ -871,14 +911,14 @@ export default function EconomyPage() {
 
             <span
               className={`${styles.statusBadge} ${
-                familyBank?.status === 'connected'
+                familyStatus === 'connected'
                   ? styles.statusConnected
-                  : familyBank?.status === 'pending'
+                  : familyStatus === 'pending'
                     ? styles.statusPending
                     : styles.statusMuted
               }`}
             >
-              {familyBank?.status || 'not connected'}
+              {getBankStatusLabel(familyStatus)}
             </span>
           </div>
 
@@ -900,7 +940,7 @@ export default function EconomyPage() {
             <div className={styles.emptyBox}>No family bank connected yet.</div>
           )}
 
-          {familyBank?.status === 'pending' && familyChoices.length > 0 ? (
+          {needsAccountSelection(familyBank) && familyChoices.length > 0 ? (
             <div className={styles.selectionWrap}>
               <div className={styles.selectionTitle}>Choose the bank account for Family bank</div>
               <div className={styles.selectionList}>
@@ -929,7 +969,7 @@ export default function EconomyPage() {
             </div>
           ) : (
             <div className={styles.actions}>
-              {!familyBank || familyBank.status === 'failed' || familyBank.status === 'expired' ? (
+              { familyStatus === 'not_connected' || familyStatus === 'failed' || familyStatus === 'expired' ? (
                 <button
                   type="button"
                   className={styles.primaryBtn}
@@ -938,7 +978,7 @@ export default function EconomyPage() {
                 >
                   {actionLoading === 'connect-family' ? 'Connecting…' : 'Connect family bank'}
                 </button>
-              ) : familyBank.status === 'pending' ? (
+              ) : familyStatus === 'pending' ? (
                 <button
                   type="button"
                   className={styles.primaryBtn}
@@ -981,14 +1021,14 @@ export default function EconomyPage() {
 
             <span
               className={`${styles.statusBadge} ${
-                personalBank?.status === 'connected'
+                personalStatus === 'connected'
                   ? styles.statusConnected
-                  : personalBank?.status === 'pending'
+                  : personalStatus === 'pending'
                     ? styles.statusPending
                     : styles.statusMuted
               }`}
             >
-              {personalBank?.status || 'not connected'}
+              {getBankStatusLabel(personalStatus)}
             </span>
           </div>
 
@@ -1010,7 +1050,7 @@ export default function EconomyPage() {
             <div className={styles.emptyBox}>No personal bank connected yet.</div>
           )}
 
-          {personalBank?.status === 'pending' && personalChoices.length > 0 ? (
+          {needsAccountSelection(personalBank) && personalChoices.length > 0 ? (
             <div className={styles.selectionWrap}>
               <div className={styles.selectionTitle}>Choose the bank account for Personal bank</div>
               <div className={styles.selectionList}>
@@ -1039,9 +1079,9 @@ export default function EconomyPage() {
             </div>
           ) : (
             <div className={styles.actions}>
-              {!personalBank ||
-              personalBank.status === 'failed' ||
-              personalBank.status === 'expired' ? (
+              {personalStatus === 'not_connected' ||
+              personalStatus === 'failed' ||
+              personalStatus === 'expired' ? (
                 <button
                   type="button"
                   className={styles.primaryBtn}
@@ -1050,7 +1090,7 @@ export default function EconomyPage() {
                 >
                   {actionLoading === 'connect-personal' ? 'Connecting…' : 'Connect my bank'}
                 </button>
-              ) : personalBank.status === 'pending' ? (
+              ) : personalStatus === 'pending' ? (
                 <button
                   type="button"
                   className={styles.primaryBtn}
@@ -1153,7 +1193,7 @@ export default function EconomyPage() {
             <button
               type="submit"
               className={styles.primaryBtn}
-              disabled={actionLoading !== '' && actionLoading !== 'payment-create'}
+              disabled={actionLoading !== ''}
             >
               {actionLoading === 'payment-create' ? 'Creating…' : 'Add payment item'}
             </button>
@@ -1569,7 +1609,7 @@ export default function EconomyPage() {
                   <button
                     type="submit"
                     className={styles.primaryBtn}
-                    disabled={actionLoading !== '' && actionLoading !== 'transfer'}
+                    disabled={actionLoading !== ''}
                   >
                     {actionLoading === 'transfer' ? 'Transferring…' : 'Transfer money'}
                   </button>

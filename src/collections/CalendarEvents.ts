@@ -2,14 +2,8 @@ import type { CollectionConfig } from 'payload'
 import { logAudit } from '@/app/lib/logAudit'
 import { notifyFamily } from '@/app/lib/notifications/notifyFamily'
 
-type ChangeItem = {
-  field: string
-  from?: any
-  to?: any
-}
-
 function getCollectionSlug(req: any) {
-  return req?.user?.collection ?? req?.user?._collection ?? null
+  return req?.user?.collection ?? req?.user?._collection
 }
 
 function isAdmin(req: any) {
@@ -27,14 +21,9 @@ function isCustomer(req: any) {
   return false
 }
 
-function getActorRelation(req: any): 'customers' | 'users' {
-  return getCollectionSlug(req) === 'users' ? 'users' : 'customers'
-}
-
 function getRelId(v: any) {
   if (v == null) return null
   if (typeof v === 'string' || typeof v === 'number') return v
-  if (typeof v === 'object' && 'value' in v) return v.value ?? null
   return v?.id ?? null
 }
 
@@ -42,10 +31,6 @@ function getFamilyIdFromUser(req: any) {
   const u: any = req?.user
   if (!u) return null
   return getRelId(u.family)
-}
-
-function getFamilyIdFromDoc(doc: any) {
-  return getRelId(doc?.family)
 }
 
 function asText(v: any) {
@@ -61,47 +46,25 @@ function asText(v: any) {
   }
 }
 
-function normalizeStatusValue(status?: string) {
-  const s = String(status || '').trim().toLowerCase()
-  if (!s) return ''
-  if (s === 'admin') return 'admin'
-  if (s === 'personal') return 'personal'
-  if (s === 'important') return 'important'
-  if (s === 'child') return 'child'
-  return s
-}
-
-function normalizeChangeValue(field: string, value: any) {
-  if (value === null || value === undefined) return ''
-
-  if (field === 'startAt' || field === 'endAt') {
-    const d = new Date(value)
-    if (!Number.isNaN(d.getTime())) return d.toISOString()
-    return String(value)
-  }
-
-  if (field === 'allDay') {
-    return value ? 'true' : 'false'
-  }
-
-  if (field === 'status') {
-    return normalizeStatusValue(value)
-  }
-
-  return value
-}
-
-function pushChange(changes: ChangeItem[], field: string, from: any, to: any) {
-  const safeFrom = normalizeChangeValue(field, from)
-  const safeTo = normalizeChangeValue(field, to)
-
-  if (asText(safeFrom) !== asText(safeTo)) {
-    changes.push({ field, from: safeFrom, to: safeTo })
+function pushChange(
+  changes: Array<{ field: string; from?: any; to?: any }>,
+  field: string,
+  from: any,
+  to: any,
+) {
+  if (asText(from) !== asText(to)) {
+    changes.push({ field, from, to })
   }
 }
 
-async function getEventById(req: any, id: string | number) {
-  return req.payload
+async function canMutateByFamily(req: any, id: string | number) {
+  if (!req?.user) return false
+  if (isAdmin(req)) return true
+
+  const familyId = getFamilyIdFromUser(req)
+  if (!familyId) return false
+
+  const eventDoc = await req.payload
     .findByID({
       collection: 'calendar-events',
       id,
@@ -109,17 +72,11 @@ async function getEventById(req: any, id: string | number) {
       depth: 0,
     })
     .catch(() => null)
-}
 
-async function getChildById(req: any, id: string | number) {
-  return req.payload
-    .findByID({
-      collection: 'children',
-      id,
-      overrideAccess: true,
-      depth: 0,
-    })
-    .catch(() => null)
+  if (!eventDoc) return false
+
+  const docFamilyId = getRelId((eventDoc as any).family)
+  return String(docFamilyId) === String(familyId)
 }
 
 async function getChildSnapshot(req: any, childValue: any) {
@@ -132,7 +89,14 @@ async function getChildSnapshot(req: any, childValue: any) {
     }
   }
 
-  const child = await getChildById(req, childId)
+  const child = await req.payload
+    .findByID({
+      collection: 'children',
+      id: childId,
+      overrideAccess: true,
+      depth: 0,
+    })
+    .catch(() => null)
 
   return {
     childId,
@@ -140,56 +104,32 @@ async function getChildSnapshot(req: any, childValue: any) {
   }
 }
 
-async function validateChildBelongsToFamily(req: any, childValue: any, familyId: any) {
-  const childId = getRelId(childValue)
-
-  if (!childId) {
-    throw new Error('Missing child')
-  }
-
-  const child = await getChildById(req, childId)
-  if (!child) {
-    throw new Error('Child not found')
-  }
-
-  const childFamilyId = getFamilyIdFromDoc(child)
-
-  if (!childFamilyId || String(childFamilyId) !== String(familyId)) {
-    throw new Error('Child does not belong to your family.')
-  }
-
-  return child
+function toEventType(value: any) {
+  const allowed = [
+    'handover',
+    'pickup',
+    'dropoff',
+    'school',
+    'activity',
+    'medical',
+    'expense-related',
+    'other',
+  ]
+  return allowed.includes(value) ? value : 'other'
 }
 
-async function canAccessEventByFamily(req: any, id: string | number) {
-  if (!req?.user) return false
-  if (isAdmin(req)) return true
-
-  const familyId = getFamilyIdFromUser(req)
-  if (!familyId) return false
-
-  const eventDoc = await getEventById(req, id)
-  if (!eventDoc) return false
-
-  const docFamilyId = getFamilyIdFromDoc(eventDoc)
-  if (!docFamilyId) return false
-
-  return String(docFamilyId) === String(familyId)
+function toPriority(value: any) {
+  const allowed = ['normal', 'important', 'urgent']
+  return allowed.includes(value) ? value : 'normal'
 }
 
-function buildEventMeta(doc: any, childName?: string, previousDoc?: any) {
-  return {
-    title: doc?.title || '',
-    childName: childName || '',
-    startAt: doc?.startAt || undefined,
-    endAt: doc?.endAt || undefined,
-    status: normalizeStatusValue(doc?.status),
-    previousStatus: previousDoc?.status
-      ? normalizeStatusValue(previousDoc?.status)
-      : undefined,
-    allDay: !!doc?.allDay,
-    notes: doc?.notes || '',
-  }
+function toConfirmationStatus(value: any) {
+  const allowed = ['not-required', 'pending', 'confirmed', 'declined']
+  return allowed.includes(value) ? value : 'not-required'
+}
+
+function isConfirmationDecision(value: any) {
+  return value === 'confirmed' || value === 'declined'
 }
 
 export const CalendarEvents: CollectionConfig = {
@@ -197,7 +137,14 @@ export const CalendarEvents: CollectionConfig = {
 
   admin: {
     useAsTitle: 'title',
-    defaultColumns: ['title', 'child', 'status', 'startAt', 'endAt'],
+    defaultColumns: [
+      'title',
+      'eventType',
+      'priority',
+      'confirmationStatus',
+      'startAt',
+      'endAt',
+    ],
   },
 
   access: {
@@ -211,75 +158,126 @@ export const CalendarEvents: CollectionConfig = {
       if (!familyId) return false
 
       return {
-        family: {
-          equals: familyId,
-        },
+        family: { equals: familyId },
       }
     },
 
     update: async ({ req, id }) => {
       if (!id) return false
-      return canAccessEventByFamily(req, id)
+      return canMutateByFamily(req, id)
     },
 
     delete: async ({ req, id }) => {
       if (!id) return false
-      return canAccessEventByFamily(req, id)
+      return canMutateByFamily(req, id)
     },
   },
 
   hooks: {
     beforeChange: [
-      async ({ data, req, operation, originalDoc }: any) => {
-        const next: any = { ...(data ?? {}) }
-
-        if (next.title) next.title = String(next.title).trim()
-        if (next.notes) next.notes = String(next.notes).trim()
-
-        if (!req?.user) return next
-
+      async ({ data, req, operation, originalDoc }) => {
         const familyId = getFamilyIdFromUser(req)
-        const userId = getRelId(req.user?.id)
+        const userId = getRelId((req.user as any)?.id)
 
-        if (operation === 'create') {
-          if (!familyId) {
-            throw new Error('Your account is not linked to a family.')
-          }
+        if (!familyId) return data
 
-          await validateChildBelongsToFamily(req, next.child, familyId)
+        const mergedData = {
+          ...(originalDoc ?? {}),
+          ...(data ?? {}),
+        } as any
 
-          return {
-            ...next,
-            family: next.family ?? familyId,
-            createdBy:
-              next.createdBy ??
-              (userId
-                ? {
-                    relationTo: getActorRelation(req),
-                    value: userId,
-                  }
-                : undefined),
-          }
-        }
+        const childId = mergedData?.child
+        if (childId) {
+          const child = await req.payload
+            .findByID({
+              collection: 'children',
+              id: childId,
+              overrideAccess: true,
+              depth: 0,
+            })
+            .catch(() => null)
 
-        if (operation === 'update') {
-          const currentFamilyId = getFamilyIdFromDoc(originalDoc) ?? familyId
+          const childFamilyId = getRelId((child as any)?.family)
 
-          if (!currentFamilyId) {
-            throw new Error('Event has no family assigned.')
-          }
-
-          const nextChild = next.child ?? originalDoc?.child
-          await validateChildBelongsToFamily(req, nextChild, currentFamilyId)
-
-          return {
-            ...next,
-            family: originalDoc?.family ?? currentFamilyId,
-            createdBy: originalDoc?.createdBy,
+          if (!childFamilyId || String(childFamilyId) !== String(familyId)) {
+            throw new Error('Child does not belong to your family.')
           }
         }
 
-        return next
+        const nextData = {
+          ...(data ?? {}),
+          family: (data as any)?.family ?? originalDoc?.family ?? familyId,
+        } as any
+
+        if (operation === 'create' && userId) {
+          nextData.createdBy = nextData.createdBy ?? userId
+        }
+
+        const effectiveEventType = toEventType(mergedData.eventType)
+        const effectivePriority = toPriority(mergedData.priority)
+        const effectiveRequiresConfirmation = Boolean(mergedData.requiresConfirmation)
+        const effectiveConfirmationStatus = toConfirmationStatus(mergedData.confirmationStatus)
+
+        nextData.eventType = effectiveEventType
+        nextData.priority = effectivePriority
+
+        if (effectiveEventType !== 'handover') {
+          nextData.handoverFrom = (data as any)?.handoverFrom ?? null
+          nextData.handoverTo = (data as any)?.handoverTo ?? null
+        }
+
+        const previousConfirmationStatus = originalDoc?.confirmationStatus
+        const nextConfirmationStatus = mergedData?.confirmationStatus
+        const createdById = getRelId(originalDoc?.createdBy)
+
+        const isTryingToDecideConfirmation =
+          previousConfirmationStatus !== nextConfirmationStatus &&
+          isConfirmationDecision(nextConfirmationStatus)
+
+        if (isTryingToDecideConfirmation) {
+          if (!userId) {
+            throw new Error('You must be logged in to confirm this event.')
+          }
+
+          if (String(createdById) === String(userId)) {
+            throw new Error('The creator of the event cannot confirm or decline it.')
+          }
+        }
+
+        if (!effectiveRequiresConfirmation) {
+          nextData.confirmationStatus = 'not-required'
+          nextData.confirmedAt = null
+          nextData.confirmedBy = null
+        } else {
+          if (
+            !effectiveConfirmationStatus ||
+            effectiveConfirmationStatus === 'not-required'
+          ) {
+            nextData.confirmationStatus = 'pending'
+            nextData.confirmedAt = null
+            nextData.confirmedBy = null
+          } else if (
+            effectiveConfirmationStatus === 'confirmed' ||
+            effectiveConfirmationStatus === 'declined'
+          ) {
+            nextData.confirmationStatus = effectiveConfirmationStatus
+            nextData.confirmedAt =
+              (data as any)?.confirmedAt ??
+              originalDoc?.confirmedAt ??
+              new Date().toISOString()
+
+            if (isCustomer(req) && userId) {
+              nextData.confirmedBy =
+                (data as any)?.confirmedBy ?? originalDoc?.confirmedBy ?? userId
+            }
+          } else if (effectiveConfirmationStatus === 'pending') {
+            nextData.confirmationStatus = 'pending'
+            nextData.confirmedAt = null
+            nextData.confirmedBy = null
+          }
+        }
+
+        return nextData
       },
     ],
 
@@ -287,13 +285,11 @@ export const CalendarEvents: CollectionConfig = {
       async ({ doc, previousDoc, operation, req }: any) => {
         if (!req?.user || !doc) return
 
-        const familyId = getFamilyIdFromDoc(doc)
+        const familyId = getRelId(doc?.family)
         const actorUserId = getRelId(req?.user?.id)
         const currentChild = await getChildSnapshot(req, doc?.child)
 
         if (operation === 'create') {
-          const meta = buildEventMeta(doc, currentChild.childName)
-
           await logAudit(req, {
             familyId,
             childId: currentChild.childId,
@@ -302,11 +298,10 @@ export const CalendarEvents: CollectionConfig = {
             entityType: 'event',
             entityId: String(doc?.id),
             scope: 'calendar',
-            severity: doc?.status === 'important' ? 'important' : 'info',
+            severity: doc?.priority === 'urgent' ? 'important' : 'info',
             relatedToRole: 'both',
             summary: 'Created calendar event',
             targetLabel: doc?.title,
-            meta,
           })
 
           await notifyFamily(req, {
@@ -320,7 +315,9 @@ export const CalendarEvents: CollectionConfig = {
             link: '/calendar',
             meta: {
               eventId: doc?.id,
-              ...meta,
+              childName: currentChild.childName,
+              eventType: doc?.eventType,
+              confirmationStatus: doc?.confirmationStatus,
             },
           })
 
@@ -328,19 +325,56 @@ export const CalendarEvents: CollectionConfig = {
         }
 
         if (operation === 'update') {
-          const changes: ChangeItem[] = []
+          const changes: Array<{ field: string; from?: any; to?: any }> = []
 
           pushChange(changes, 'title', previousDoc?.title, doc?.title)
           pushChange(changes, 'child', getRelId(previousDoc?.child), getRelId(doc?.child))
-          pushChange(changes, 'status', previousDoc?.status, doc?.status)
+          pushChange(changes, 'eventType', previousDoc?.eventType, doc?.eventType)
+          pushChange(changes, 'priority', previousDoc?.priority, doc?.priority)
+          pushChange(changes, 'location', previousDoc?.location, doc?.location)
+          pushChange(
+            changes,
+            'requiresConfirmation',
+            !!previousDoc?.requiresConfirmation,
+            !!doc?.requiresConfirmation,
+          )
+          pushChange(
+            changes,
+            'confirmationStatus',
+            previousDoc?.confirmationStatus,
+            doc?.confirmationStatus,
+          )
           pushChange(changes, 'startAt', previousDoc?.startAt, doc?.startAt)
           pushChange(changes, 'endAt', previousDoc?.endAt, doc?.endAt)
           pushChange(changes, 'notes', previousDoc?.notes, doc?.notes)
           pushChange(changes, 'allDay', !!previousDoc?.allDay, !!doc?.allDay)
+          pushChange(
+            changes,
+            'handoverFrom',
+            getRelId(previousDoc?.handoverFrom),
+            getRelId(doc?.handoverFrom),
+          )
+          pushChange(
+            changes,
+            'handoverTo',
+            getRelId(previousDoc?.handoverTo),
+            getRelId(doc?.handoverTo),
+          )
+          pushChange(
+            changes,
+            'responsibleParent',
+            getRelId(previousDoc?.responsibleParent),
+            getRelId(doc?.responsibleParent),
+          )
+          pushChange(changes, 'confirmedAt', previousDoc?.confirmedAt, doc?.confirmedAt)
+          pushChange(
+            changes,
+            'confirmedBy',
+            getRelId(previousDoc?.confirmedBy),
+            getRelId(doc?.confirmedBy),
+          )
 
           if (!changes.length) return
-
-          const meta = buildEventMeta(doc, currentChild.childName, previousDoc)
 
           await logAudit(req, {
             familyId,
@@ -350,16 +384,49 @@ export const CalendarEvents: CollectionConfig = {
             entityType: 'event',
             entityId: String(doc?.id),
             scope: 'calendar',
-            severity:
-              doc?.status === 'important' || previousDoc?.status === 'important'
-                ? 'important'
-                : 'info',
+            severity: doc?.priority === 'urgent' ? 'important' : 'info',
             relatedToRole: 'both',
             summary: 'Updated calendar event',
             targetLabel: doc?.title,
             changes,
-            meta,
           })
+
+          const previousConfirmation = previousDoc?.confirmationStatus
+          const currentConfirmation = doc?.confirmationStatus
+
+          if (previousConfirmation !== currentConfirmation) {
+            if (currentConfirmation === 'confirmed') {
+              await logAudit(req, {
+                familyId,
+                childId: currentChild.childId,
+                childName: currentChild.childName,
+                action: 'event.confirmed',
+                entityType: 'event',
+                entityId: String(doc?.id),
+                scope: 'calendar',
+                severity: 'info',
+                relatedToRole: 'both',
+                summary: 'Confirmed calendar event',
+                targetLabel: doc?.title,
+              })
+            }
+
+            if (currentConfirmation === 'declined') {
+              await logAudit(req, {
+                familyId,
+                childId: currentChild.childId,
+                childName: currentChild.childName,
+                action: 'event.declined',
+                entityType: 'event',
+                entityId: String(doc?.id),
+                scope: 'calendar',
+                severity: 'important',
+                relatedToRole: 'both',
+                summary: 'Declined calendar event',
+                targetLabel: doc?.title,
+              })
+            }
+          }
 
           await notifyFamily(req, {
             familyId,
@@ -372,11 +439,11 @@ export const CalendarEvents: CollectionConfig = {
             link: '/calendar',
             meta: {
               eventId: doc?.id,
-              ...meta,
+              childName: currentChild.childName,
+              eventType: doc?.eventType,
+              confirmationStatus: doc?.confirmationStatus,
             },
           })
-
-          return
         }
       },
     ],
@@ -386,9 +453,8 @@ export const CalendarEvents: CollectionConfig = {
         if (!req?.user || !doc) return
 
         const actorUserId = getRelId(req?.user?.id)
-        const familyId = getFamilyIdFromDoc(doc)
         const childSnapshot = await getChildSnapshot(req, doc?.child)
-        const meta = buildEventMeta(doc, childSnapshot.childName)
+        const familyId = getRelId(doc?.family)
 
         await logAudit(req, {
           familyId,
@@ -402,7 +468,6 @@ export const CalendarEvents: CollectionConfig = {
           relatedToRole: 'both',
           summary: 'Deleted calendar event',
           targetLabel: doc?.title,
-          meta,
         })
 
         await notifyFamily(req, {
@@ -416,7 +481,7 @@ export const CalendarEvents: CollectionConfig = {
           link: '/calendar',
           meta: {
             eventId: doc?.id,
-            ...meta,
+            childName: childSnapshot.childName,
           },
         })
       },
@@ -435,7 +500,7 @@ export const CalendarEvents: CollectionConfig = {
       name: 'child',
       type: 'relationship',
       relationTo: 'children',
-      required: true,
+      required: false,
       index: true,
     },
     {
@@ -444,29 +509,97 @@ export const CalendarEvents: CollectionConfig = {
       required: true,
     },
     {
+      name: 'eventType',
+      type: 'select',
+      required: true,
+      defaultValue: 'other',
+      options: [
+        { label: 'Handover', value: 'handover' },
+        { label: 'Pickup', value: 'pickup' },
+        { label: 'Drop-off', value: 'dropoff' },
+        { label: 'School', value: 'school' },
+        { label: 'Activity', value: 'activity' },
+        { label: 'Medical', value: 'medical' },
+        { label: 'Expense related', value: 'expense-related' },
+        { label: 'Other', value: 'other' },
+      ],
+    },
+    {
+      name: 'priority',
+      type: 'select',
+      defaultValue: 'normal',
+      options: [
+        { label: 'Normal', value: 'normal' },
+        { label: 'Important', value: 'important' },
+        { label: 'Urgent', value: 'urgent' },
+      ],
+    },
+    {
+      name: 'location',
+      type: 'text',
+    },
+    {
       name: 'notes',
       type: 'textarea',
     },
     {
-      name: 'status',
+      name: 'requiresConfirmation',
+      type: 'checkbox',
+      defaultValue: false,
+    },
+    {
+      name: 'confirmationStatus',
       type: 'select',
-      defaultValue: 'admin',
+      defaultValue: 'not-required',
       options: [
-        { label: 'Admin', value: 'admin' },
-        { label: 'Personlig', value: 'personal' },
-        { label: 'Viktig', value: 'important' },
-        { label: 'Barn', value: 'child' },
+        { label: 'Not required', value: 'not-required' },
+        { label: 'Pending', value: 'pending' },
+        { label: 'Confirmed', value: 'confirmed' },
+        { label: 'Declined', value: 'declined' },
       ],
+    },
+    {
+      name: 'confirmedAt',
+      type: 'date',
+    },
+    {
+      name: 'confirmedBy',
+      type: 'relationship',
+      relationTo: 'customers',
+    },
+    {
+      name: 'handoverFrom',
+      type: 'relationship',
+      relationTo: 'customers',
+    },
+    {
+      name: 'handoverTo',
+      type: 'relationship',
+      relationTo: 'customers',
+    },
+    {
+      name: 'responsibleParent',
+      type: 'relationship',
+      relationTo: 'customers',
+    },
+    {
+      name: 'linkedEconomyTransaction',
+      type: 'relationship',
+      relationTo: 'economy-transactions',
+      required: false,
+      index: true,
     },
     {
       name: 'startAt',
       type: 'date',
       required: true,
+      index: true,
     },
     {
       name: 'endAt',
       type: 'date',
       required: true,
+      index: true,
     },
     {
       name: 'allDay',
@@ -476,7 +609,7 @@ export const CalendarEvents: CollectionConfig = {
     {
       name: 'createdBy',
       type: 'relationship',
-      relationTo: ['customers', 'users'],
+      relationTo: 'customers',
     },
   ],
 }

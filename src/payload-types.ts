@@ -722,22 +722,24 @@ export interface BankTransfer {
 export interface CalendarEvent {
   id: number;
   family: number | Family;
-  child: number | Child;
+  child?: (number | null) | Child;
   title: string;
+  eventType: 'handover' | 'pickup' | 'dropoff' | 'school' | 'activity' | 'medical' | 'expense-related' | 'other';
+  priority?: ('normal' | 'important' | 'urgent') | null;
+  location?: string | null;
   notes?: string | null;
-  status?: ('admin' | 'personal' | 'important' | 'child') | null;
+  requiresConfirmation?: boolean | null;
+  confirmationStatus?: ('not-required' | 'pending' | 'confirmed' | 'declined') | null;
+  confirmedAt?: string | null;
+  confirmedBy?: (number | null) | Customer;
+  handoverFrom?: (number | null) | Customer;
+  handoverTo?: (number | null) | Customer;
+  responsibleParent?: (number | null) | Customer;
+  linkedEconomyTransaction?: (number | null) | EconomyTransaction;
   startAt: string;
   endAt: string;
   allDay?: boolean | null;
-  createdBy?:
-    | ({
-        relationTo: 'customers';
-        value: number | Customer;
-      } | null)
-    | ({
-        relationTo: 'users';
-        value: number | User;
-      } | null);
+  createdBy?: (number | null) | Customer;
   updatedAt: string;
   createdAt: string;
 }
@@ -1417,8 +1419,18 @@ export interface CalendarEventsSelect<T extends boolean = true> {
   family?: T;
   child?: T;
   title?: T;
+  eventType?: T;
+  priority?: T;
+  location?: T;
   notes?: T;
-  status?: T;
+  requiresConfirmation?: T;
+  confirmationStatus?: T;
+  confirmedAt?: T;
+  confirmedBy?: T;
+  handoverFrom?: T;
+  handoverTo?: T;
+  responsibleParent?: T;
+  linkedEconomyTransaction?: T;
   startAt?: T;
   endAt?: T;
   allDay?: T;

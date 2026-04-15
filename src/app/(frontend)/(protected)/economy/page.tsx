@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import styles from './economy.module.css'
-import { fa } from 'payload/i18n/fa'
 
 type SelectableBankAccount = {
   externalAccountId: string
@@ -20,7 +19,7 @@ type BankConnection = {
   maskedAccount?: string
   currentBalance?: number
   currency?: string
-  status?: 'not_connected' | 'pending' | 'connected' | 'expired' | 'failed'
+  status?: 'not_connected' | 'pending' | 'connected' | 'expired' | 'failed' | string
   connectionScope?: 'family' | 'personal'
   lastSyncedAt?: string
   meta?: {
@@ -47,13 +46,24 @@ type TransferDoc = {
   initiatedByName?: string
 }
 
-type BankTransactionDoc = {
+type ChildOption = {
   id: string | number
+  fullName: string
+}
+
+type EconomyRequestDoc = {
+  id: string | number
+  title: string
   amount: number
-  currency?: string
-  direction?: 'in' | 'out'
-  description?: string
-  bookingDate?: string
+  category?: string
+  notes?: string
+  status?: 'pending' | 'approved' | 'rejected'
+  child?: string | number | { id: string | number }
+  createdBy?: string | number | { id: string | number }
+  createdByName?: string
+  decisionNote?: string
+  createdAt?: string
+  reviewedAt?: string
 }
 
 type EconomyTransactionDoc = {
@@ -68,11 +78,23 @@ type EconomyTransactionDoc = {
   transactionDate?: string
   updatedAt?: string
   createdAt?: string
+  child?: string | number | { id: string | number }
+  sourceType?: 'payment' | 'request'
+  requestRef?: string | number | { id: string | number }
+  requestCreatedByName?: string
+  approvedByName?: string
+  paidFromScope?: 'family' | 'personal'
+  
 }
+
 type BankConnectionStatus = 'not_connected' | 'pending' | 'connected' | 'expired' | 'failed'
 type ConnectedBankConnection = BankConnection & { status: 'connected' }
+
 function getBankStatus(connection: BankConnection | null): BankConnectionStatus {
-  const status = connection?.status
+  const status = String(connection?.status || '')
+    .trim()
+    .toLowerCase()
+
   if (status === 'pending') return 'pending'
   if (status === 'connected') return 'connected'
   if (status === 'expired') return 'expired'
@@ -83,7 +105,7 @@ function getBankStatus(connection: BankConnection | null): BankConnectionStatus 
 function isConnectedBank(
   connection: BankConnection | null,
 ): connection is ConnectedBankConnection {
-  return connection !== null && connection.status === 'connected'
+  return getBankStatus(connection) === 'connected'
 }
 
 function needsAccountSelection(connection: BankConnection | null) {
@@ -102,6 +124,7 @@ function getBankStatusLabel(status: BankConnectionStatus) {
   if (status === 'expired') return 'Expired'
   return 'Not connected'
 }
+
 const MONTH_LABELS = [
   'January',
   'February',
@@ -157,7 +180,7 @@ function getFullName(me: MeUser | null) {
 
 function getSelectableAccounts(connection: BankConnection | null) {
   return Array.isArray(connection?.meta?.availableAccounts)
-    ? connection.meta!.availableAccounts!
+    ? connection.meta.availableAccounts
     : []
 }
 
@@ -229,8 +252,9 @@ export default function EconomyPage() {
   const [familyBank, setFamilyBank] = useState<BankConnection | null>(null)
   const [personalBank, setPersonalBank] = useState<BankConnection | null>(null)
   const [transfers, setTransfers] = useState<TransferDoc[]>([])
-  const [bankTransactions, setBankTransactions] = useState<BankTransactionDoc[]>([])
   const [economyTransactions, setEconomyTransactions] = useState<EconomyTransactionDoc[]>([])
+  const [children, setChildren] = useState<ChildOption[]>([])
+  const [requests, setRequests] = useState<EconomyRequestDoc[]>([])
 
   const [amount, setAmount] = useState('')
   const [note, setNote] = useState('')
@@ -240,12 +264,15 @@ export default function EconomyPage() {
 
   const [paymentTitle, setPaymentTitle] = useState('')
   const [paymentAmount, setPaymentAmount] = useState('')
+  const [paymentCategory, setPaymentCategory] = useState('bills')
+  const [paymentChildId, setPaymentChildId] = useState('')
   const [paymentDueDate, setPaymentDueDate] = useState(toDateInputValue())
   const [paymentDescription, setPaymentDescription] = useState('')
 
   const [payTarget, setPayTarget] = useState<EconomyTransactionDoc | null>(null)
   const [payStep, setPayStep] = useState<'confirm' | 'select'>('confirm')
   const [payBankScope, setPayBankScope] = useState<'family' | 'personal'>('family')
+  const [payError, setPayError] = useState('')
 
   const [showAllPaid, setShowAllPaid] = useState(false)
   const [showAllTransfers, setShowAllTransfers] = useState(false)
@@ -255,12 +282,31 @@ export default function EconomyPage() {
   const [transferMonthFilter, setTransferMonthFilter] = useState('all')
   const [transferYearFilter, setTransferYearFilter] = useState('all')
 
+  const [showRequestModal, setShowRequestModal] = useState(false)
+  const [requestTitle, setRequestTitle] = useState('')
+  const [requestAmount, setRequestAmount] = useState('')
+  const [requestCategory, setRequestCategory] = useState('other')
+  const [requestChildId, setRequestChildId] = useState('')
+  const [requestNotes, setRequestNotes] = useState('')
+
+  const [approveTarget, setApproveTarget] = useState<EconomyRequestDoc | null>(null)
+  const [approveBankScope, setApproveBankScope] = useState<'family' | 'personal'>('family')
+  const [approveError, setApproveError] = useState('')
+
   const paidListRef = useRef<HTMLDivElement | null>(null)
   const transferListRef = useRef<HTMLDivElement | null>(null)
 
   const fullName = useMemo(() => getFullName(me), [me])
   const familyStatus = getBankStatus(familyBank)
   const personalStatus = getBankStatus(personalBank)
+
+  const childNameById = useMemo(() => {
+    const map = new Map<string, string>()
+    children.forEach((child) => {
+      map.set(String(child.id), child.fullName)
+    })
+    return map
+  }, [children])
 
   const pendingPayments = useMemo(() => {
     return [...economyTransactions]
@@ -274,12 +320,7 @@ export default function EconomyPage() {
 
   const allPaidPayments = useMemo(() => {
     return [...economyTransactions]
-      .filter(
-        (item) =>
-          item.type === 'expense' &&
-          item.status === 'paid' &&
-          item.category === 'bills',
-      )
+      .filter((item) => item.type === 'expense' && item.status === 'paid')
       .sort((a, b) => {
         const da = new Date(a.updatedAt || a.transactionDate || 0).getTime()
         const db = new Date(b.updatedAt || b.transactionDate || 0).getTime()
@@ -331,6 +372,27 @@ export default function EconomyPage() {
     return showAllTransfers ? filteredTransfers : filteredTransfers.slice(0, 3)
   }, [filteredTransfers, showAllTransfers])
 
+  const pendingRequests = useMemo(() => {
+    return [...requests]
+      .filter((item) => item.status === 'pending')
+      .sort((a, b) => {
+        const da = new Date(a.createdAt || 0).getTime()
+        const db = new Date(b.createdAt || 0).getTime()
+        return db - da
+      })
+  }, [requests])
+
+  const requestHistory = useMemo(() => {
+    return [...requests]
+      .filter((item) => item.status === 'approved' || item.status === 'rejected')
+      .sort((a, b) => {
+        const da = new Date(a.reviewedAt || a.createdAt || 0).getTime()
+        const db = new Date(b.reviewedAt || b.createdAt || 0).getTime()
+        return db - da
+      })
+      .slice(0, 5)
+  }, [requests])
+
   const availablePayBanks = useMemo(() => {
     const items: Array<{
       scope: 'family' | 'personal'
@@ -359,6 +421,14 @@ export default function EconomyPage() {
 
     return items
   }, [familyBank, personalBank])
+
+  const selectedPayBank = useMemo(() => {
+    return availablePayBanks.find((b) => b.scope === payBankScope) || null
+  }, [availablePayBanks, payBankScope])
+
+  const selectedApproveBank = useMemo(() => {
+    return availablePayBanks.find((b) => b.scope === approveBankScope) || null
+  }, [availablePayBanks, approveBankScope])
 
   const availableTransferBanks = useMemo(() => {
     const items: Array<{
@@ -414,7 +484,17 @@ export default function EconomyPage() {
     setShowAllTransfers(false)
   }, [transferMonthFilter, transferYearFilter])
 
-  function scrollList(ref: React.RefObject<HTMLDivElement | null>, direction: 'up' | 'down') {
+  function getRelationId(value: any) {
+    if (value == null) return ''
+    if (typeof value === 'string' || typeof value === 'number') return String(value)
+    if (typeof value === 'object' && value.id != null) return String(value.id)
+    return ''
+  }
+
+  function scrollList(
+    ref: React.MutableRefObject<HTMLDivElement | null>,
+    direction: 'up' | 'down',
+  ) {
     if (!ref.current) return
 
     ref.current.scrollBy({
@@ -439,12 +519,21 @@ export default function EconomyPage() {
     setNote('')
   }
 
+  function closeRequestModal() {
+    setShowRequestModal(false)
+    setRequestTitle('')
+    setRequestAmount('')
+    setRequestCategory('other')
+    setRequestChildId('')
+    setRequestNotes('')
+  }
+
   async function loadAll() {
     setLoading(true)
     setError('')
 
     try {
-      const [meRes, statusRes, transfersRes, bankTransactionsRes, economyTransactionsRes] =
+      const [meRes, statusRes, transfersRes, economyTransactionsRes, childrenRes, requestsRes] =
         await Promise.all([
           fetch('/api/customers/me', {
             credentials: 'include',
@@ -458,11 +547,15 @@ export default function EconomyPage() {
             credentials: 'include',
             cache: 'no-store',
           }),
-          fetch('/api/bank-transactions?limit=12&sort=-bookingDate', {
+          fetch('/api/economy-transactions?limit=200&sort=-transactionDate', {
             credentials: 'include',
             cache: 'no-store',
           }),
-          fetch('/api/economy-transactions?limit=200&sort=-transactionDate', {
+          fetch('/api/children?limit=100&sort=createdAt', {
+            credentials: 'include',
+            cache: 'no-store',
+          }),
+          fetch('/api/economy-requests?limit=100&sort=-createdAt', {
             credentials: 'include',
             cache: 'no-store',
           }),
@@ -471,8 +564,9 @@ export default function EconomyPage() {
       const meJson = await meRes.json().catch(() => null)
       const statusJson = await statusRes.json().catch(() => null)
       const transfersJson = await transfersRes.json().catch(() => null)
-      const bankTransactionsJson = await bankTransactionsRes.json().catch(() => null)
       const economyTransactionsJson = await economyTransactionsRes.json().catch(() => null)
+      const childrenJson = await childrenRes.json().catch(() => null)
+      const requestsJson = await requestsRes.json().catch(() => null)
 
       if (!meRes.ok) {
         throw new Error(meJson?.message || `Could not load current user (${meRes.status})`)
@@ -488,13 +582,6 @@ export default function EconomyPage() {
         )
       }
 
-      if (!bankTransactionsRes.ok) {
-        throw new Error(
-          bankTransactionsJson?.message ||
-            `Could not load bank activity (${bankTransactionsRes.status})`,
-        )
-      }
-
       if (!economyTransactionsRes.ok) {
         throw new Error(
           economyTransactionsJson?.message ||
@@ -502,20 +589,30 @@ export default function EconomyPage() {
         )
       }
 
+      if (!childrenRes.ok) {
+        throw new Error(childrenJson?.message || `Could not load children (${childrenRes.status})`)
+      }
+
+      if (!requestsRes.ok) {
+        throw new Error(requestsJson?.message || `Could not load requests (${requestsRes.status})`)
+      }
+
       setMe(meJson?.user ?? meJson ?? null)
       setFamilyBank(statusJson?.familyBank ?? null)
       setPersonalBank(statusJson?.personalBank ?? null)
       setTransfers(transfersJson?.docs ?? [])
-      setBankTransactions(bankTransactionsJson?.docs ?? [])
       setEconomyTransactions(economyTransactionsJson?.docs ?? [])
+      setChildren(childrenJson?.docs ?? [])
+      setRequests(requestsJson?.docs ?? [])
     } catch (err: any) {
       setError(err?.message || 'Could not load economy page.')
       setMe(null)
       setFamilyBank(null)
       setPersonalBank(null)
       setTransfers([])
-      setBankTransactions([])
       setEconomyTransactions([])
+      setChildren([])
+      setRequests([])
     } finally {
       setLoading(false)
     }
@@ -704,6 +801,10 @@ export default function EconomyPage() {
       return setError('Please choose a due date.')
     }
 
+    if (!paymentCategory) {
+      return setError('Please choose a category.')
+    }
+
     if (!me?.id) {
       return setError('Missing current user.')
     }
@@ -724,11 +825,12 @@ export default function EconomyPage() {
           description: paymentDescription.trim() || undefined,
           amount: parsed,
           type: 'expense',
-          category: 'bills',
+          category: paymentCategory,
           status: 'pending',
           currency: familyBank?.currency || personalBank?.currency || 'NOK',
           transactionDate: dueDateIso,
           paidBy: me.id,
+          child: paymentChildId || undefined,
         }),
       })
 
@@ -751,6 +853,8 @@ export default function EconomyPage() {
       setPaymentAmount('')
       setPaymentDueDate(toDateInputValue())
       setPaymentDescription('')
+      setPaymentCategory('bills')
+      setPaymentChildId('')
       setSuccess('Payment item created and added to calendar.')
       await loadAll()
     } catch (err: any) {
@@ -787,21 +891,211 @@ export default function EconomyPage() {
 
   function openPayFlow(item: EconomyTransactionDoc) {
     const defaultScope =
-      familyBank?.status === 'connected'
+      getBankStatus(familyBank) === 'connected'
         ? 'family'
-        : personalBank?.status === 'connected'
+        : getBankStatus(personalBank) === 'connected'
           ? 'personal'
           : 'family'
 
     setPayTarget(item)
     setPayStep('confirm')
     setPayBankScope(defaultScope)
+    setPayError('')
   }
 
   function closePayFlow() {
     setPayTarget(null)
     setPayStep('confirm')
     setPayBankScope('family')
+    setPayError('')
+  }
+
+  async function createRequest(e: React.FormEvent) {
+    e.preventDefault()
+    setError('')
+    setSuccess('')
+
+    const parsed = Number(requestAmount)
+
+    if (!requestTitle.trim()) {
+      return setError('Please enter a request title.')
+    }
+
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      return setError('Please enter a valid request amount greater than 0.')
+    }
+
+    if (!requestCategory) {
+      return setError('Please choose a category.')
+    }
+
+    setActionLoading('request-create')
+
+    try {
+      const res = await fetch('/api/economy-requests', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title: requestTitle.trim(),
+          amount: parsed,
+          category: requestCategory,
+          child: requestChildId || undefined,
+          notes: requestNotes.trim() || undefined,
+        }),
+      })
+
+      const raw = await res.text()
+      let json: any = null
+
+      try {
+        json = raw ? JSON.parse(raw) : null
+      } catch {
+        json = null
+      }
+
+      if (!res.ok) {
+        throw new Error(json?.message || raw || 'Could not create request.')
+      }
+
+      closeRequestModal()
+      setSuccess('Request created successfully.')
+      await loadAll()
+    } catch (err: any) {
+      setError(err?.message || 'Could not create request.')
+    } finally {
+      setActionLoading('')
+    }
+  }
+
+  function openApproveFlow(item: EconomyRequestDoc) {
+    const defaultScope =
+      getBankStatus(familyBank) === 'connected'
+        ? 'family'
+        : getBankStatus(personalBank) === 'connected'
+          ? 'personal'
+          : 'family'
+
+    setApproveTarget(item)
+    setApproveBankScope(defaultScope)
+    setApproveError('')
+    setError('')
+    setSuccess('')
+  }
+
+  function closeApproveFlow() {
+    setApproveTarget(null)
+    setApproveBankScope('family')
+    setApproveError('')
+  }
+
+  async function approveRequest() {
+    if (!approveTarget) return
+
+    setError('')
+    setSuccess('')
+    setApproveError('')
+    setActionLoading(`request-approve-${approveTarget.id}`)
+
+    try {
+      const selectedBank = availablePayBanks.find((b) => b.scope === approveBankScope)
+      const amountToApprove = Number(approveTarget.amount || 0)
+
+      console.log('approveTarget:', approveTarget)
+      console.log('approveBankScope:', approveBankScope)
+      console.log('availablePayBanks:', availablePayBanks)
+      console.log('selectedBank:', selectedBank)
+
+      if (!selectedBank) {
+        throw new Error('Selected bank is not available.')
+      }
+
+      if (selectedBank.balance < amountToApprove) {
+        setApproveError('This bank account does not have enough balance for this request.')
+        setActionLoading('')
+        return
+      }
+
+      const res = await fetch('/api/economy-requests/approve', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          requestId: approveTarget.id,
+          connectionScope: approveBankScope,
+        }),
+      })
+
+      const raw = await res.text()
+      let json: any = null
+
+      try {
+        json = raw ? JSON.parse(raw) : null
+      } catch {
+        json = null
+      }
+
+      console.log('approve response status:', res.status)
+      console.log('approve response body:', json || raw)
+
+      if (!res.ok) {
+        throw new Error(json?.message || raw || 'Could not approve request.')
+      }
+
+      closeApproveFlow()
+      setSuccess('Request approved successfully.')
+      await loadAll()
+    } catch (err: any) {
+      setApproveError(err?.message || 'Could not approve request.')
+    } finally {
+      setActionLoading('')
+    }
+  }
+
+  async function rejectRequest(id: string | number) {
+    const decisionNote = window.prompt('Reason for rejection (optional):', '') || ''
+
+    setError('')
+    setSuccess('')
+    setActionLoading(`request-reject-${id}`)
+
+    try {
+      const res = await fetch('/api/economy-requests/reject', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          requestId: id,
+          decisionNote,
+        }),
+      })
+
+      const raw = await res.text()
+      let json: any = null
+
+      try {
+        json = raw ? JSON.parse(raw) : null
+      } catch {
+        json = null
+      }
+
+      if (!res.ok) {
+        throw new Error(json?.message || raw || 'Could not reject request.')
+      }
+
+      setSuccess('Request rejected.')
+      await loadAll()
+    } catch (err: any) {
+      setError(err?.message || 'Could not reject request.')
+    } finally {
+      setActionLoading('')
+    }
   }
 
   async function payPaymentItem() {
@@ -809,9 +1103,23 @@ export default function EconomyPage() {
 
     setError('')
     setSuccess('')
+    setPayError('')
     setActionLoading(`payment-pay-${payTarget.id}`)
 
     try {
+      const selectedBank = availablePayBanks.find((b) => b.scope === payBankScope)
+      const amountToPay = Number(payTarget.amount || 0)
+
+      if (!selectedBank) {
+        throw new Error('Selected bank is not available.')
+      }
+
+      if (selectedBank.balance < amountToPay) {
+        setPayError('This bank account does not have enough balance to pay this bill.')
+        setActionLoading('')
+        return
+      }
+
       const res = await fetch('/api/economy-transactions/pay', {
         method: 'POST',
         credentials: 'include',
@@ -834,16 +1142,17 @@ export default function EconomyPage() {
       }
 
       if (!res.ok) {
-        throw new Error(
-          json?.message || json?.errors?.[0]?.message || raw || 'Could not pay this item.',
-        )
+        const message =
+          json?.message || json?.errors?.[0]?.message || raw || 'Could not pay this payment item.'
+        setPayError(message)
+        throw new Error(message)
       }
 
       closePayFlow()
       setSuccess('Payment completed successfully.')
       await loadAll()
     } catch (err: any) {
-      setError(err?.message || 'Could not pay this item.')
+      setPayError(err?.message || 'Could not pay this item.')
     } finally {
       setActionLoading('')
     }
@@ -862,8 +1171,8 @@ export default function EconomyPage() {
         <div>
           <h1 className={styles.title}>Økonomi</h1>
           <p className={styles.subtitle}>
-            Connect your personal bank, connect the family bank, transfer money into the
-            shared family fund, and manage payments that also appear in the calendar.
+            Connect your personal bank, connect the family bank, transfer money into the shared
+            family fund, and manage payments that also appear in the calendar.
           </p>
         </div>
       </div>
@@ -875,8 +1184,8 @@ export default function EconomyPage() {
         <div className={styles.summaryCard}>
           <div className={styles.summaryLabel}>Family fund</div>
           <div className={styles.summaryValue}>
-            {familyBank
-              ? fmtCurrency(familyBank.currentBalance, familyBank.currency || 'NOK')
+            {familyStatus === 'connected'
+              ? fmtCurrency(familyBank?.currentBalance, familyBank?.currency || 'NOK')
               : 'Not connected'}
           </div>
         </div>
@@ -884,8 +1193,8 @@ export default function EconomyPage() {
         <div className={styles.summaryCard}>
           <div className={styles.summaryLabel}>My available balance</div>
           <div className={styles.summaryValue}>
-            {personalBank
-              ? fmtCurrency(personalBank.currentBalance, personalBank.currency || 'NOK')
+            {personalStatus === 'connected'
+              ? fmtCurrency(personalBank?.currentBalance, personalBank?.currency || 'NOK')
               : 'Not connected'}
           </div>
         </div>
@@ -969,7 +1278,9 @@ export default function EconomyPage() {
             </div>
           ) : (
             <div className={styles.actions}>
-              { familyStatus === 'not_connected' || familyStatus === 'failed' || familyStatus === 'expired' ? (
+              {familyStatus === 'not_connected' ||
+              familyStatus === 'failed' ||
+              familyStatus === 'expired' ? (
                 <button
                   type="button"
                   className={styles.primaryBtn}
@@ -1167,7 +1478,7 @@ export default function EconomyPage() {
 
           <div className={styles.transferRow}>
             <label className={styles.label}>
-              Due date
+              Due Date
               <input
                 className={styles.input}
                 type="date"
@@ -1177,11 +1488,47 @@ export default function EconomyPage() {
             </label>
 
             <label className={styles.label}>
-              Note
+              Category
+              <select
+                className={styles.select}
+                value={paymentCategory}
+                onChange={(e) => setPaymentCategory(e.target.value)}
+              >
+                <option value="food">Foods</option>
+                <option value="transport">Transport</option>
+                <option value="health">Health</option>
+                <option value="school">School</option>
+                <option value="activities">Activities</option>
+                <option value="clothes">Clothes</option>
+                <option value="bills">Bills</option>
+                <option value="other">Other</option>
+              </select>
+            </label>
+          </div>
+
+          <div className={styles.transferRow}>
+            <label className={styles.label}>
+              Link to child
+              <select
+                className={styles.select}
+                value={paymentChildId}
+                onChange={(e) => setPaymentChildId(e.target.value)}
+              >
+                <option value="">No child linked</option>
+                {children.map((child) => (
+                  <option key={String(child.id)} value={String(child.id)}>
+                    {child.fullName}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className={styles.label}>
+              Description (optional)
               <input
                 className={styles.input}
                 type="text"
-                placeholder="Optional note"
+                placeholder="Optional short note"
                 value={paymentDescription}
                 onChange={(e) => setPaymentDescription(e.target.value)}
                 maxLength={200}
@@ -1190,11 +1537,7 @@ export default function EconomyPage() {
           </div>
 
           <div className={styles.actions}>
-            <button
-              type="submit"
-              className={styles.primaryBtn}
-              disabled={actionLoading !== ''}
-            >
+            <button type="submit" className={styles.primaryBtn} disabled={actionLoading !== ''}>
               {actionLoading === 'payment-create' ? 'Creating…' : 'Add payment item'}
             </button>
           </div>
@@ -1211,6 +1554,11 @@ export default function EconomyPage() {
                   <div className={styles.rowMeta}>
                     Due: {fmtDateOnly(item.transactionDate)}
                     {item.category ? ` • ${item.category}` : ''}
+                    {(() => {
+                      const childId = getRelationId(item.child)
+                      const childName = childId ? childNameById.get(childId) : ''
+                      return childName ? ` • Child: ${childName}` : ''
+                    })()}
                     {item.description ? ` • ${item.description}` : ''}
                   </div>
                 </div>
@@ -1242,6 +1590,123 @@ export default function EconomyPage() {
             ))}
           </div>
         )}
+      </section>
+
+      <section className={styles.card}>
+        <div className={styles.cardHeader}>
+          <div>
+            <div className={styles.cardTitle}>Requests</div>
+            <div className={styles.cardSub}>
+              Create a money request for your family and review pending requests.
+            </div>
+          </div>
+
+          <button
+            type="button"
+            className={styles.primaryBtn}
+            onClick={() => setShowRequestModal(true)}
+            disabled={actionLoading !== ''}
+          >
+            New request
+          </button>
+        </div>
+
+        <div className={styles.list}>
+          {pendingRequests.length === 0 ? (
+            <div className={styles.emptyBox}>No pending requests.</div>
+          ) : (
+            pendingRequests.map((item) => {
+              const childId = getRelationId(item.child)
+              const childName = childId ? childNameById.get(childId) : ''
+              const isOwn = String(getRelationId(item.createdBy)) === String(me?.id ?? '')
+
+              return (
+                <div key={String(item.id)} className={styles.paymentRow}>
+                  <div>
+                    <div className={styles.rowTitle}>{item.title}</div>
+                    <div className={styles.rowMeta}>
+                      Requested by: {item.createdByName || 'Unknown'}
+                      {item.category ? ` • ${item.category}` : ''}
+                      {childName ? ` • Child: ${childName}` : ''}
+                      {item.createdAt ? ` • ${fmtDateTime(item.createdAt)}` : ''}
+                      {item.notes ? ` • ${item.notes}` : ''}
+                    </div>
+                  </div>
+
+                  <div className={styles.paymentActions}>
+                    <div className={styles.amountNegative}>{fmtCurrency(item.amount)}</div>
+
+                    {!isOwn ? (
+                      <>
+                        <button
+                          type="button"
+                          className={styles.secondaryBtn}
+                          onClick={() => openApproveFlow(item)}
+                          disabled={actionLoading !== ''}
+                        >
+                          {actionLoading === `request-approve-${item.id}`
+                            ? 'Approving…'
+                            : 'Approve'}
+                        </button>
+
+                        <button
+                          type="button"
+                          className={styles.dangerBtn}
+                          onClick={() => rejectRequest(item.id)}
+                          disabled={actionLoading !== ''}
+                        >
+                          {actionLoading === `request-reject-${item.id}`
+                            ? 'Rejecting…'
+                            : 'Reject'}
+                        </button>
+                      </>
+                    ) : (
+                      <div className={styles.muted}>Waiting for review</div>
+                    )}
+                  </div>
+                </div>
+              )
+            })
+          )}
+        </div>
+
+        <div className={styles.list}>
+          <div className={styles.rowTitle}>Recent request decisions</div>
+
+          {requestHistory.length === 0 ? (
+            <div className={styles.emptyBox}>No reviewed requests yet.</div>
+          ) : (
+            requestHistory.map((item) => {
+              const childId = getRelationId(item.child)
+              const childName = childId ? childNameById.get(childId) : ''
+
+              return (
+                <div key={String(item.id)} className={styles.listRow}>
+                  <div>
+                    <div className={styles.rowTitle}>
+                      {item.title} {item.status === 'approved' ? '• Approved' : '• Rejected'}
+                    </div>
+                    <div className={styles.rowMeta}>
+                      Requested by: {item.createdByName || 'Unknown'}
+                      {item.category ? ` • ${item.category}` : ''}
+                      {childName ? ` • Child: ${childName}` : ''}
+                      {item.reviewedAt ? ` • ${fmtDateTime(item.reviewedAt)}` : ''}
+                      {item.decisionNote ? ` • ${item.decisionNote}` : ''}
+                    </div>
+                  </div>
+
+                  <div
+                    className={
+                      item.status === 'approved' ? styles.amountPositive : styles.amountNegative
+                    }
+                  >
+                    {fmtCurrency(item.amount)}
+                  </div>
+                </div>
+              )
+            })
+          )}
+        </div>
       </section>
 
       <section className={styles.card}>
@@ -1298,9 +1763,24 @@ export default function EconomyPage() {
                 {visiblePaidPayments.map((item) => (
                   <div key={String(item.id)} className={styles.listRow}>
                     <div>
-                      <div className={styles.rowTitle}>{item.title}</div>
+                      <div className={styles.rowTitle}>
+                        {item.title}
+                        {item.sourceType === 'request' ? (
+                          <span className={styles.requestBadge}>Request</span>
+                        ) : null}
+                      </div>
                       <div className={styles.rowMeta}>
                         Paid: {fmtDateTime(item.updatedAt || item.transactionDate)}
+                        {item.category ? ` • ${item.category}` : ''}
+                        {(() => {
+                          const childId = getRelationId(item.child)
+                          const childName = childId ? childNameById.get(childId) : ''
+                          return childName ? ` • Child: ${childName}` : ''
+                        })()}
+                        {item.sourceType === 'request' ? ' • From request' : ''}
+                        {item.requestCreatedByName ? ` • Requested by: ${item.requestCreatedByName}` : ''}
+                        {item.approvedByName ? ` • Approved by: ${item.approvedByName}` : ''}
+                        {item.paidFromScope ? ` • Paid from: ${item.paidFromScope === 'family' ? 'Family bank' : 'Personal bank'}` : ''}
                         {item.description ? ` • ${item.description}` : ''}
                       </div>
                     </div>
@@ -1405,7 +1885,9 @@ export default function EconomyPage() {
                 {visibleTransfers.map((item) => (
                   <div key={String(item.id)} className={styles.listRow}>
                     <div>
-                      <div className={styles.rowTitle}>{item.note || 'Transfer between accounts'}</div>
+                      <div className={styles.rowTitle}>
+                        {item.note || 'Transfer between accounts'}
+                      </div>
                       <div className={styles.rowMeta}>
                         {item.initiatedByName || 'Unknown user'} • {fmtDateTime(item.createdAt)}
                       </div>
@@ -1426,7 +1908,7 @@ export default function EconomyPage() {
                   className={styles.viewMoreBtn}
                   onClick={() => setShowAllTransfers((prev) => !prev)}
                 >
-                  {showAllTransfers ? 'Thu gọn' : 'Xem thêm'}
+                  {showAllTransfers ? 'see less' : 'see more'}
                 </button>
               ) : (
                 <span />
@@ -1455,44 +1937,107 @@ export default function EconomyPage() {
         )}
       </section>
 
-      <section className={styles.card}>
-        <div className={styles.cardHeader}>
-          <div>
-            <div className={styles.cardTitle}>Recent bank activity</div>
-            <div className={styles.cardSub}>
-              Synced transactions from connected bank accounts.
-            </div>
+      {showRequestModal ? (
+        <div className={styles.modalBackdrop} onMouseDown={closeRequestModal}>
+          <div className={styles.modalCard} onMouseDown={(e) => e.stopPropagation()}>
+            <div className={styles.modalTitle}>Create request</div>
+            <p className={styles.modalText}>Ask for money support from your family.</p>
+
+            <form className={styles.transferForm} onSubmit={createRequest}>
+              <div className={styles.transferRow}>
+                <label className={styles.label}>
+                  Title
+                  <input
+                    className={styles.input}
+                    type="text"
+                    placeholder="Example: School trip fee"
+                    value={requestTitle}
+                    onChange={(e) => setRequestTitle(e.target.value)}
+                    maxLength={120}
+                  />
+                </label>
+
+                <label className={styles.label}>
+                  Amount
+                  <input
+                    className={styles.input}
+                    type="number"
+                    inputMode="decimal"
+                    min="1"
+                    step="0.01"
+                    placeholder="Enter amount"
+                    value={requestAmount}
+                    onChange={(e) => setRequestAmount(e.target.value)}
+                  />
+                </label>
+              </div>
+
+              <div className={styles.transferRow}>
+                <label className={styles.label}>
+                  Category
+                  <select
+                    className={styles.select}
+                    value={requestCategory}
+                    onChange={(e) => setRequestCategory(e.target.value)}
+                  >
+                    <option value="food">Food</option>
+                    <option value="housing">Housing</option>
+                    <option value="transport">Transport</option>
+                    <option value="health">Health</option>
+                    <option value="school">School</option>
+                    <option value="activities">Activities</option>
+                    <option value="clothes">Clothes</option>
+                    <option value="bills">Bills</option>
+                    <option value="other">Other</option>
+                  </select>
+                </label>
+
+                <label className={styles.label}>
+                  Link to child
+                  <select
+                    className={styles.select}
+                    value={requestChildId}
+                    onChange={(e) => setRequestChildId(e.target.value)}
+                  >
+                    <option value="">No child linked</option>
+                    {children.map((child) => (
+                      <option key={String(child.id)} value={String(child.id)}>
+                        {child.fullName}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
+              <label className={styles.label}>
+                Note / reason
+                <input
+                  className={styles.input}
+                  type="text"
+                  placeholder="Explain why you need this request"
+                  value={requestNotes}
+                  onChange={(e) => setRequestNotes(e.target.value)}
+                  maxLength={300}
+                />
+              </label>
+
+              <div className={styles.modalActions}>
+                <button type="button" className={styles.secondaryBtn} onClick={closeRequestModal}>
+                  Cancel
+                </button>
+
+                <button
+                  type="submit"
+                  className={styles.primaryBtn}
+                  disabled={actionLoading !== ''}
+                >
+                  {actionLoading === 'request-create' ? 'Creating…' : 'Submit request'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
-
-        {bankTransactions.length === 0 ? (
-          <div className={styles.emptyBox}>
-            No synced bank activity yet.
-          </div>
-        ) : (
-          <div className={styles.list}>
-            {bankTransactions.map((item) => {
-              const isIn = item.direction === 'in'
-
-              return (
-                <div key={String(item.id)} className={styles.listRow}>
-                  <div>
-                    <div className={styles.rowTitle}>{item.description || 'Bank transaction'}</div>
-                    <div className={styles.rowMeta}>
-                      {item.direction === 'in' ? 'Incoming' : 'Outgoing'} •{' '}
-                      {fmtDateTime(item.bookingDate)}
-                    </div>
-                  </div>
-
-                  <div className={isIn ? styles.amountPositive : styles.amountNegative}>
-                    {isIn ? '+' : '-'} {fmtCurrency(item.amount, item.currency || 'NOK')}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        )}
-      </section>
+      ) : null}
 
       {showTransferModal ? (
         <div className={styles.modalBackdrop} onMouseDown={closeTransferModal}>
@@ -1598,11 +2143,7 @@ export default function EconomyPage() {
                 </div>
 
                 <div className={styles.modalActions}>
-                  <button
-                    type="button"
-                    className={styles.secondaryBtn}
-                    onClick={closeTransferModal}
-                  >
+                  <button type="button" className={styles.secondaryBtn} onClick={closeTransferModal}>
                     Cancel
                   </button>
 
@@ -1657,7 +2198,10 @@ export default function EconomyPage() {
                     <select
                       className={styles.select}
                       value={payBankScope}
-                      onChange={(e) => setPayBankScope(e.target.value as 'family' | 'personal')}
+                      onChange={(e) => {
+                        setPayBankScope(e.target.value as 'family' | 'personal')
+                        setPayError('')
+                      }}
                     >
                       {availablePayBanks.map((bank) => (
                         <option key={bank.scope} value={bank.scope}>
@@ -1667,6 +2211,25 @@ export default function EconomyPage() {
                     </select>
                   </label>
                 )}
+
+                {selectedPayBank ? (
+                  <div className={styles.muted}>
+                    Available balance: {fmtCurrency(
+                      selectedPayBank.balance,
+                      selectedPayBank.currency,
+                    )}
+                  </div>
+                ) : null}
+
+                {selectedPayBank &&
+                payTarget &&
+                selectedPayBank.balance < Number(payTarget.amount || 0) ? (
+                  <div className={styles.error}>
+                    This bank account does not have enough balance to pay this item.
+                  </div>
+                ) : null}
+
+                {payError ? <div className={styles.error}>{payError}</div> : null}
 
                 <div className={styles.modalActions}>
                   <button
@@ -1683,7 +2246,10 @@ export default function EconomyPage() {
                     onClick={payPaymentItem}
                     disabled={
                       availablePayBanks.length === 0 ||
-                      actionLoading === `payment-pay-${payTarget.id}`
+                      actionLoading === `payment-pay-${payTarget.id}` ||
+                      (selectedPayBank
+                        ? selectedPayBank.balance < Number(payTarget.amount || 0)
+                        : true)
                     }
                   >
                     {actionLoading === `payment-pay-${payTarget.id}` ? 'Paying…' : 'Pay now'}
@@ -1691,6 +2257,85 @@ export default function EconomyPage() {
                 </div>
               </>
             )}
+          </div>
+        </div>
+      ) : null}
+
+      {approveTarget ? (
+        <div className={styles.modalBackdrop} onMouseDown={closeApproveFlow}>
+          <div className={styles.modalCard} onMouseDown={(e) => e.stopPropagation()}>
+            <div className={styles.modalTitle}>Approve request</div>
+
+            <p className={styles.modalText}>
+              You are about to approve <strong>{approveTarget.title}</strong> for{' '}
+              <strong>
+                {fmtCurrency(
+                  approveTarget.amount,
+                  familyBank?.currency || personalBank?.currency || 'NOK',
+                )}
+              </strong>
+              .
+            </p>
+
+            {availablePayBanks.length === 0 ? (
+              <div className={styles.emptyBox}>No connected bank available for approval.</div>
+            ) : (
+              <label className={styles.label}>
+                Choose bank
+                <select
+                  className={styles.select}
+                  value={approveBankScope}
+                  onChange={(e) => {
+                    setApproveBankScope(e.target.value as 'family' | 'personal')
+                    setApproveError('')
+                  }}
+                >
+                  {availablePayBanks.map((bank) => (
+                    <option key={bank.scope} value={bank.scope}>
+                      {bank.label} • {fmtCurrency(bank.balance, bank.currency)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+
+            {selectedApproveBank ? (
+              <div className={styles.muted}>
+                Available balance: {fmtCurrency(selectedApproveBank.balance, selectedApproveBank.currency)}
+              </div>
+            ) : null}
+
+            {selectedApproveBank &&
+            selectedApproveBank.balance < Number(approveTarget.amount || 0) ? (
+              <div className={styles.error}>
+                This bank account does not have enough balance for this request.
+              </div>
+            ) : null}
+
+            {approveError ? <div className={styles.error}>{approveError}</div> : null}
+
+            <div className={styles.modalActions}>
+              <button type="button" className={styles.secondaryBtn} onClick={closeApproveFlow}>
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                className={styles.primaryBtn}
+                onClick={approveRequest}
+                disabled={
+                  availablePayBanks.length === 0 ||
+                  actionLoading === `request-approve-${approveTarget.id}` ||
+                  (selectedApproveBank
+                    ? selectedApproveBank.balance < Number(approveTarget.amount || 0)
+                    : true)
+                }
+              >
+                {actionLoading === `request-approve-${approveTarget.id}`
+                  ? 'Approving…'
+                  : 'Approve request'}
+              </button>
+            </div>
           </div>
         </div>
       ) : null}

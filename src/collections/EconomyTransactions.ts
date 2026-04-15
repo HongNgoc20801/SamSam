@@ -1,3 +1,4 @@
+
 import type { CollectionConfig, Where } from 'payload'
 import { logAudit } from '@/app/lib/logAudit'
 
@@ -811,5 +812,45 @@ export const EconomyTransactions: CollectionConfig = {
       required: true,
       index: true,
     },
+
+    {
+      name: 'sourceType',
+      type: 'select',
+      required: false,
+      options: [
+        { label: 'Payment', value: 'payment' },
+        { label: 'Request', value: 'request' },
+      ],
+      index: true,
+    },
+    {
+      name: 'requestRef',
+      type: 'relationship',
+      relationTo: 'economy-requests',
+      required: false,
+      index: true,
+    },
+    {
+      name: 'requestCreatedByName',
+      type: 'text',
+      required: false,
+    },
+    {
+      name: 'approvedByName',
+      type: 'text',
+      required: false,
+    },
+    {
+      name: 'paidFromScope',
+      type: 'select',
+      required: false,
+      options: [
+        { label: 'Family', value: 'family' },
+        { label: 'Personal', value: 'personal' },
+      ],
+    },
   ],
 }
+
+
+

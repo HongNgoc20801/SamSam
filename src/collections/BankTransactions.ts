@@ -1,3 +1,4 @@
+
 import type { CollectionConfig, Where } from 'payload'
 
 function getCollectionSlug(req: any) {

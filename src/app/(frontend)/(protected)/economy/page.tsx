@@ -84,7 +84,6 @@ type EconomyTransactionDoc = {
   requestCreatedByName?: string
   approvedByName?: string
   paidFromScope?: 'family' | 'personal'
-  
 }
 
 type BankConnectionStatus = 'not_connected' | 'pending' | 'connected' | 'expired' | 'failed'
@@ -282,6 +281,7 @@ export default function EconomyPage() {
   const [transferMonthFilter, setTransferMonthFilter] = useState('all')
   const [transferYearFilter, setTransferYearFilter] = useState('all')
 
+  const [showRequestPanel, setShowRequestPanel] = useState(false)
   const [showRequestModal, setShowRequestModal] = useState(false)
   const [requestTitle, setRequestTitle] = useState('')
   const [requestAmount, setRequestAmount] = useState('')
@@ -382,17 +382,6 @@ export default function EconomyPage() {
       })
   }, [requests])
 
-  const requestHistory = useMemo(() => {
-    return [...requests]
-      .filter((item) => item.status === 'approved' || item.status === 'rejected')
-      .sort((a, b) => {
-        const da = new Date(a.reviewedAt || a.createdAt || 0).getTime()
-        const db = new Date(b.reviewedAt || b.createdAt || 0).getTime()
-        return db - da
-      })
-      .slice(0, 5)
-  }, [requests])
-
   const availablePayBanks = useMemo(() => {
     const items: Array<{
       scope: 'family' | 'personal'
@@ -484,6 +473,12 @@ export default function EconomyPage() {
     setShowAllTransfers(false)
   }, [transferMonthFilter, transferYearFilter])
 
+  useEffect(() => {
+    if (showRequestPanel && pendingRequests.length === 0) {
+      setShowRequestPanel(false)
+    }
+  }, [showRequestPanel, pendingRequests.length])
+
   function getRelationId(value: any) {
     if (value == null) return ''
     if (typeof value === 'string' || typeof value === 'number') return String(value)
@@ -517,6 +512,24 @@ export default function EconomyPage() {
     setShowTransferModal(false)
     setAmount('')
     setNote('')
+  }
+
+  function openRequestFlow() {
+    setError('')
+    setSuccess('')
+
+    if (pendingRequests.length > 0) {
+      setShowRequestPanel(true)
+      setShowRequestModal(false)
+      return
+    }
+
+    setShowRequestPanel(false)
+    setShowRequestModal(true)
+  }
+
+  function closeRequestPanel() {
+    setShowRequestPanel(false)
   }
 
   function closeRequestModal() {
@@ -1003,11 +1016,6 @@ export default function EconomyPage() {
       const selectedBank = availablePayBanks.find((b) => b.scope === approveBankScope)
       const amountToApprove = Number(approveTarget.amount || 0)
 
-      console.log('approveTarget:', approveTarget)
-      console.log('approveBankScope:', approveBankScope)
-      console.log('availablePayBanks:', availablePayBanks)
-      console.log('selectedBank:', selectedBank)
-
       if (!selectedBank) {
         throw new Error('Selected bank is not available.')
       }
@@ -1038,9 +1046,6 @@ export default function EconomyPage() {
       } catch {
         json = null
       }
-
-      console.log('approve response status:', res.status)
-      console.log('approve response body:', json || raw)
 
       if (!res.ok) {
         throw new Error(json?.message || raw || 'Could not approve request.')
@@ -1174,6 +1179,17 @@ export default function EconomyPage() {
             Connect your personal bank, connect the family bank, transfer money into the shared
             family fund, and manage payments that also appear in the calendar.
           </p>
+        </div>
+
+        <div className={styles.headerActions}>
+          <button
+            type="button"
+            className={styles.primaryBtn}
+            onClick={openRequestFlow}
+            disabled={actionLoading !== ''}
+          >
+            Request
+          </button>
         </div>
       </div>
 
@@ -1595,123 +1611,6 @@ export default function EconomyPage() {
       <section className={styles.card}>
         <div className={styles.cardHeader}>
           <div>
-            <div className={styles.cardTitle}>Requests</div>
-            <div className={styles.cardSub}>
-              Create a money request for your family and review pending requests.
-            </div>
-          </div>
-
-          <button
-            type="button"
-            className={styles.primaryBtn}
-            onClick={() => setShowRequestModal(true)}
-            disabled={actionLoading !== ''}
-          >
-            New request
-          </button>
-        </div>
-
-        <div className={styles.list}>
-          {pendingRequests.length === 0 ? (
-            <div className={styles.emptyBox}>No pending requests.</div>
-          ) : (
-            pendingRequests.map((item) => {
-              const childId = getRelationId(item.child)
-              const childName = childId ? childNameById.get(childId) : ''
-              const isOwn = String(getRelationId(item.createdBy)) === String(me?.id ?? '')
-
-              return (
-                <div key={String(item.id)} className={styles.paymentRow}>
-                  <div>
-                    <div className={styles.rowTitle}>{item.title}</div>
-                    <div className={styles.rowMeta}>
-                      Requested by: {item.createdByName || 'Unknown'}
-                      {item.category ? ` • ${item.category}` : ''}
-                      {childName ? ` • Child: ${childName}` : ''}
-                      {item.createdAt ? ` • ${fmtDateTime(item.createdAt)}` : ''}
-                      {item.notes ? ` • ${item.notes}` : ''}
-                    </div>
-                  </div>
-
-                  <div className={styles.paymentActions}>
-                    <div className={styles.amountNegative}>{fmtCurrency(item.amount)}</div>
-
-                    {!isOwn ? (
-                      <>
-                        <button
-                          type="button"
-                          className={styles.secondaryBtn}
-                          onClick={() => openApproveFlow(item)}
-                          disabled={actionLoading !== ''}
-                        >
-                          {actionLoading === `request-approve-${item.id}`
-                            ? 'Approving…'
-                            : 'Approve'}
-                        </button>
-
-                        <button
-                          type="button"
-                          className={styles.dangerBtn}
-                          onClick={() => rejectRequest(item.id)}
-                          disabled={actionLoading !== ''}
-                        >
-                          {actionLoading === `request-reject-${item.id}`
-                            ? 'Rejecting…'
-                            : 'Reject'}
-                        </button>
-                      </>
-                    ) : (
-                      <div className={styles.muted}>Waiting for review</div>
-                    )}
-                  </div>
-                </div>
-              )
-            })
-          )}
-        </div>
-
-        <div className={styles.list}>
-          <div className={styles.rowTitle}>Recent request decisions</div>
-
-          {requestHistory.length === 0 ? (
-            <div className={styles.emptyBox}>No reviewed requests yet.</div>
-          ) : (
-            requestHistory.map((item) => {
-              const childId = getRelationId(item.child)
-              const childName = childId ? childNameById.get(childId) : ''
-
-              return (
-                <div key={String(item.id)} className={styles.listRow}>
-                  <div>
-                    <div className={styles.rowTitle}>
-                      {item.title} {item.status === 'approved' ? '• Approved' : '• Rejected'}
-                    </div>
-                    <div className={styles.rowMeta}>
-                      Requested by: {item.createdByName || 'Unknown'}
-                      {item.category ? ` • ${item.category}` : ''}
-                      {childName ? ` • Child: ${childName}` : ''}
-                      {item.reviewedAt ? ` • ${fmtDateTime(item.reviewedAt)}` : ''}
-                      {item.decisionNote ? ` • ${item.decisionNote}` : ''}
-                    </div>
-                  </div>
-
-                  <div
-                    className={
-                      item.status === 'approved' ? styles.amountPositive : styles.amountNegative
-                    }
-                  >
-                    {fmtCurrency(item.amount)}
-                  </div>
-                </div>
-              )
-            })
-          )}
-        </div>
-      </section>
-
-      <section className={styles.card}>
-        <div className={styles.cardHeader}>
-          <div>
             <div className={styles.cardTitle}>Recent paid</div>
             <div className={styles.cardSub}>Recently completed payments.</div>
           </div>
@@ -1778,9 +1677,15 @@ export default function EconomyPage() {
                           return childName ? ` • Child: ${childName}` : ''
                         })()}
                         {item.sourceType === 'request' ? ' • From request' : ''}
-                        {item.requestCreatedByName ? ` • Requested by: ${item.requestCreatedByName}` : ''}
+                        {item.requestCreatedByName
+                          ? ` • Requested by: ${item.requestCreatedByName}`
+                          : ''}
                         {item.approvedByName ? ` • Approved by: ${item.approvedByName}` : ''}
-                        {item.paidFromScope ? ` • Paid from: ${item.paidFromScope === 'family' ? 'Family bank' : 'Personal bank'}` : ''}
+                        {item.paidFromScope
+                          ? ` • Paid from: ${
+                              item.paidFromScope === 'family' ? 'Family bank' : 'Personal bank'
+                            }`
+                          : ''}
                         {item.description ? ` • ${item.description}` : ''}
                       </div>
                     </div>
@@ -1936,6 +1841,97 @@ export default function EconomyPage() {
           </>
         )}
       </section>
+
+      {showRequestPanel ? (
+        <div className={styles.modalBackdrop} onMouseDown={closeRequestPanel}>
+          <div className={styles.modalCard} onMouseDown={(e) => e.stopPropagation()}>
+            <div className={styles.modalTitle}>Pending requests</div>
+            <p className={styles.modalText}>
+              These requests are still waiting for review.
+            </p>
+
+            <div className={styles.list}>
+              {pendingRequests.map((item) => {
+                const childId = getRelationId(item.child)
+                const childName = childId ? childNameById.get(childId) : ''
+                const isOwn = String(getRelationId(item.createdBy)) === String(me?.id ?? '')
+
+                return (
+                  <div key={String(item.id)} className={styles.paymentRow}>
+                    <div>
+                      <div className={styles.rowTitle}>{item.title}</div>
+                      <div className={styles.rowMeta}>
+                        Requested by: {item.createdByName || 'Unknown'}
+                        {item.category ? ` • ${item.category}` : ''}
+                        {childName ? ` • Child: ${childName}` : ''}
+                        {item.createdAt ? ` • ${fmtDateTime(item.createdAt)}` : ''}
+                        {item.notes ? ` • ${item.notes}` : ''}
+                      </div>
+                    </div>
+
+                    <div className={styles.paymentActions}>
+                      <div className={styles.amountNegative}>{fmtCurrency(item.amount)}</div>
+
+                      {!isOwn ? (
+                        <>
+                          <button
+                            type="button"
+                            className={styles.secondaryBtn}
+                            onClick={() => {
+                              setShowRequestPanel(false)
+                              openApproveFlow(item)
+                            }}
+                            disabled={actionLoading !== ''}
+                          >
+                            {actionLoading === `request-approve-${item.id}`
+                              ? 'Approving…'
+                              : 'Approve'}
+                          </button>
+
+                          <button
+                            type="button"
+                            className={styles.dangerBtn}
+                            onClick={() => rejectRequest(item.id)}
+                            disabled={actionLoading !== ''}
+                          >
+                            {actionLoading === `request-reject-${item.id}`
+                              ? 'Rejecting…'
+                              : 'Reject'}
+                          </button>
+                        </>
+                      ) : (
+                        <div className={styles.muted}>Waiting for review</div>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
+            <div className={styles.modalActions}>
+              <button
+                type="button"
+                className={styles.secondaryBtn}
+                onClick={closeRequestPanel}
+              >
+                Close
+              </button>
+
+              <button
+                type="button"
+                className={styles.primaryBtn}
+                onClick={() => {
+                  setShowRequestPanel(false)
+                  setShowRequestModal(true)
+                }}
+                disabled={actionLoading !== ''}
+              >
+                New request
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {showRequestModal ? (
         <div className={styles.modalBackdrop} onMouseDown={closeRequestModal}>
@@ -2301,7 +2297,10 @@ export default function EconomyPage() {
 
             {selectedApproveBank ? (
               <div className={styles.muted}>
-                Available balance: {fmtCurrency(selectedApproveBank.balance, selectedApproveBank.currency)}
+                Available balance: {fmtCurrency(
+                  selectedApproveBank.balance,
+                  selectedApproveBank.currency,
+                )}
               </div>
             ) : null}
 

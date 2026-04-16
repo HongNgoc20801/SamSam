@@ -280,9 +280,11 @@ export default function EconomyPage() {
   const [paidYearFilter, setPaidYearFilter] = useState('all')
   const [transferMonthFilter, setTransferMonthFilter] = useState('all')
   const [transferYearFilter, setTransferYearFilter] = useState('all')
+  const [showBankPanel, setShowBankPanel] = useState(false)
 
   const [showRequestPanel, setShowRequestPanel] = useState(false)
   const [showRequestModal, setShowRequestModal] = useState(false)
+  
   const [requestTitle, setRequestTitle] = useState('')
   const [requestAmount, setRequestAmount] = useState('')
   const [requestCategory, setRequestCategory] = useState('other')
@@ -381,6 +383,8 @@ export default function EconomyPage() {
         return db - da
       })
   }, [requests])
+  const pendingRequestCount = pendingRequests.length
+
 
   const availablePayBanks = useMemo(() => {
     const items: Array<{
@@ -539,6 +543,16 @@ export default function EconomyPage() {
     setRequestCategory('other')
     setRequestChildId('')
     setRequestNotes('')
+  }
+
+  function openBankPanel() {
+    setError('')
+    setSuccess('')
+    setShowBankPanel(true)
+  }
+
+  function closeBankPanel() {
+    setShowBankPanel(false)
   }
 
   async function loadAll() {
@@ -1182,15 +1196,38 @@ export default function EconomyPage() {
         </div>
 
         <div className={styles.headerActions}>
-          <button
-            type="button"
-            className={styles.primaryBtn}
-            onClick={openRequestFlow}
-            disabled={actionLoading !== ''}
+        <button
+          type="button"
+          className={styles.iconBankBtn}
+          onClick={openBankPanel}
+          disabled={actionLoading !== ''}
+          aria-label="Open bank panel"
+          title="Open bank panel"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            className={styles.iconBankSvg}
           >
-            Request
-          </button>
-        </div>
+            <rect x="2" y="6" width="20" height="12" rx="2" />
+            <path d="M2 10h20" />
+            <path d="M16 15h2" />
+            <path d="M12 15h2" />
+          </svg>
+        </button>
+
+        <button
+          type="button"
+          className={`${styles.primaryBtn} ${styles.headerRequestBtn}`}
+          onClick={openRequestFlow}
+          disabled={actionLoading !== ''}
+        >
+          Request
+          {pendingRequestCount > 0 ? (
+            <span className={styles.requestCountBadge}>{pendingRequestCount}</span>
+          ) : null}
+        </button>
+      </div>
       </div>
 
       {error ? <div className={styles.error}>{error}</div> : null}
@@ -1224,232 +1261,6 @@ export default function EconomyPage() {
           <div className={styles.summaryLabel}>Upcoming payments</div>
           <div className={styles.summaryValue}>{pendingPayments.length}</div>
         </div>
-      </div>
-
-      <div className={styles.bankGrid}>
-        <section className={styles.card}>
-          <div className={styles.cardHeader}>
-            <div>
-              <div className={styles.cardTitle}>Family bank</div>
-              <div className={styles.cardSub}>Shared fund for the whole family.</div>
-            </div>
-
-            <span
-              className={`${styles.statusBadge} ${
-                familyStatus === 'connected'
-                  ? styles.statusConnected
-                  : familyStatus === 'pending'
-                    ? styles.statusPending
-                    : styles.statusMuted
-              }`}
-            >
-              {getBankStatusLabel(familyStatus)}
-            </span>
-          </div>
-
-          {familyBank ? (
-            <div className={styles.bankMeta}>
-              <div className={styles.bankName}>{familyBank.bankName || 'Family bank'}</div>
-              <div className={styles.bankInfo}>
-                {familyBank.accountName || 'Shared account'}
-                {familyBank.maskedAccount ? ` • ${familyBank.maskedAccount}` : ''}
-              </div>
-              <div className={styles.balance}>
-                {fmtCurrency(familyBank.currentBalance, familyBank.currency || 'NOK')}
-              </div>
-              <div className={styles.muted}>
-                Last synced: {fmtDateTime(familyBank.lastSyncedAt)}
-              </div>
-            </div>
-          ) : (
-            <div className={styles.emptyBox}>No family bank connected yet.</div>
-          )}
-
-          {needsAccountSelection(familyBank) && familyChoices.length > 0 ? (
-            <div className={styles.selectionWrap}>
-              <div className={styles.selectionTitle}>Choose the bank account for Family bank</div>
-              <div className={styles.selectionList}>
-                {familyChoices.map((item) => (
-                  <div key={item.externalAccountId} className={styles.selectionItem}>
-                    <div>
-                      <div className={styles.selectionName}>{item.accountName}</div>
-                      <div className={styles.selectionMeta}>
-                        {item.bankName} • {item.maskedAccount} • {item.currency}
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      className={styles.primaryBtn}
-                      onClick={() => selectBankAccount('family', item.externalAccountId)}
-                      disabled={actionLoading !== ''}
-                    >
-                      {actionLoading === `select-family-${item.externalAccountId}`
-                        ? 'Saving…'
-                        : 'Use this account'}
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <div className={styles.actions}>
-              {familyStatus === 'not_connected' ||
-              familyStatus === 'failed' ||
-              familyStatus === 'expired' ? (
-                <button
-                  type="button"
-                  className={styles.primaryBtn}
-                  onClick={() => startConnect('family')}
-                  disabled={actionLoading !== ''}
-                >
-                  {actionLoading === 'connect-family' ? 'Connecting…' : 'Connect family bank'}
-                </button>
-              ) : familyStatus === 'pending' ? (
-                <button
-                  type="button"
-                  className={styles.primaryBtn}
-                  onClick={() => startConnect('family')}
-                  disabled={actionLoading !== ''}
-                >
-                  {actionLoading === 'connect-family' ? 'Opening…' : 'Continue connect'}
-                </button>
-              ) : (
-                <>
-                  <button
-                    type="button"
-                    className={styles.secondaryBtn}
-                    onClick={() => openTransferForm('family')}
-                    disabled={actionLoading !== ''}
-                  >
-                    Transfer
-                  </button>
-
-                  <button
-                    type="button"
-                    className={styles.dangerBtn}
-                    onClick={() => disconnectBank('family')}
-                    disabled={actionLoading !== ''}
-                  >
-                    {actionLoading === 'disconnect-family' ? 'Disconnecting…' : 'Disconnect'}
-                  </button>
-                </>
-              )}
-            </div>
-          )}
-        </section>
-
-        <section className={styles.card}>
-          <div className={styles.cardHeader}>
-            <div>
-              <div className={styles.cardTitle}>My personal bank</div>
-              <div className={styles.cardSub}>Private bank owned by {fullName}.</div>
-            </div>
-
-            <span
-              className={`${styles.statusBadge} ${
-                personalStatus === 'connected'
-                  ? styles.statusConnected
-                  : personalStatus === 'pending'
-                    ? styles.statusPending
-                    : styles.statusMuted
-              }`}
-            >
-              {getBankStatusLabel(personalStatus)}
-            </span>
-          </div>
-
-          {personalBank ? (
-            <div className={styles.bankMeta}>
-              <div className={styles.bankName}>{personalBank.bankName || `${fullName} bank`}</div>
-              <div className={styles.bankInfo}>
-                {personalBank.accountName || 'Personal account'}
-                {personalBank.maskedAccount ? ` • ${personalBank.maskedAccount}` : ''}
-              </div>
-              <div className={styles.balance}>
-                {fmtCurrency(personalBank.currentBalance, personalBank.currency || 'NOK')}
-              </div>
-              <div className={styles.muted}>
-                Last synced: {fmtDateTime(personalBank.lastSyncedAt)}
-              </div>
-            </div>
-          ) : (
-            <div className={styles.emptyBox}>No personal bank connected yet.</div>
-          )}
-
-          {needsAccountSelection(personalBank) && personalChoices.length > 0 ? (
-            <div className={styles.selectionWrap}>
-              <div className={styles.selectionTitle}>Choose the bank account for Personal bank</div>
-              <div className={styles.selectionList}>
-                {personalChoices.map((item) => (
-                  <div key={item.externalAccountId} className={styles.selectionItem}>
-                    <div>
-                      <div className={styles.selectionName}>{item.accountName}</div>
-                      <div className={styles.selectionMeta}>
-                        {item.bankName} • {item.maskedAccount} • {item.currency}
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      className={styles.primaryBtn}
-                      onClick={() => selectBankAccount('personal', item.externalAccountId)}
-                      disabled={actionLoading !== ''}
-                    >
-                      {actionLoading === `select-personal-${item.externalAccountId}`
-                        ? 'Saving…'
-                        : 'Use this account'}
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <div className={styles.actions}>
-              {personalStatus === 'not_connected' ||
-              personalStatus === 'failed' ||
-              personalStatus === 'expired' ? (
-                <button
-                  type="button"
-                  className={styles.primaryBtn}
-                  onClick={() => startConnect('personal')}
-                  disabled={actionLoading !== ''}
-                >
-                  {actionLoading === 'connect-personal' ? 'Connecting…' : 'Connect my bank'}
-                </button>
-              ) : personalStatus === 'pending' ? (
-                <button
-                  type="button"
-                  className={styles.primaryBtn}
-                  onClick={() => startConnect('personal')}
-                  disabled={actionLoading !== ''}
-                >
-                  {actionLoading === 'connect-personal' ? 'Opening…' : 'Continue connect'}
-                </button>
-              ) : (
-                <>
-                  <button
-                    type="button"
-                    className={styles.secondaryBtn}
-                    onClick={() => openTransferForm('personal')}
-                    disabled={actionLoading !== ''}
-                  >
-                    Transfer
-                  </button>
-
-                  <button
-                    type="button"
-                    className={styles.dangerBtn}
-                    onClick={() => disconnectBank('personal')}
-                    disabled={actionLoading !== ''}
-                  >
-                    {actionLoading === 'disconnect-personal' ? 'Disconnecting…' : 'Disconnect'}
-                  </button>
-                </>
-              )}
-            </div>
-          )}
-        </section>
       </div>
 
       <section className={styles.card}>
@@ -1842,6 +1653,257 @@ export default function EconomyPage() {
         )}
       </section>
 
+      {showBankPanel ? (
+        <div className={styles.modalBackdrop} onMouseDown={closeBankPanel}>
+          <div
+            className={`${styles.modalCard} ${styles.bankModalCard}`}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <div className={styles.modalTitle}>Bank connections</div>
+            <p className={styles.modalText}>
+              Connect your family bank and your personal bank, or manage existing bank connections.
+            </p>
+
+            <div className={styles.bankGrid}>
+              <section className={styles.card}>
+                <div className={styles.cardHeader}>
+                  <div>
+                    <div className={styles.cardTitle}>Family bank</div>
+                    <div className={styles.cardSub}>Shared fund for the whole family.</div>
+                  </div>
+
+                  <span
+                    className={`${styles.statusBadge} ${
+                      familyStatus === 'connected'
+                        ? styles.statusConnected
+                        : familyStatus === 'pending'
+                          ? styles.statusPending
+                          : styles.statusMuted
+                    }`}
+                  >
+                    {getBankStatusLabel(familyStatus)}
+                  </span>
+                </div>
+
+                {familyBank ? (
+                  <div className={styles.bankMeta}>
+                    <div className={styles.bankName}>{familyBank.bankName || 'Family bank'}</div>
+                    <div className={styles.bankInfo}>
+                      {familyBank.accountName || 'Shared account'}
+                      {familyBank.maskedAccount ? ` • ${familyBank.maskedAccount}` : ''}
+                    </div>
+                    <div className={styles.balance}>
+                      {fmtCurrency(familyBank.currentBalance, familyBank.currency || 'NOK')}
+                    </div>
+                    <div className={styles.muted}>
+                      Last synced: {fmtDateTime(familyBank.lastSyncedAt)}
+                    </div>
+                  </div>
+                ) : (
+                  <div className={styles.emptyBox}>No family bank connected yet.</div>
+                )}
+
+                {needsAccountSelection(familyBank) && familyChoices.length > 0 ? (
+                  <div className={styles.selectionWrap}>
+                    <div className={styles.selectionTitle}>Choose the bank account for Family bank</div>
+                    <div className={styles.selectionList}>
+                      {familyChoices.map((item) => (
+                        <div key={item.externalAccountId} className={styles.selectionItem}>
+                          <div>
+                            <div className={styles.selectionName}>{item.accountName}</div>
+                            <div className={styles.selectionMeta}>
+                              {item.bankName} • {item.maskedAccount} • {item.currency}
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            className={styles.primaryBtn}
+                            onClick={() => selectBankAccount('family', item.externalAccountId)}
+                            disabled={actionLoading !== ''}
+                          >
+                            {actionLoading === `select-family-${item.externalAccountId}`
+                              ? 'Saving…'
+                              : 'Use this account'}
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className={styles.actions}>
+                    {familyStatus === 'not_connected' ||
+                    familyStatus === 'failed' ||
+                    familyStatus === 'expired' ? (
+                      <button
+                        type="button"
+                        className={styles.primaryBtn}
+                        onClick={() => startConnect('family')}
+                        disabled={actionLoading !== ''}
+                      >
+                        {actionLoading === 'connect-family' ? 'Connecting…' : 'Connect family bank'}
+                      </button>
+                    ) : familyStatus === 'pending' ? (
+                      <button
+                        type="button"
+                        className={styles.primaryBtn}
+                        onClick={() => startConnect('family')}
+                        disabled={actionLoading !== ''}
+                      >
+                        {actionLoading === 'connect-family' ? 'Opening…' : 'Continue connect'}
+                      </button>
+                    ) : (
+                      <div className={styles.actions}>
+                        <button
+                          type="button"
+                          className={styles.secondaryBtn}
+                          onClick={() => openTransferForm('family')}
+                          disabled={actionLoading !== ''}
+                        >
+                          Transfer
+                        </button>
+
+                        <button
+                          type="button"
+                          className={styles.dangerBtn}
+                          onClick={() => disconnectBank('family')}
+                          disabled={actionLoading !== ''}
+                        >
+                          {actionLoading === 'disconnect-family' ? 'Disconnecting…' : 'Disconnect'}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </section>
+
+              <section className={styles.card}>
+                <div className={styles.cardHeader}>
+                  <div>
+                    <div className={styles.cardTitle}>My personal bank</div>
+                    <div className={styles.cardSub}>Private bank owned by {fullName}.</div>
+                  </div>
+
+                  <span
+                    className={`${styles.statusBadge} ${
+                      personalStatus === 'connected'
+                        ? styles.statusConnected
+                        : personalStatus === 'pending'
+                          ? styles.statusPending
+                          : styles.statusMuted
+                    }`}
+                  >
+                    {getBankStatusLabel(personalStatus)}
+                  </span>
+                </div>
+
+                {personalBank ? (
+                  <div className={styles.bankMeta}>
+                    <div className={styles.bankName}>{personalBank.bankName || `${fullName} bank`}</div>
+                    <div className={styles.bankInfo}>
+                      {personalBank.accountName || 'Personal account'}
+                      {personalBank.maskedAccount ? ` • ${personalBank.maskedAccount}` : ''}
+                    </div>
+                    <div className={styles.balance}>
+                      {fmtCurrency(personalBank.currentBalance, personalBank.currency || 'NOK')}
+                    </div>
+                    <div className={styles.muted}>
+                      Last synced: {fmtDateTime(personalBank.lastSyncedAt)}
+                    </div>
+                  </div>
+                ) : (
+                  <div className={styles.emptyBox}>No personal bank connected yet.</div>
+                )}
+
+                {needsAccountSelection(personalBank) && personalChoices.length > 0 ? (
+                  <div className={styles.selectionWrap}>
+                    <div className={styles.selectionTitle}>Choose the bank account for Personal bank</div>
+                    <div className={styles.selectionList}>
+                      {personalChoices.map((item) => (
+                        <div key={item.externalAccountId} className={styles.selectionItem}>
+                          <div>
+                            <div className={styles.selectionName}>{item.accountName}</div>
+                            <div className={styles.selectionMeta}>
+                              {item.bankName} • {item.maskedAccount} • {item.currency}
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            className={styles.primaryBtn}
+                            onClick={() => selectBankAccount('personal', item.externalAccountId)}
+                            disabled={actionLoading !== ''}
+                          >
+                            {actionLoading === `select-personal-${item.externalAccountId}`
+                              ? 'Saving…'
+                              : 'Use this account'}
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className={styles.actions}>
+                    {personalStatus === 'not_connected' ||
+                    personalStatus === 'failed' ||
+                    personalStatus === 'expired' ? (
+                      <button
+                        type="button"
+                        className={styles.primaryBtn}
+                        onClick={() => startConnect('personal')}
+                        disabled={actionLoading !== ''}
+                      >
+                        {actionLoading === 'connect-personal' ? 'Connecting…' : 'Connect my bank'}
+                      </button>
+                    ) : personalStatus === 'pending' ? (
+                      <button
+                        type="button"
+                        className={styles.primaryBtn}
+                        onClick={() => startConnect('personal')}
+                        disabled={actionLoading !== ''}
+                      >
+                        {actionLoading === 'connect-personal' ? 'Opening…' : 'Continue connect'}
+                      </button>
+                    ) : (
+                      <div className={styles.actions}>
+                        <button
+                          type="button"
+                          className={styles.secondaryBtn}
+                          onClick={() => openTransferForm('personal')}
+                          disabled={actionLoading !== ''}
+                        >
+                          Transfer
+                        </button>
+
+                        <button
+                          type="button"
+                          className={styles.dangerBtn}
+                          onClick={() => disconnectBank('personal')}
+                          disabled={actionLoading !== ''}
+                        >
+                          {actionLoading === 'disconnect-personal'
+                            ? 'Disconnecting…'
+                            : 'Disconnect'}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </section>
+            </div>
+
+            <div className={styles.modalActions}>
+              <button
+                type="button"
+                className={styles.secondaryBtn}
+                onClick={closeBankPanel}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
       {showRequestPanel ? (
         <div className={styles.modalBackdrop} onMouseDown={closeRequestPanel}>
           <div className={styles.modalCard} onMouseDown={(e) => e.stopPropagation()}>

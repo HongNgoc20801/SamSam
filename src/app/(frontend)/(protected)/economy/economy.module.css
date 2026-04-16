@@ -17,7 +17,7 @@
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: 16px;
+  gap: 14px;
   flex-wrap: wrap;
 }
 
@@ -25,6 +25,7 @@
   display: flex;
   align-items: center;
   justify-content: flex-end;
+  gap: 20px;
   
 }
 .title {
@@ -566,7 +567,76 @@
   background: #eef2ff;
   color: #3730a3;
 }
+.requestCountBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  margin-left: 8px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #0b1736;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+}
+.headerRequestBtn {
+  min-height: 54px;
+  padding: 0 26px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 1rem;
+  line-height: 1;
+}
+.iconBankBtn {
+  width: 54px;
+  height: 54px;
+  border-radius: 16px;
+  border: 1px solid #d9ddea;
+  background: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #111827;
+  flex-shrink: 0;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  transition:
+    transform 0.18s ease,
+    background 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease;
+  
+}
 
+.iconBankBtn:hover {
+  background: #f8fafc;
+  border-color: #c6cede;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
+  transform: translateY(-1px);
+}
+
+.iconBankBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.iconBankSvg {
+  width: 22px;
+  height: 22px;
+  stroke: currentColor;
+  fill: none;
+}
+
+.bankModalCard {
+  width: min(1100px, 96vw);
+}
 @media (max-width: 920px) {
   .summaryGrid {
     grid-template-columns: 1fr;

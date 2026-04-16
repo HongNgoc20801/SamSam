@@ -264,10 +264,21 @@ export const EconomyTransactions: CollectionConfig = {
       if (!isCustomer(req)) return false
 
       const familyId = getFamilyIdFromUser(req)
-      if (!familyId) return false
+      const userId = normalizeRelId((req.user as any)?.id)
+
+      if (!familyId || !userId) return false
 
       const where: Where = {
-        family: { equals: familyId },
+        and: [
+          { family: { equals: familyId } },
+          {
+            or: [
+              { status: { not_equals: 'paid' } },
+              { paidFromScope: { equals: 'family' } },
+              { paidBy: { equals: userId } },
+            ],
+          },
+        ],
       }
 
       return where
@@ -425,6 +436,8 @@ export const EconomyTransactions: CollectionConfig = {
             id: tx.id,
             data: {
               status: 'paid',
+              paidBy: userId,
+              paidFromScope: connectionScope,
             } as any,
             overrideAccess: true,
             req,

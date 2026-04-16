@@ -288,7 +288,7 @@ export const EconomyRequests: CollectionConfig = {
             data: {
               title: String(requestDoc.title || 'Approved request').trim(),
               description: 
-                String(requestDoc.notes || '').trim() || ' Paid from approved request.',
+                String(requestDoc.notes || '').trim() || 'Paid from approved request.',
               amount: amountToApprove,
               type: 'expense',
               status: 'paid',

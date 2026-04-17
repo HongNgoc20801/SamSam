@@ -139,6 +139,23 @@ const MONTH_LABELS = [
   'December',
 ]
 
+const CATEGORY_LABELS: Record<string, string> = {
+  food: 'Food',
+  housing: 'Housing',
+  transport: 'Transport',
+  health: 'Health',
+  school: 'School',
+  activities: 'Activities',
+  clothes: 'Clothes',
+  bills: 'Bills',
+  other: 'Other',
+}
+
+function getCategoryLabel(category?: string) {
+  const key = String(category || 'other').trim().toLowerCase()
+  return CATEGORY_LABELS[key] || key.charAt(0).toUpperCase() + key.slice(1)
+}
+
 function fmtCurrency(amount?: number, currency = 'NOK') {
   const value = Number(amount || 0)
 
@@ -302,6 +319,22 @@ export default function EconomyPage() {
   const familyStatus = getBankStatus(familyBank)
   const personalStatus = getBankStatus(personalBank)
 
+  const dashboardMonth = useMemo(() => {
+    return new Date().toLocaleDateString('en-US', { month: 'long' })
+  }, [])
+
+  const dashboardYear = useMemo(() => {
+    return String(new Date().getFullYear())
+  }, [])
+
+  const todayLabel = useMemo(() => {
+    return new Date().toLocaleDateString('nb-NO', {
+      day: 'numeric',
+      month: 'short',
+    })
+  }, [])
+
+
   const childNameById = useMemo(() => {
     const map = new Map<string, string>()
     children.forEach((child) => {
@@ -384,6 +417,80 @@ export default function EconomyPage() {
       })
   }, [requests])
   const pendingRequestCount = pendingRequests.length
+
+  
+  const dashboardCurrency = familyBank?.currency || personalBank?.currency || 'NOK'
+
+  const expenseTransactions = useMemo(() => {
+    return economyTransactions.filter((item) => item.type === 'expense')
+  }, [economyTransactions])
+
+  const totalPendingAmount = useMemo(() => {
+    return pendingPayments.reduce((sum, item) => sum + Number(item.amount || 0), 0)
+  }, [pendingPayments])
+
+  const totalPaidAmount = useMemo(() => {
+    return allPaidPayments.reduce((sum, item) => sum + Number(item.amount || 0), 0)
+  }, [allPaidPayments])
+
+  
+  const cashflowByCategory = useMemo(() => {
+    const map = new Map<
+      string,
+      {
+        key: string
+        label: string
+        pendingAmount: number
+        paidAmount: number
+        pendingCount: number
+        paidCount: number
+        totalCount: number
+      }
+    >()
+
+    expenseTransactions.forEach((item) => {
+      const key = String(item.category || 'other').trim().toLowerCase()
+
+      const existing = map.get(key) || {
+        key,
+        label: getCategoryLabel(key),
+        pendingAmount: 0,
+        paidAmount: 0,
+        pendingCount: 0,
+        paidCount: 0,
+        totalCount: 0,
+      }
+
+      const amountValue = Number(item.amount || 0)
+
+      if (item.status === 'paid') {
+        existing.paidAmount += amountValue
+        existing.paidCount += 1
+      } else {
+        existing.pendingAmount += amountValue
+        existing.pendingCount += 1
+      }
+
+      existing.totalCount += 1
+      map.set(key, existing)
+    })
+
+    return Array.from(map.values()).sort((a, b) => {
+      const totalA = a.pendingAmount + a.paidAmount
+      const totalB = b.pendingAmount + b.paidAmount
+      return totalB - totalA
+    })
+  }, [expenseTransactions])
+
+  const shouldScrollCashflowTable = cashflowByCategory.length >= 4
+  const shouldScrollCashflowBars = cashflowByCategory.length >= 4
+
+  const maxCashflowCategoryTotal = useMemo(() => {
+    return Math.max(
+      1,
+      ...cashflowByCategory.map((item) => item.pendingAmount + item.paidAmount),
+    )
+  }, [cashflowByCategory])
 
 
   const availablePayBanks = useMemo(() => {
@@ -1186,82 +1293,181 @@ export default function EconomyPage() {
 
   return (
     <div className={styles.wrapper}>
-      <div className={styles.header}>
-        <div>
-          <h1 className={styles.title}>Økonomi</h1>
-          <p className={styles.subtitle}>
-            Connect your personal bank, connect the family bank, transfer money into the shared
-            family fund, and manage payments that also appear in the calendar.
-          </p>
-        </div>
+      <section className={styles.heroBoard}>
+        <div className={styles.heroMain}>
+          <div className={styles.heroIntro}>
+            <div>
+              <div className={styles.heroKicker}>Budget planner dashboard</div>
+              <h1 className={styles.heroHeading}>Økonomi</h1>
+              <p className={styles.heroDescription}>
+                Manage payments, requests and transfers in one clear dashboard.
+              </p>
+            </div>
 
-        <div className={styles.headerActions}>
-        <button
-          type="button"
-          className={styles.iconBankBtn}
-          onClick={openBankPanel}
-          disabled={actionLoading !== ''}
-          aria-label="Open bank panel"
-          title="Open bank panel"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            className={styles.iconBankSvg}
-          >
-            <rect x="2" y="6" width="20" height="12" rx="2" />
-            <path d="M2 10h20" />
-            <path d="M16 15h2" />
-            <path d="M12 15h2" />
-          </svg>
-        </button>
-
-        <button
-          type="button"
-          className={`${styles.primaryBtn} ${styles.headerRequestBtn}`}
-          onClick={openRequestFlow}
-          disabled={actionLoading !== ''}
-        >
-          Request
-          {pendingRequestCount > 0 ? (
-            <span className={styles.requestCountBadge}>{pendingRequestCount}</span>
-          ) : null}
-        </button>
-      </div>
-      </div>
-
-      {error ? <div className={styles.error}>{error}</div> : null}
-      {success ? <div className={styles.success}>{success}</div> : null}
-
-      <div className={styles.summaryGrid}>
-        <div className={styles.summaryCard}>
-          <div className={styles.summaryLabel}>Family fund</div>
-          <div className={styles.summaryValue}>
-            {familyStatus === 'connected'
-              ? fmtCurrency(familyBank?.currentBalance, familyBank?.currency || 'NOK')
-              : 'Not connected'}
+            <div className={styles.heroDateCard}>
+              <div className={styles.heroDateMonth}>{dashboardMonth}</div>
+              <div className={styles.heroDateMeta}>
+                <span>{dashboardYear}</span>
+                <span>Today: {todayLabel}</span>
+              </div>
+            </div>
           </div>
         </div>
 
-        <div className={styles.summaryCard}>
-          <div className={styles.summaryLabel}>My available balance</div>
-          <div className={styles.summaryValue}>
-            {personalStatus === 'connected'
-              ? fmtCurrency(personalBank?.currentBalance, personalBank?.currency || 'NOK')
-              : 'Not connected'}
+        <aside className={styles.heroAside}>
+          <div className={styles.heroActionCard}>
+            <div className={styles.heroActionTitle}>Quick actions</div>
+            <p className={styles.heroActionText}>
+              Open your bank tools or create a request for family support.
+            </p>
+
+            <div className={styles.heroActionButtons}>
+              <button
+                type="button"
+                className={styles.iconBankBtnLarge}
+                onClick={openBankPanel}
+                disabled={actionLoading !== ''}
+                aria-label="Open bank panel"
+                title="Open bank panel"
+              >
+                <svg
+                  className={styles.bankIconSvg}
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                >
+                  <rect x="2" y="6" width="20" height="12" rx="2" />
+                  <path d="M2 10h20" />
+                  <path d="M16 15h2" />
+                  <path d="M12 15h2" />
+                </svg>
+              </button>
+
+              <button
+                type="button"
+                className={styles.heroRequestBtn}
+                onClick={openRequestFlow}
+                disabled={actionLoading !== ''}
+              >
+                <span>Request</span>
+                {pendingRequestCount > 0 ? (
+                  <span className={styles.heroRequestBadge}>{pendingRequestCount}</span>
+                ) : null}
+              </button>
+            </div>
           </div>
-        </div>
+        </aside>
+      </section>
 
-        <div className={styles.summaryCard}>
-          <div className={styles.summaryLabel}>Transfers recorded</div>
-          <div className={styles.summaryValue}>{transfers.length}</div>
-        </div>
+      <section className={styles.cashflowGrid}>
+        <section className={styles.cashflowCard}>
+          <div className={styles.cashflowHeader}>
+            <div>
+              <div className={styles.cashflowEyebrow}>Cash flow summary</div>
+              <div className={styles.cashflowTitle}>Things to pay by category</div>
+              <div className={styles.cashflowSub}>
+                This table is built directly from your payment items and grouped by category.
+              </div>
+            </div>
 
-        <div className={styles.summaryCard}>
-          <div className={styles.summaryLabel}>Upcoming payments</div>
-          <div className={styles.summaryValue}>{pendingPayments.length}</div>
-        </div>
-      </div>
+            <div className={styles.cashflowStats}>
+              <div className={styles.cashflowStat}>
+                <span>Upcoming</span>
+                <strong>{fmtCurrency(totalPendingAmount, dashboardCurrency)}</strong>
+              </div>
+              <div className={styles.cashflowStat}>
+                <span>Paid</span>
+                <strong>{fmtCurrency(totalPaidAmount, dashboardCurrency)}</strong>
+              </div>
+            </div>
+          </div>
+
+          {cashflowByCategory.length === 0 ? (
+            <div className={styles.emptyBox}>No payment categories yet.</div>
+          ) : (
+            <div
+              className={`${styles.tableWrap} ${
+                shouldScrollCashflowTable ? styles.cashflowScrollArea : ''
+              }`}
+            >
+              <table className={styles.cashflowTable}>
+                <thead>
+                  <tr>
+                    <th>Category</th>
+                    <th>Upcoming</th>
+                    <th>Paid</th>
+                    <th>Items</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {cashflowByCategory.map((item) => (
+                    <tr key={item.key}>
+                      <td>{item.label}</td>
+                      <td>{fmtCurrency(item.pendingAmount, dashboardCurrency)}</td>
+                      <td>{fmtCurrency(item.paidAmount, dashboardCurrency)}</td>
+                      <td>{item.totalCount}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+
+        <section className={styles.cashflowCard}>
+          <div className={styles.cashflowHeader}>
+            <div>
+              <div className={styles.cashflowEyebrow}>Visual breakdown</div>
+              <div className={styles.cashflowTitle}>Category usage</div>
+              <div className={styles.cashflowSub}>
+                Each bar shows total spending volume from Things to pay.
+              </div>
+            </div>
+          </div>
+
+          {cashflowByCategory.length === 0 ? (
+            <div className={styles.emptyBox}>No data to visualize yet.</div>
+          ) : (
+            <div
+              className={`${styles.categoryBars} ${
+                shouldScrollCashflowBars ? styles.cashflowScrollArea : ''
+              }`}
+            >
+              {cashflowByCategory.map((item) => {
+                const total = item.pendingAmount + item.paidAmount
+                const paidWidth = (item.paidAmount / maxCashflowCategoryTotal) * 100
+                const pendingWidth = (item.pendingAmount / maxCashflowCategoryTotal) * 100
+
+                return (
+                  <div key={item.key} className={styles.categoryBarRow}>
+                    <div className={styles.categoryBarTop}>
+                      <span>{item.label}</span>
+                      <strong>{fmtCurrency(total, dashboardCurrency)}</strong>
+                    </div>
+
+                    <div className={styles.categoryBarTrack}>
+                      <div
+                        className={styles.categoryBarPaid}
+                        style={{ width: `${paidWidth}%` }}
+                      />
+                      <div
+                        className={styles.categoryBarPending}
+                        style={{ width: `${pendingWidth}%` }}
+                      />
+                    </div>
+
+                    <div className={styles.categoryBarMeta}>
+                      <span>Paid: {fmtCurrency(item.paidAmount, dashboardCurrency)}</span>
+                      <span>Upcoming: {fmtCurrency(item.pendingAmount, dashboardCurrency)}</span>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </section>
+      </section>
 
       <section className={styles.card}>
         <div className={styles.cardHeader}>

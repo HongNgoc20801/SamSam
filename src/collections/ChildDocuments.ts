@@ -77,6 +77,28 @@ function pushChange(
   }
 }
 
+function getActorDisplayName(req: any) {
+  const u: any = req?.user
+  if (!u) return 'A parent'
+
+  const firstName = cleanText(u?.firstName ?? u?.fornavn ?? '', 80)
+  if (firstName) return firstName
+
+  const combined = `${cleanText(u?.firstName ?? u?.fornavn ?? '', 80)} ${cleanText(
+    u?.lastName ?? u?.etternavn ?? '',
+    80,
+  )}`.trim()
+  if (combined) return combined
+
+  const fullName = cleanText(u?.fullName ?? u?.name ?? u?.displayName ?? '', 120)
+  if (fullName) return fullName
+
+  const email = cleanText(u?.email ?? '', 120)
+  if (email) return email
+
+  return 'Family member'
+}
+
 async function getChildSnapshot(req: any, childValue: any) {
   const childId = normalizeRelId(childValue)
 
@@ -113,6 +135,26 @@ function getFileNameFromDocFile(fileValue: any) {
     return fileValue?.filename || fileValue?.name || undefined
   }
   return undefined
+}
+
+function getChildDocumentsLink(childId: string | number | null) {
+  if (!childId) return '/child-info'
+  return `/child-info/${childId}/documents`
+}
+
+function getDocumentCategoryLabel(category?: string) {
+  switch (String(category || 'other')) {
+    case 'agreement':
+      return 'agreement'
+    case 'school':
+      return 'school'
+    case 'health':
+      return 'health'
+    case 'id':
+      return 'ID'
+    default:
+      return 'document'
+  }
 }
 
 export const ChildDocuments: CollectionConfig = {
@@ -253,7 +295,9 @@ export const ChildDocuments: CollectionConfig = {
 
           const uploadedByName =
             cleanText(
-              user?.fullName ??
+              user?.firstName ??
+                user?.fornavn ??
+                user?.fullName ??
                 user?.name ??
                 user?.displayName ??
                 user?.email ??
@@ -316,7 +360,10 @@ export const ChildDocuments: CollectionConfig = {
 
         const familyId = getFamilyIdFromDoc(doc)
         const actorUserId = normalizeRelId(req?.user?.id)
+        const actorName = getActorDisplayName(req)
         const { childId, childName } = await getChildSnapshot(req, doc?.child)
+        const documentLink = getChildDocumentsLink(childId)
+        const categoryLabel = getDocumentCategoryLabel(doc?.category)
 
         if (operation === 'create') {
           await logAudit(req, {
@@ -330,8 +377,11 @@ export const ChildDocuments: CollectionConfig = {
             severity: 'important',
             relatedToRole: 'both',
             targetLabel: doc?.title,
-            summary: doc?.replaces ? 'Replaced document' : 'Uploaded document',
+            summary: doc?.replaces
+              ? `${actorName} replaced ${categoryLabel} document for ${childName || 'this child'}`
+              : `${actorName} uploaded ${categoryLabel} document for ${childName || 'this child'}`,
             meta: {
+              actorName,
               childId,
               childName,
               documentTitle: doc?.title,
@@ -339,6 +389,7 @@ export const ChildDocuments: CollectionConfig = {
               version: doc?.version ?? 1,
               fileName: getFileNameFromDocFile(doc?.file),
               replaces: normalizeRelId(doc?.replaces),
+              eventType: 'child-document',
             },
           })
 
@@ -348,14 +399,22 @@ export const ChildDocuments: CollectionConfig = {
             childId,
             type: 'documents',
             event: doc?.replaces ? 'replaced' : 'uploaded',
-            title: doc?.replaces ? 'Document replaced' : 'Document uploaded',
-            message: `${doc?.title || 'A document'} was uploaded.`,
-            link: `/child-documents`,
+            title: doc?.replaces
+              ? `Document replaced for ${childName || 'child'}`
+              : `Document uploaded for ${childName || 'child'}`,
+            message: doc?.replaces
+              ? `${actorName} replaced "${doc?.title || 'a document'}".`
+              : `${actorName} uploaded "${doc?.title || 'a document'}".`,
+            link: documentLink,
             meta: {
+              actorName,
+              childId,
               childName,
               documentTitle: doc?.title,
               documentCategory: doc?.category,
               version: doc?.version,
+              fileName: getFileNameFromDocFile(doc?.file),
+              eventType: 'child-document',
             },
           })
 
@@ -382,15 +441,17 @@ export const ChildDocuments: CollectionConfig = {
             severity: 'important',
             relatedToRole: 'both',
             targetLabel: doc?.title,
-            summary: 'Updated document',
+            summary: `${actorName} updated document for ${childName || 'this child'}`,
             changes,
             meta: {
+              actorName,
               childId,
               childName,
               documentTitle: doc?.title,
               documentCategory: doc?.category,
               version: doc?.version ?? 1,
               changedFields: changes.map((c) => c.field),
+              eventType: 'child-document',
             },
           })
 
@@ -400,14 +461,18 @@ export const ChildDocuments: CollectionConfig = {
             childId,
             type: 'documents',
             event: 'updated',
-            title: 'Document updated',
-            message: `${doc?.title || 'A document'} was updated.`,
-            link: `/child-documents`,
+            title: `Document updated for ${childName || 'child'}`,
+            message: `${actorName} updated "${doc?.title || 'a document'}".`,
+            link: documentLink,
             meta: {
+              actorName,
+              childId,
               childName,
               documentTitle: doc?.title,
               documentCategory: doc?.category,
               version: doc?.version,
+              changedFields: changes.map((c) => c.field),
+              eventType: 'child-document',
             },
           })
         }
@@ -419,8 +484,10 @@ export const ChildDocuments: CollectionConfig = {
         if (!req?.user || !doc) return
 
         const actorUserId = normalizeRelId(req?.user?.id)
+        const actorName = getActorDisplayName(req)
         const { childId, childName } = await getChildSnapshot(req, doc?.child)
         const familyId = getFamilyIdFromDoc(doc)
+        const documentLink = getChildDocumentsLink(childId)
 
         await logAudit(req, {
           familyId,
@@ -433,13 +500,15 @@ export const ChildDocuments: CollectionConfig = {
           severity: 'important',
           relatedToRole: 'both',
           targetLabel: doc?.title,
-          summary: 'Deleted document',
+          summary: `${actorName} deleted document for ${childName || 'this child'}`,
           meta: {
+            actorName,
             childId,
             childName,
             documentTitle: doc?.title,
             documentCategory: doc?.category,
             version: doc?.version ?? 1,
+            eventType: 'child-document',
           },
         })
 
@@ -449,14 +518,17 @@ export const ChildDocuments: CollectionConfig = {
           childId,
           type: 'documents',
           event: 'deleted',
-          title: 'Document deleted',
-          message: `${doc?.title || 'A document'} was deleted.`,
-          link: `/child-documents`,
+          title: `Document deleted for ${childName || 'child'}`,
+          message: `${actorName} deleted "${doc?.title || 'a document'}".`,
+          link: documentLink,
           meta: {
+            actorName,
+            childId,
             childName,
             documentTitle: doc?.title,
             documentCategory: doc?.category,
             version: doc?.version,
+            eventType: 'child-document',
           },
         })
       },

@@ -76,9 +76,28 @@ function pushChange(
   }
 }
 
-/**
- * Những field này mà thay đổi sau khi đã CONFIRMED thì nên reset lại về PENDING.
- */
+function getActorDisplayName(req: any) {
+  const u: any = req?.user
+  if (!u) return 'A parent'
+
+  const firstName = String(u.firstName || u.fornavn || '').trim()
+  if (firstName) return firstName
+
+  const combined =
+    `${String(u.firstName || u.fornavn || '').trim()} ${String(
+      u.lastName || u.etternavn || '',
+    ).trim()}`.trim()
+  if (combined) return combined
+
+  const fullName = String(u.fullName || u.name || '').trim()
+  if (fullName) return fullName
+
+  const email = String(u.email || '').trim()
+  if (email) return email
+
+  return 'A parent'
+}
+
 const IMPORTANT_FIELDS = [
   'fullName',
   'birthDate',
@@ -131,15 +150,9 @@ export const Children: CollectionConfig = {
 
         const next: any = { ...(data ?? {}) }
 
-        /**
-         * normalize basic
-         */
         if (next.fullName) next.fullName = String(next.fullName).trim()
         if (next.nationalId) next.nationalId = String(next.nationalId).replace(/\s+/g, '')
 
-        /**
-         * normalize emergencyContacts
-         */
         if (Array.isArray(next?.emergencyContacts)) {
           next.emergencyContacts = next.emergencyContacts
             .map((c: any) => {
@@ -160,9 +173,6 @@ export const Children: CollectionConfig = {
             .filter((c: any) => c.name && c.phones?.length)
         }
 
-        /**
-         * ensure one primary contact
-         */
         if (Array.isArray(next?.emergencyContacts) && next.emergencyContacts.length) {
           const hasPrimary = next.emergencyContacts.some((c: any) => c.isPrimary)
           if (!hasPrimary) next.emergencyContacts[0].isPrimary = true
@@ -178,9 +188,6 @@ export const Children: CollectionConfig = {
           })
         }
 
-        /**
-         * normalize medical
-         */
         if (next?.medical) {
           if (Array.isArray(next.medical.allergies)) {
             next.medical.allergies = next.medical.allergies
@@ -215,9 +222,6 @@ export const Children: CollectionConfig = {
           }
         }
 
-        /**
-         * normalize school
-         */
         if (next?.school) {
           if (next.school.schoolName) {
             next.school.schoolName = String(next.school.schoolName).trim()
@@ -230,9 +234,6 @@ export const Children: CollectionConfig = {
           }
         }
 
-        /**
-         * CREATE
-         */
         if (operation === 'create') {
           const familyId = getFamilyIdFromUser(req)
           const userId = (req.user as any)?.id
@@ -247,63 +248,58 @@ export const Children: CollectionConfig = {
             ...next,
             family: next.family ?? familyId,
             createdBy: next.createdBy ?? userId,
+            lastEditedBy: userId,
             status: next.status ?? 'pending',
             confirmedBy: null,
             confirmedAt: null,
           }
         }
 
-        /**
-         * UPDATE
-         */
         if (operation === 'update') {
           const userId = (req.user as any)?.id
 
           const wantsConfirm = next?.status === 'confirmed'
           const wasPending = originalDoc?.status === 'pending'
+          const wasConfirmed = originalDoc?.status === 'confirmed'
 
-          /**
-           * confirm flow
-           */
+          const merged = { ...(originalDoc ?? {}), ...(next ?? {}) }
+          const prevKey = stableJson(pick(originalDoc, IMPORTANT_FIELDS as any))
+          const nextKey = stableJson(pick(merged, IMPORTANT_FIELDS as any))
+          const importantFieldsChanged = prevKey !== nextKey
+
           if (wantsConfirm && wasPending) {
-            const createdById =
-              typeof originalDoc?.createdBy === 'string'
-                ? originalDoc.createdBy
-                : originalDoc?.createdBy?.id
+            const lastEditedById =
+              typeof originalDoc?.lastEditedBy === 'string'
+                ? originalDoc.lastEditedBy
+                : originalDoc?.lastEditedBy?.id
 
-            if (createdById && createdById === userId) {
+            if (lastEditedById && lastEditedById === userId) {
               throw new Error(
-                'You cannot confirm a child profile that you created. The other parent must confirm it.',
+                'You cannot confirm a child profile that you last edited. The other parent must confirm it.',
               )
             }
 
             next.status = 'confirmed'
             next.confirmedBy = userId
             next.confirmedAt = new Date().toISOString()
+
+            if ('lastEditedBy' in next) {
+              delete next.lastEditedBy
+            }
+
             return next
           }
 
-          /**
-           * reset confirmed -> pending if important data changed
-           */
-          const wasConfirmed = originalDoc?.status === 'confirmed'
-
-          if (wasConfirmed) {
-            const merged = { ...(originalDoc ?? {}), ...(next ?? {}) }
-
-            const prevKey = stableJson(pick(originalDoc, IMPORTANT_FIELDS as any))
-            const nextKey = stableJson(pick(merged, IMPORTANT_FIELDS as any))
-
-            if (prevKey !== nextKey) {
-              next.status = 'pending'
-              next.confirmedBy = null
-              next.confirmedAt = null
-            }
+          if (wasConfirmed && importantFieldsChanged) {
+            next.status = 'pending'
+            next.confirmedBy = null
+            next.confirmedAt = null
           }
 
-          /**
-           * prevent client from spoofing confirm fields
-           */
+          if (importantFieldsChanged) {
+            next.lastEditedBy = userId
+          }
+
           if ('confirmedBy' in next || 'confirmedAt' in next) {
             if (!(next.status === 'confirmed' && originalDoc?.status === 'pending')) {
               delete next.confirmedBy
@@ -325,21 +321,24 @@ export const Children: CollectionConfig = {
         const childId = doc?.id ?? null
         const familyId = getFamilyIdFromDoc(doc)
         const actorUserId = getRelId(req?.user?.id)
+        const actorName = getActorDisplayName(req)
 
-        /**
-         * CREATE
-         */
         if (operation === 'create') {
           await logAudit(req, {
             familyId,
             childId,
+            childName: doc?.fullName,
             action: 'child.create',
             entityType: 'child',
             entityId: String(doc?.id),
-            summary: 'Created child profile',
+            scope: 'child_profile',
+            severity: 'important',
+            summary: `${actorName} created child profile for ${doc?.fullName || 'this child'}`,
             meta: {
+              actorName,
               childName: doc?.fullName,
               status: doc?.status,
+              needsConfirmation: doc?.status === 'pending',
             },
           })
 
@@ -349,38 +348,39 @@ export const Children: CollectionConfig = {
             childId,
             type: 'status',
             event: 'created',
-            title: 'Child profile created',
-            message: `${doc?.fullName || 'A child profile'} was created.`,
+            title: `New child profile: ${doc?.fullName || 'Child profile'}`,
+            message: `${actorName} created this child profile. Waiting for second parent confirmation.`,
             link: `/child-info/${doc?.id}`,
             meta: {
+              actorName,
               childName: doc?.fullName,
               status: doc?.status,
+              eventType: 'child-profile',
+              needsConfirmation: doc?.status === 'pending',
             },
           })
 
           return
         }
 
-        /**
-         * UPDATE
-         */
         if (operation === 'update') {
           const prevStatus = previousDoc?.status
           const nextStatus = doc?.status
           const isConfirm = prevStatus === 'pending' && nextStatus === 'confirmed'
 
-          /**
-           * confirm action
-           */
           if (isConfirm) {
             await logAudit(req, {
               familyId,
               childId,
+              childName: doc?.fullName,
               action: 'child.confirm',
-              entityType: 'child',
+              entityType: 'confirmation',
               entityId: String(doc?.id),
-              summary: 'Confirmed child profile',
+              scope: 'confirmation',
+              severity: 'important',
+              summary: `${actorName} confirmed child profile for ${doc?.fullName || 'this child'}`,
               meta: {
+                actorName,
                 childName: doc?.fullName,
                 previousStatus: prevStatus,
                 status: nextStatus,
@@ -394,23 +394,22 @@ export const Children: CollectionConfig = {
               childId,
               type: 'status',
               event: 'confirmed',
-              title: 'Child profile confirmed',
-              message: `${doc?.fullName || 'Child profile'} was confirmed.`,
+              title: `${doc?.fullName || 'Child profile'} was confirmed`,
+              message: `${actorName} confirmed this child profile.`,
               link: `/child-info/${doc?.id}`,
               meta: {
+                actorName,
                 childName: doc?.fullName,
                 previousStatus: prevStatus,
                 status: nextStatus,
                 confirmedAt: doc?.confirmedAt ?? null,
+                eventType: 'child-profile',
               },
             })
 
             return
           }
 
-          /**
-           * real update action
-           */
           const changes: Array<{ field: string; from?: any; to?: any }> = []
 
           pushChange(changes, 'fullName', previousDoc?.fullName, doc?.fullName)
@@ -486,16 +485,23 @@ export const Children: CollectionConfig = {
           await logAudit(req, {
             familyId,
             childId,
+            childName: doc?.fullName,
             action: 'child.update',
             entityType: 'child',
             entityId: String(doc?.id),
-            summary: 'Updated child profile',
+            scope: 'child_profile',
+            severity: wasResetToPending ? 'important' : 'info',
+            summary: wasResetToPending
+              ? `${actorName} updated ${doc?.fullName || 'this child'} and profile needs confirmation again`
+              : `${actorName} updated child profile for ${doc?.fullName || 'this child'}`,
             changes,
             meta: {
+              actorName,
               childName: doc?.fullName,
               previousStatus: prevStatus,
               status: nextStatus,
               wasResetToPending,
+              needsConfirmation: nextStatus === 'pending',
             },
           })
 
@@ -505,14 +511,21 @@ export const Children: CollectionConfig = {
             childId,
             type: 'status',
             event: 'updated',
-            title: 'Child profile updated',
-            message: `${doc?.fullName || 'A child profile'} was updated.`,
+            title: wasResetToPending
+              ? `${doc?.fullName || 'Child profile'} needs confirmation`
+              : `Child profile updated: ${doc?.fullName || 'Child'}`,
+            message: wasResetToPending
+              ? `${actorName} updated this child profile. Waiting for second parent confirmation.`
+              : `${actorName} updated this child profile.`,
             link: `/child-info/${doc?.id}`,
             meta: {
+              actorName,
               childName: doc?.fullName,
               previousStatus: prevStatus,
               status: nextStatus,
               wasResetToPending,
+              eventType: 'child-profile',
+              needsConfirmation: nextStatus === 'pending',
             },
           })
         }
@@ -712,17 +725,21 @@ export const Children: CollectionConfig = {
         { label: 'Confirmed', value: 'confirmed' },
       ],
     },
-{
-  name: 'createdBy',
-  type: 'relationship',
-  relationTo: 'customers',
-},
-{
-  name: 'confirmedBy',
-  type: 'relationship',
-  relationTo: 'customers',
-},
-
+    {
+      name: 'createdBy',
+      type: 'relationship',
+      relationTo: 'customers',
+    },
+    {
+      name: 'lastEditedBy',
+      type: 'relationship',
+      relationTo: 'customers',
+    },
+    {
+      name: 'confirmedBy',
+      type: 'relationship',
+      relationTo: 'customers',
+    },
     {
       name: 'confirmedAt',
       type: 'date',

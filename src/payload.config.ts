@@ -19,8 +19,9 @@ import { EconomyTransactions } from './collections/EconomyTransactions'
 import { BankConnections } from './collections/BankConnections'
 import { BankTransactions } from './collections/BankTransactions'
 import { BankTransfers } from './collections/BankTransfers'
-import { Notifications } from './collections/Notifications'
+
 import { CalendarEvents } from './collections/CalendarEvents'
+import { Notifications } from './collections/Notifications'
 
 
 

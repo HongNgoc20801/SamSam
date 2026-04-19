@@ -1,8 +1,12 @@
 'use client'
 
-import styles from './notificationDropdown.module.css'
+import { useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
+import { format } from 'date-fns'
+import { Bell, CheckCheck, ChevronRight } from 'lucide-react'
+import styles from './notificationsPage.module.css'
 
-export type NotificationEventType =
+type NotificationEventType =
   | 'created'
   | 'updated'
   | 'deleted'
@@ -13,50 +17,32 @@ export type NotificationEventType =
   | 'uploaded'
   | 'replaced'
 
-export type NotificationItem = {
+type NotificationItem = {
   id: string | number
   title?: string
   message?: string
-  link?: string
-  isRead: boolean
-  readAt?: string | null
-  type: 'calendar' | 'expense' | 'status' | 'documents' | 'post'
-  event: NotificationEventType
   createdAt?: string
+  link?: string
+  readAt?: string | null
+  isRead?: boolean
+  type?: 'calendar' | 'expense' | 'status' | 'documents' | 'post'
+  event?: NotificationEventType
   meta?: Record<string, any>
 }
 
-type Props = {
-  open: boolean
-  loading: boolean
-  markingAll: boolean
-  unreadCount: number
-  items: NotificationItem[]
-  onMarkAll: () => void
-  onItemClick: (item: NotificationItem) => void
-  onViewAll: () => void
-}
-
-function fmtTime(value?: string) {
-  if (!value) return ''
+function formatDateTime(value?: string) {
+  if (!value) return '—'
   const d = new Date(value)
-  if (Number.isNaN(d.getTime())) return ''
-
-  return d.toLocaleString('nb-NO', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
+  if (Number.isNaN(d.getTime())) return '—'
+  return format(d, 'dd.MM.yyyy HH:mm')
 }
 
-function getTypeLabel(type: NotificationItem['type']) {
+function getTypeLabel(type?: NotificationItem['type']) {
   switch (type) {
     case 'calendar':
       return 'Calendar'
     case 'expense':
-      return 'Expenses'
+      return 'Expense'
     case 'status':
       return 'Status'
     case 'documents':
@@ -64,7 +50,7 @@ function getTypeLabel(type: NotificationItem['type']) {
     case 'post':
       return 'Updates'
     default:
-      return type
+      return 'General'
   }
 }
 
@@ -244,19 +230,6 @@ function buildNotificationMessage(item: NotificationItem) {
     ) {
       return `${actorName} updated this event. Waiting for second parent confirmation.`
     }
-
-    const parts = [
-      meta.startAt ? fmtTime(meta.startAt) : '',
-      meta.handoverFromName && meta.handoverToName
-        ? `${meta.handoverFromName} → ${meta.handoverToName}`
-        : '',
-      meta.location || '',
-      meta.requiresConfirmation && meta.confirmationStatus === 'pending'
-        ? 'Waiting for confirmation'
-        : '',
-    ].filter(Boolean)
-
-    if (parts.length) return parts.join(' · ')
   }
 
   if (item.type === 'status') {
@@ -330,151 +303,177 @@ function buildNotificationMessage(item: NotificationItem) {
   return item.message || 'Open to view details.'
 }
 
-function NotificationTypeIcon({
-  type,
-}: {
-  type: NotificationItem['type']
-}) {
-  const common = {
-    className: styles.typeIcon,
-    viewBox: '0 0 24 24',
-    fill: 'none' as const,
+export default function NotificationsPage() {
+  const [items, setItems] = useState<NotificationItem[]>([])
+  const [loading, setLoading] = useState(true)
+  const [markingAll, setMarkingAll] = useState(false)
+  const [error, setError] = useState('')
+
+  async function loadNotifications() {
+    try {
+      setLoading(true)
+      setError('')
+
+      const res = await fetch('/api/notifications/me', {
+        credentials: 'include',
+        cache: 'no-store',
+      })
+
+      const json = await res.json().catch(() => null)
+
+      if (!res.ok) {
+        throw new Error(json?.message || 'Could not load notifications.')
+      }
+
+      setItems(Array.isArray(json?.docs) ? json.docs : [])
+    } catch (err: any) {
+      setError(err?.message || 'Could not load notifications.')
+      setItems([])
+    } finally {
+      setLoading(false)
+    }
   }
 
-  switch (type) {
-    case 'calendar':
-      return (
-        <svg {...common}>
-          <path
-            d="M7 3v3M17 3v3M4 8h16M6 6h12a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"
-            stroke="currentColor"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-          />
-        </svg>
-      )
-    case 'expense':
-      return (
-        <svg {...common}>
-          <path d="M3 7h18v10H3V7z" stroke="currentColor" strokeWidth="1.8" />
-          <path
-            d="M12 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"
-            stroke="currentColor"
-            strokeWidth="1.8"
-          />
-        </svg>
-      )
-    case 'status':
-      return (
-        <svg {...common}>
-          <path
-            d="M12 21s7-4.35 7-10a7 7 0 1 0-14 0c0 5.65 7 10 7 10z"
-            stroke="currentColor"
-            strokeWidth="1.8"
-          />
-        </svg>
-      )
-    case 'documents':
-      return (
-        <svg {...common}>
-          <path
-            d="M8 3h6l5 5v11a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"
-            stroke="currentColor"
-            strokeWidth="1.8"
-            strokeLinejoin="round"
-          />
-          <path d="M14 3v5h5" stroke="currentColor" strokeWidth="1.8" />
-        </svg>
-      )
-    case 'post':
-      return (
-        <svg {...common}>
-          <path
-            d="M5 6.5A2.5 2.5 0 0 1 7.5 4h9A2.5 2.5 0 0 1 19 6.5v11a2.5 2.5 0 0 1-2.5 2.5h-9A2.5 2.5 0 0 1 5 17.5v-11z"
-            stroke="currentColor"
-            strokeWidth="1.8"
-          />
-          <path
-            d="M8 9h8M8 12h8M8 15h5"
-            stroke="currentColor"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-          />
-        </svg>
-      )
-  }
-}
+  async function markOneAsRead(id: string | number) {
+    try {
+      await fetch(`/api/notifications/${id}/read`, {
+        method: 'POST',
+        credentials: 'include',
+      })
 
-export default function NotificationDropdown({
-  open,
-  loading,
-  markingAll,
-  unreadCount,
-  items,
-  onMarkAll,
-  onItemClick,
-  onViewAll,
-}: Props) {
-  if (!open) return null
+      setItems((prev) =>
+        prev.map((item) =>
+          String(item.id) === String(id)
+            ? { ...item, isRead: true, readAt: new Date().toISOString() }
+            : item,
+        ),
+      )
+    } catch {}
+  }
+
+  async function markAllAsRead() {
+    try {
+      setMarkingAll(true)
+
+      const res = await fetch('/api/notifications/read-all', {
+        method: 'POST',
+        credentials: 'include',
+      })
+
+      if (!res.ok) return
+
+      setItems((prev) =>
+        prev.map((item) => ({
+          ...item,
+          isRead: true,
+          readAt: item.readAt || new Date().toISOString(),
+        })),
+      )
+    } finally {
+      setMarkingAll(false)
+    }
+  }
+
+  async function handleItemClick(item: NotificationItem) {
+    if (!item.isRead && !item.readAt) {
+      await markOneAsRead(item.id)
+    }
+
+    if (item.link) {
+      window.location.href = item.link
+    }
+  }
+
+  useEffect(() => {
+    loadNotifications()
+  }, [])
+
+  const unreadCount = useMemo(
+    () => items.filter((item) => !item.isRead && !item.readAt).length,
+    [items],
+  )
 
   return (
-    <div className={styles.dropdown}>
-      <div className={styles.header}>
+    <div className={styles.page}>
+      <div className={styles.topbar}>
         <div>
-          <div className={styles.title}>Notifications</div>
-          <div className={styles.sub}>{unreadCount} unread</div>
+          <h1 className={styles.title}>All notifications</h1>
+          <p className={styles.subtitle}>
+            A full overview of updates across child profiles, posts, calendar, documents, and expenses.
+          </p>
         </div>
 
         <button
           type="button"
-          className={styles.markAll}
-          onClick={onMarkAll}
+          className={styles.markAllBtn}
+          onClick={markAllAsRead}
           disabled={markingAll || unreadCount === 0}
         >
+          <CheckCheck size={16} />
           {markingAll ? 'Saving...' : 'Mark all read'}
         </button>
       </div>
 
-      <div className={styles.list}>
-        {loading ? (
-          <div className={styles.empty}>Loading notifications...</div>
-        ) : items.length === 0 ? (
-          <div className={styles.empty}>No notifications yet.</div>
-        ) : (
-          items.map((item) => (
+      <div className={styles.summaryRow}>
+        <div className={styles.summaryCard}>
+          <div className={styles.summaryLabel}>Total</div>
+          <div className={styles.summaryValue}>{items.length}</div>
+        </div>
+
+        <div className={styles.summaryCard}>
+          <div className={styles.summaryLabel}>Unread</div>
+          <div className={styles.summaryValue}>{unreadCount}</div>
+        </div>
+      </div>
+
+      {loading ? (
+        <div className={styles.state}>Loading notifications...</div>
+      ) : error ? (
+        <div className={styles.stateError}>{error}</div>
+      ) : items.length === 0 ? (
+        <div className={styles.state}>No notifications yet.</div>
+      ) : (
+        <div className={styles.list}>
+          {items.map((item) => (
             <button
               key={String(item.id)}
               type="button"
-              className={`${styles.item} ${item.isRead ? styles.read : styles.unread}`}
-              onClick={() => onItemClick(item)}
+              className={`${styles.item} ${
+                !item.isRead && !item.readAt ? styles.unread : styles.read
+              }`}
+              onClick={() => handleItemClick(item)}
             >
               <div className={styles.iconWrap}>
-                <NotificationTypeIcon type={item.type} />
+                <Bell size={18} />
               </div>
 
               <div className={styles.content}>
-                <div className={styles.top}>
-                  <div className={styles.itemTitle}>{buildNotificationTitle(item)}</div>
-                  {!item.isRead ? <span className={styles.dot} /> : null}
-                </div>
+                <div className={styles.itemTop}>
+                  <div>
+                    <div className={styles.itemTitle}>{buildNotificationTitle(item)}</div>
+                    <div className={styles.itemMessage}>{buildNotificationMessage(item)}</div>
+                  </div>
 
-                <div className={styles.message}>{buildNotificationMessage(item)}</div>
+                  {!item.isRead && !item.readAt ? <span className={styles.dot} /> : null}
+                </div>
 
                 <div className={styles.meta}>
                   <span>{getTypeLabel(item.type)}</span>
                   <span>•</span>
-                  <span>{fmtTime(item.createdAt)}</span>
+                  <span>{formatDateTime(item.createdAt)}</span>
                 </div>
               </div>
-            </button>
-          ))
-        )}
-      </div>
 
-      <div className={styles.footer}>
-        <button type="button" className={styles.viewAll} onClick={onViewAll}>
-          View all notifications
-        </button>
+              <ChevronRight size={18} className={styles.arrow} />
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div className={styles.backRow}>
+        <Link href="/dashboard" className={styles.backLink}>
+          Back to dashboard
+        </Link>
       </div>
     </div>
   )

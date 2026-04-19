@@ -1,6 +1,11 @@
-import { createNotification } from './createNotification'
+import {
+  createNotification,
+  type NotificationEventType,
+  type NotificationType,
+} from './createNotification'
 import { getFamilyRecipients } from './getFamilyRecipients'
 import { shouldSendNotification } from './shouldSendNotification'
+
 function normalizeRelId(v: any): string | number | null {
   if (v == null || v === '') return null
   if (typeof v === 'string' || typeof v === 'number') return v
@@ -13,16 +18,8 @@ export async function notifyFamily(
     familyId: string | number
     actorUserId?: string | number | null
     childId?: string | number | null
-    type: 'calendar' | 'expense' | 'status' | 'documents'
-    event:
-  | 'created'
-  | 'updated'
-  | 'deleted'
-  | 'confirmed'
-  | 'commented'
-  | 'liked'
-  | 'uploaded'
-  | 'replaced'
+    type: NotificationType
+    event: NotificationEventType
     title: string
     message?: string
     link?: string
@@ -52,7 +49,7 @@ export async function notifyFamily(
       title: input.title,
       message: input.message,
       link: input.link,
-      meta: input.meta,
+      meta: input.meta ?? {},
     })
   }
 }

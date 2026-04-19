@@ -1,12 +1,12 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { ShieldCheck, Loader2, AlertCircle } from 'lucide-react'
 import styles from './childDetail.module.css'
 
 function getId(v: any): string | null {
   if (!v) return null
-  if (typeof v === 'string') return v
+  if (typeof v === 'string' || typeof v === 'number') return String(v)
   if (typeof v === 'object' && v?.id) return String(v.id)
   return null
 }
@@ -14,18 +14,18 @@ function getId(v: any): string | null {
 export default function ConfirmChildButton({
   childId,
   status,
-  createdBy,
+  lastEditedBy,
 }: {
   childId: string
   status?: string
-  createdBy?: any
+  lastEditedBy?: any
 }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [myId, setMyId] = useState<string | null>(null)
+  const [meLoading, setMeLoading] = useState(true)
 
-  const createdById = useMemo(() => getId(createdBy), [createdBy])
-
-  const canConfirm = status === 'pending'
+  const lastEditedById = useMemo(() => getId(lastEditedBy), [lastEditedBy])
 
   async function fetchMeId(): Promise<string | null> {
     const res = await fetch('/api/customers/me', {
@@ -40,16 +40,43 @@ export default function ConfirmChildButton({
     return getId(me?.id) ?? getId(me)
   }
 
+  useEffect(() => {
+    let ignore = false
+
+    ;(async () => {
+      try {
+        setMeLoading(true)
+        const id = await fetchMeId()
+        if (!ignore) setMyId(id)
+      } catch {
+        if (!ignore) setMyId(null)
+      } finally {
+        if (!ignore) setMeLoading(false)
+      }
+    })()
+
+    return () => {
+      ignore = true
+    }
+  }, [])
+
+  const canConfirm =
+    status === 'pending' &&
+    !!myId &&
+    myId !== lastEditedById
+
   async function onConfirm() {
     setError('')
     setLoading(true)
 
     try {
-      const myId = await fetchMeId()
-      if (!myId) throw new Error('Missing current user id.')
+      const currentUserId = myId ?? (await fetchMeId())
+      if (!currentUserId) throw new Error('Missing current user id.')
 
-      if (createdById && myId === createdById) {
-        throw new Error('You cannot confirm a child profile that you created. The other parent must confirm it.')
+      if (lastEditedById && currentUserId === lastEditedById) {
+        throw new Error(
+          'You cannot confirm a child profile that you last edited. The other parent must confirm it.',
+        )
       }
 
       const res = await fetch(`/api/children/${childId}`, {
@@ -70,7 +97,12 @@ export default function ConfirmChildButton({
     }
   }
 
-  if (!canConfirm) return null
+  if (status !== 'pending') return null
+
+  const hint =
+    myId && myId === lastEditedById
+      ? 'You last edited this profile, so the other parent must confirm it.'
+      : 'Review the profile and confirm that the information is correct.'
 
   return (
     <div className={styles.confirmCard}>
@@ -81,9 +113,7 @@ export default function ConfirmChildButton({
 
         <div className={styles.confirmText}>
           <div className={styles.confirmTitle}>Confirm child profile</div>
-          <div className={styles.confirmHint}>
-            Review the profile and confirm that the information is correct.
-          </div>
+          <div className={styles.confirmHint}>{hint}</div>
         </div>
       </div>
 
@@ -91,7 +121,7 @@ export default function ConfirmChildButton({
         type="button"
         className={styles.confirmBtn}
         onClick={onConfirm}
-        disabled={loading}
+        disabled={loading || meLoading || !canConfirm}
         aria-label="Confirm child profile"
       >
         {loading ? (

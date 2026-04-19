@@ -33,6 +33,23 @@ function getFamilyIdFromUser(req: any) {
   return getRelId(u.family)
 }
 
+function getPersonName(value: any) {
+  if (!value || typeof value !== 'object') return ''
+
+  const full =
+    `${String(value?.firstName || '').trim()} ${String(value?.lastName || '').trim()}`.trim()
+
+  return value?.fullName || value?.name || full || ''
+}
+
+function getActorName(req: any) {
+  const u: any = req?.user
+  if (!u) return 'A parent'
+
+  const full = `${String(u?.firstName || '').trim()} ${String(u?.lastName || '').trim()}`.trim()
+  return full || u?.fullName || u?.name || 'A parent'
+}
+
 function asText(v: any) {
   if (v === null || v === undefined) return ''
   if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') {
@@ -55,6 +72,15 @@ function pushChange(
   if (asText(from) !== asText(to)) {
     changes.push({ field, from, to })
   }
+}
+
+function setDeleteSnapshot(req: any, snapshot: any) {
+  req.context = req.context || {}
+  req.context.calendarDeleteSnapshot = snapshot
+}
+
+function getDeleteSnapshot(req: any) {
+  return req?.context?.calendarDeleteSnapshot || null
 }
 
 async function canMutateByFamily(req: any, id: string | number) {
@@ -98,10 +124,40 @@ async function getChildSnapshot(req: any, childValue: any) {
     })
     .catch(() => null)
 
+  const childFull =
+    `${String((child as any)?.firstName || '').trim()} ${String((child as any)?.lastName || '').trim()}`.trim()
+
   return {
     childId,
-    childName: child?.fullName || child?.name || '',
+    childName: child?.fullName || child?.name || childFull || '',
   }
+}
+
+async function getCustomerDisplayName(req: any, value: any) {
+  const id = getRelId(value)
+  if (!id) return ''
+
+  if (typeof value === 'object' && value) {
+    const embeddedName = getPersonName(value)
+    if (embeddedName) return embeddedName
+    if (value.email) return value.email
+  }
+
+  const customer = await req.payload
+    .findByID({
+      collection: 'customers',
+      id,
+      overrideAccess: true,
+      depth: 0,
+    })
+    .catch(() => null)
+
+  if (!customer) return ''
+
+  const customerFull =
+    `${String((customer as any)?.firstName || '').trim()} ${String((customer as any)?.lastName || '').trim()}`.trim()
+
+  return customer?.fullName || customer?.name || customerFull || customer?.email || ''
 }
 
 function toEventType(value: any) {
@@ -112,7 +168,7 @@ function toEventType(value: any) {
     'school',
     'activity',
     'medical',
-    'expense-related',
+    'payment',
     'other',
   ]
   return allowed.includes(value) ? value : 'other'
@@ -222,8 +278,8 @@ export const CalendarEvents: CollectionConfig = {
         nextData.priority = effectivePriority
 
         if (effectiveEventType !== 'handover') {
-          nextData.handoverFrom = (data as any)?.handoverFrom ?? null
-          nextData.handoverTo = (data as any)?.handoverTo ?? null
+          nextData.handoverFrom = null
+          nextData.handoverTo = null
         }
 
         const previousConfirmationStatus = originalDoc?.confirmationStatus
@@ -281,13 +337,37 @@ export const CalendarEvents: CollectionConfig = {
       },
     ],
 
+    beforeDelete: [
+      async ({ req, id }: any) => {
+        if (!id) return
+
+        const doc = await req.payload
+          .findByID({
+            collection: 'calendar-events',
+            id,
+            overrideAccess: true,
+            depth: 1,
+          })
+          .catch(() => null)
+
+        if (!doc) return
+        setDeleteSnapshot(req, doc)
+      },
+    ],
+
     afterChange: [
       async ({ doc, previousDoc, operation, req }: any) => {
         if (!req?.user || !doc) return
 
         const familyId = getRelId(doc?.family)
         const actorUserId = getRelId(req?.user?.id)
+        const actorName = getActorName(req)
         const currentChild = await getChildSnapshot(req, doc?.child)
+
+        const handoverFromName = await getCustomerDisplayName(req, doc?.handoverFrom)
+        const handoverToName = await getCustomerDisplayName(req, doc?.handoverTo)
+        const responsibleParentName = await getCustomerDisplayName(req, doc?.responsibleParent)
+        const confirmedByName = await getCustomerDisplayName(req, doc?.confirmedBy)
 
         if (operation === 'create') {
           await logAudit(req, {
@@ -302,6 +382,16 @@ export const CalendarEvents: CollectionConfig = {
             relatedToRole: 'both',
             summary: 'Created calendar event',
             targetLabel: doc?.title,
+            meta: {
+              confirmationStatus: doc?.confirmationStatus,
+              requiresConfirmation: !!doc?.requiresConfirmation,
+              startAt: doc?.startAt,
+              endAt: doc?.endAt,
+              location: doc?.location || '',
+              handoverFromName,
+              handoverToName,
+              responsibleParentName,
+            },
           })
 
           await notifyFamily(req, {
@@ -312,12 +402,20 @@ export const CalendarEvents: CollectionConfig = {
             event: 'created',
             title: 'New calendar event',
             message: `${doc?.title || 'An event'} was added`,
-            link: '/calendar',
+            link: `/calendar?event=${doc?.id}`,
             meta: {
+              actorName,
               eventId: doc?.id,
               childName: currentChild.childName,
               eventType: doc?.eventType,
               confirmationStatus: doc?.confirmationStatus,
+              requiresConfirmation: !!doc?.requiresConfirmation,
+              startAt: doc?.startAt,
+              endAt: doc?.endAt,
+              location: doc?.location || '',
+              handoverFromName,
+              handoverToName,
+              responsibleParentName,
             },
           })
 
@@ -389,43 +487,116 @@ export const CalendarEvents: CollectionConfig = {
             summary: 'Updated calendar event',
             targetLabel: doc?.title,
             changes,
+            meta: {
+              confirmationStatus: doc?.confirmationStatus,
+              requiresConfirmation: !!doc?.requiresConfirmation,
+            },
           })
 
           const previousConfirmation = previousDoc?.confirmationStatus
           const currentConfirmation = doc?.confirmationStatus
+          const confirmationChanged = previousConfirmation !== currentConfirmation
 
-          if (previousConfirmation !== currentConfirmation) {
-            if (currentConfirmation === 'confirmed') {
-              await logAudit(req, {
-                familyId,
-                childId: currentChild.childId,
-                childName: currentChild.childName,
-                action: 'event.confirmed',
-                entityType: 'event',
-                entityId: String(doc?.id),
-                scope: 'calendar',
-                severity: 'info',
-                relatedToRole: 'both',
-                summary: 'Confirmed calendar event',
-                targetLabel: doc?.title,
-              })
-            }
+          if (confirmationChanged && currentConfirmation === 'confirmed') {
+            await logAudit(req, {
+              familyId,
+              childId: currentChild.childId,
+              childName: currentChild.childName,
+              action: 'event.confirmed',
+              entityType: 'event',
+              entityId: String(doc?.id),
+              scope: 'calendar',
+              severity: 'info',
+              relatedToRole: 'both',
+              summary: 'Confirmed calendar event',
+              targetLabel: doc?.title,
+              meta: {
+                confirmedBy: getRelId(doc?.confirmedBy),
+                confirmedByName,
+                confirmedAt: doc?.confirmedAt,
+              },
+            })
 
-            if (currentConfirmation === 'declined') {
-              await logAudit(req, {
-                familyId,
-                childId: currentChild.childId,
+            await notifyFamily(req, {
+              familyId,
+              actorUserId,
+              childId: currentChild.childId,
+              type: 'calendar',
+              event: 'confirmed',
+              title: 'Calendar event confirmed',
+              message: `${doc?.title || 'An event'} was accepted`,
+              link: `/calendar?event=${doc?.id}`,
+              meta: {
+                actorName,
+                eventId: doc?.id,
                 childName: currentChild.childName,
-                action: 'event.declined',
-                entityType: 'event',
-                entityId: String(doc?.id),
-                scope: 'calendar',
-                severity: 'important',
-                relatedToRole: 'both',
-                summary: 'Declined calendar event',
-                targetLabel: doc?.title,
-              })
-            }
+                eventType: doc?.eventType,
+                confirmationStatus: doc?.confirmationStatus,
+                requiresConfirmation: !!doc?.requiresConfirmation,
+                confirmedBy: getRelId(doc?.confirmedBy),
+                confirmedByName,
+                confirmedAt: doc?.confirmedAt,
+                startAt: doc?.startAt,
+                endAt: doc?.endAt,
+                location: doc?.location || '',
+                handoverFromName,
+                handoverToName,
+                responsibleParentName,
+              },
+            })
+
+            return
+          }
+
+          if (confirmationChanged && currentConfirmation === 'declined') {
+            await logAudit(req, {
+              familyId,
+              childId: currentChild.childId,
+              childName: currentChild.childName,
+              action: 'event.declined',
+              entityType: 'event',
+              entityId: String(doc?.id),
+              scope: 'calendar',
+              severity: 'important',
+              relatedToRole: 'both',
+              summary: 'Declined calendar event',
+              targetLabel: doc?.title,
+              meta: {
+                confirmedBy: getRelId(doc?.confirmedBy),
+                confirmedByName,
+                confirmedAt: doc?.confirmedAt,
+              },
+            })
+
+            await notifyFamily(req, {
+              familyId,
+              actorUserId,
+              childId: currentChild.childId,
+              type: 'calendar',
+              event: 'declined',
+              title: 'Calendar event declined',
+              message: `${doc?.title || 'An event'} was declined`,
+              link: `/calendar?event=${doc?.id}`,
+              meta: {
+                actorName,
+                eventId: doc?.id,
+                childName: currentChild.childName,
+                eventType: doc?.eventType,
+                confirmationStatus: doc?.confirmationStatus,
+                requiresConfirmation: !!doc?.requiresConfirmation,
+                confirmedBy: getRelId(doc?.confirmedBy),
+                confirmedByName,
+                confirmedAt: doc?.confirmedAt,
+                startAt: doc?.startAt,
+                endAt: doc?.endAt,
+                location: doc?.location || '',
+                handoverFromName,
+                handoverToName,
+                responsibleParentName,
+              },
+            })
+
+            return
           }
 
           await notifyFamily(req, {
@@ -436,12 +607,20 @@ export const CalendarEvents: CollectionConfig = {
             event: 'updated',
             title: 'Calendar event updated',
             message: `${doc?.title || 'An event'} was updated`,
-            link: '/calendar',
+            link: `/calendar?event=${doc?.id}`,
             meta: {
+              actorName,
               eventId: doc?.id,
               childName: currentChild.childName,
               eventType: doc?.eventType,
               confirmationStatus: doc?.confirmationStatus,
+              requiresConfirmation: !!doc?.requiresConfirmation,
+              startAt: doc?.startAt,
+              endAt: doc?.endAt,
+              location: doc?.location || '',
+              handoverFromName,
+              handoverToName,
+              responsibleParentName,
             },
           })
         }
@@ -449,39 +628,68 @@ export const CalendarEvents: CollectionConfig = {
     ],
 
     afterDelete: [
-      async ({ doc, req }: any) => {
-        if (!req?.user || !doc) return
+      async ({ req, id }: any) => {
+        if (!req?.user || !id) return
 
+        const deletedDoc = getDeleteSnapshot(req)
+        if (!deletedDoc) return
+
+        const familyId = getRelId(deletedDoc?.family)
         const actorUserId = getRelId(req?.user?.id)
-        const childSnapshot = await getChildSnapshot(req, doc?.child)
-        const familyId = getRelId(doc?.family)
+        const actorName = getActorName(req)
+        const currentChild = await getChildSnapshot(req, deletedDoc?.child)
+
+        const handoverFromName = await getCustomerDisplayName(req, deletedDoc?.handoverFrom)
+        const handoverToName = await getCustomerDisplayName(req, deletedDoc?.handoverTo)
+        const responsibleParentName = await getCustomerDisplayName(req, deletedDoc?.responsibleParent)
 
         await logAudit(req, {
           familyId,
-          childId: childSnapshot.childId,
-          childName: childSnapshot.childName,
+          childId: currentChild.childId,
+          childName: currentChild.childName,
           action: 'event.delete',
           entityType: 'event',
-          entityId: String(doc?.id),
+          entityId: String(id),
           scope: 'calendar',
           severity: 'important',
           relatedToRole: 'both',
           summary: 'Deleted calendar event',
-          targetLabel: doc?.title,
+          targetLabel: deletedDoc?.title,
+          meta: {
+            eventType: deletedDoc?.eventType,
+            confirmationStatus: deletedDoc?.confirmationStatus,
+            requiresConfirmation: !!deletedDoc?.requiresConfirmation,
+            startAt: deletedDoc?.startAt,
+            endAt: deletedDoc?.endAt,
+            location: deletedDoc?.location || '',
+            handoverFromName,
+            handoverToName,
+            responsibleParentName,
+          },
         })
 
         await notifyFamily(req, {
           familyId,
           actorUserId,
-          childId: childSnapshot.childId,
+          childId: currentChild.childId,
           type: 'calendar',
           event: 'deleted',
-          title: 'Calendar event removed',
-          message: `${doc?.title || 'An event'} was removed`,
-          link: '/calendar',
+          title: 'Calendar event deleted',
+          message: `${deletedDoc?.title || 'An event'} was deleted`,
+          link: `/calendar?event=${id}`,
           meta: {
-            eventId: doc?.id,
-            childName: childSnapshot.childName,
+            actorName,
+            eventId: id,
+            childName: currentChild.childName,
+            eventType: deletedDoc?.eventType,
+            confirmationStatus: deletedDoc?.confirmationStatus,
+            requiresConfirmation: !!deletedDoc?.requiresConfirmation,
+            startAt: deletedDoc?.startAt,
+            endAt: deletedDoc?.endAt,
+            location: deletedDoc?.location || '',
+            handoverFromName,
+            handoverToName,
+            responsibleParentName,
           },
         })
       },
@@ -520,7 +728,7 @@ export const CalendarEvents: CollectionConfig = {
         { label: 'School', value: 'school' },
         { label: 'Activity', value: 'activity' },
         { label: 'Medical', value: 'medical' },
-        { label: 'Expense related', value: 'expense-related' },
+        { label: 'Payment', value: 'payment' },
         { label: 'Other', value: 'other' },
       ],
     },

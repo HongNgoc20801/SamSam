@@ -58,6 +58,7 @@ type Child = {
   nationalId?: string
   status?: 'pending' | 'confirmed' | string
   createdBy?: any
+  lastEditedBy?: any
   confirmedAt?: string | null
   avatar?: Media | string | null
 
@@ -361,7 +362,7 @@ export default async function ChildDetailPage({
               <ConfirmChildButton
                 childId={child.id}
                 status={child.status}
-                createdBy={child.createdBy}
+                lastEditedBy={child.lastEditedBy}
               />
             </div>
           </section>

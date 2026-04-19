@@ -16,23 +16,32 @@ function normalizeRelId(v: any): string | number | null {
   return null
 }
 
+export type NotificationType =
+  | 'calendar'
+  | 'expense'
+  | 'status'
+  | 'documents'
+  | 'post'
+
+export type NotificationEventType =
+  | 'created'
+  | 'updated'
+  | 'deleted'
+  | 'confirmed'
+  | 'declined'
+  | 'commented'
+  | 'liked'
+  | 'uploaded'
+  | 'replaced'
+
 export async function createNotification(
   req: any,
   input: {
     recipient: string | number
     family?: string | number | null
     child?: string | number | null
-    type: 'calendar' | 'expense' | 'status' | 'documents'
-    event:
-  | 'created'
-  | 'updated'
-  | 'deleted'
-  | 'confirmed'
-  | 'commented'
-  | 'liked'
-  | 'uploaded'
-  | 'replaced'
-  
+    type: NotificationType
+    event: NotificationEventType
     title: string
     message?: string
     link?: string
@@ -48,10 +57,11 @@ export async function createNotification(
         child: normalizeRelId(input.child),
         type: input.type,
         event: input.event,
-        title: input.title,
-        message: input.message || '',
-        link: input.link || '',
+        title: String(input.title || '').trim() || 'Notification',
+        message: String(input.message || '').trim(),
+        link: String(input.link || '').trim(),
         isRead: false,
+        readAt: null,
         meta: input.meta ?? {},
       },
       req,

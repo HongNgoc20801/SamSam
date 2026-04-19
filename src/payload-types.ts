@@ -450,6 +450,7 @@ export interface Child {
     | null;
   status: 'pending' | 'confirmed';
   createdBy?: (number | null) | Customer;
+  lastEditedBy?: (number | null) | Customer;
   confirmedBy?: (number | null) | Customer;
   confirmedAt?: string | null;
   updatedAt: string;
@@ -584,8 +585,8 @@ export interface Notification {
   recipient: number | Customer;
   family?: (number | null) | Family;
   child?: (number | null) | Child;
-  type: 'calendar' | 'expense' | 'status' | 'documents';
-  event: 'created' | 'updated' | 'deleted' | 'confirmed' | 'commented' | 'liked' | 'uploaded' | 'replaced';
+  type: 'calendar' | 'expense' | 'status' | 'documents' | 'post';
+  event: 'created' | 'updated' | 'deleted' | 'confirmed' | 'declined' | 'commented' | 'liked' | 'uploaded' | 'replaced';
   title: string;
   message?: string | null;
   link?: string | null;
@@ -724,7 +725,7 @@ export interface CalendarEvent {
   family: number | Family;
   child?: (number | null) | Child;
   title: string;
-  eventType: 'handover' | 'pickup' | 'dropoff' | 'school' | 'activity' | 'medical' | 'expense-related' | 'other';
+  eventType: 'handover' | 'pickup' | 'dropoff' | 'school' | 'activity' | 'medical' | 'payment' | 'other';
   priority?: ('normal' | 'important' | 'urgent') | null;
   location?: string | null;
   notes?: string | null;
@@ -1254,6 +1255,7 @@ export interface ChildrenSelect<T extends boolean = true> {
       };
   status?: T;
   createdBy?: T;
+  lastEditedBy?: T;
   confirmedBy?: T;
   confirmedAt?: T;
   updatedAt?: T;

@@ -29,6 +29,17 @@ function getRouteId(req: any) {
   return req?.routeParams?.id ?? req?.params?.id ?? null
 }
 
+function getQueryLimit(req: any, fallback = 30) {
+  const raw =
+    req?.query?.limit ??
+    req?.searchParams?.get?.('limit') ??
+    req?.url?.searchParams?.get?.('limit')
+
+  const parsed = Number(raw)
+  if (!Number.isFinite(parsed) || parsed <= 0) return fallback
+  return Math.min(parsed, 100)
+}
+
 export const Notifications: CollectionConfig = {
   slug: 'notifications',
 
@@ -80,7 +91,7 @@ export const Notifications: CollectionConfig = {
               recipient: { equals: req.user.id },
             },
             sort: '-createdAt',
-            limit: 30,
+            limit: getQueryLimit(req, 30),
             req,
             overrideAccess: true,
           })
@@ -140,10 +151,7 @@ export const Notifications: CollectionConfig = {
 
           const id = getRouteId(req)
           if (!id) {
-            return Response.json(
-              { message: 'Missing notification id.' },
-              { status: 400 },
-            )
+            return Response.json({ message: 'Missing notification id.' }, { status: 400 })
           }
 
           const doc = await req.payload
@@ -156,10 +164,7 @@ export const Notifications: CollectionConfig = {
             .catch(() => null)
 
           if (!doc) {
-            return Response.json(
-              { message: 'Notification not found.' },
-              { status: 404 },
-            )
+            return Response.json({ message: 'Notification not found.' }, { status: 404 })
           }
 
           const recipientId =
@@ -168,10 +173,7 @@ export const Notifications: CollectionConfig = {
               : doc.recipient
 
           if (String(recipientId) !== String(req.user.id)) {
-            return Response.json(
-              { message: 'Notification not found.' },
-              { status: 404 },
-            )
+            return Response.json({ message: 'Notification not found.' }, { status: 404 })
           }
 
           const updated = await req.payload.update({
@@ -275,6 +277,7 @@ export const Notifications: CollectionConfig = {
         { label: 'Expense', value: 'expense' },
         { label: 'Status', value: 'status' },
         { label: 'Documents', value: 'documents' },
+        { label: 'Post', value: 'post' },
       ],
       index: true,
     },
@@ -287,6 +290,7 @@ export const Notifications: CollectionConfig = {
         { label: 'Updated', value: 'updated' },
         { label: 'Deleted', value: 'deleted' },
         { label: 'Confirmed', value: 'confirmed' },
+        { label: 'Declined', value: 'declined' },
         { label: 'Commented', value: 'commented' },
         { label: 'Liked', value: 'liked' },
         { label: 'Uploaded', value: 'uploaded' },

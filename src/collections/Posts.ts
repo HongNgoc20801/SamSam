@@ -374,20 +374,27 @@ export const Posts: CollectionConfig = {
             relatedToRole: 'both',
             targetLabel: postLabel,
             summary: hasLiked ? 'Removed like from post' : 'Liked post',
-            meta,
+            meta: {
+              ...meta,
+              actorName: getAuthorName(req),
+            },
           })
 
-          if (familyId) {
+          // Only notify on "like", not on "unlike"
+          if (familyId && !hasLiked) {
             await notifyFamily(req, {
               familyId,
               actorUserId: userId,
               childId,
-              type: 'status',
+              type: 'post',
               event: 'liked',
-              title: hasLiked ? 'Post like removed' : 'Post liked',
+              title: 'Post liked',
               message: postLabel,
               link: '/oppdateringer',
-              meta,
+              meta: {
+                ...meta,
+                actorName: getAuthorName(req),
+              },
             })
           }
 
@@ -478,6 +485,7 @@ export const Posts: CollectionConfig = {
             summary: 'Added comment to post',
             meta: {
               ...meta,
+              actorName: getAuthorName(req),
               commentLength: content.length,
             },
           })
@@ -487,13 +495,14 @@ export const Posts: CollectionConfig = {
               familyId,
               actorUserId: userId,
               childId,
-              type: 'status',
+              type: 'post',
               event: 'commented',
               title: 'New comment',
               message: postLabel,
               link: '/oppdateringer',
               meta: {
                 ...meta,
+                actorName: getAuthorName(req),
                 commentLength: content.length,
               },
             })
@@ -659,7 +668,10 @@ export const Posts: CollectionConfig = {
             relatedToRole: childId ? 'child' : 'both',
             targetLabel: postLabel,
             summary: isChildUpdate ? 'Created child update post' : 'Created family post',
-            meta,
+            meta: {
+              ...meta,
+              actorName: getAuthorName(req),
+            },
           })
 
           if (familyId) {
@@ -667,12 +679,15 @@ export const Posts: CollectionConfig = {
               familyId,
               actorUserId,
               childId,
-              type: 'status',
+              type: 'post',
               event: 'created',
               title: isChildUpdate ? 'New child update' : 'New family post',
               message: postLabel,
               link: '/oppdateringer',
-              meta,
+              meta: {
+                ...meta,
+                actorName: getAuthorName(req),
+              },
             })
           }
 
@@ -709,7 +724,10 @@ export const Posts: CollectionConfig = {
             targetLabel: postLabel,
             summary: isChildUpdate ? 'Updated child update post' : 'Updated family post',
             changes,
-            meta,
+            meta: {
+              ...meta,
+              actorName: getAuthorName(req),
+            },
           })
 
           if (familyId) {
@@ -717,12 +735,15 @@ export const Posts: CollectionConfig = {
               familyId,
               actorUserId,
               childId,
-              type: 'status',
+              type: 'post',
               event: 'updated',
               title: 'Post updated',
               message: postLabel,
               link: '/oppdateringer',
-              meta,
+              meta: {
+                ...meta,
+                actorName: getAuthorName(req),
+              },
             })
           }
         }
@@ -752,7 +773,10 @@ export const Posts: CollectionConfig = {
           relatedToRole: childId ? 'child' : 'both',
           targetLabel: postLabel,
           summary: isChildUpdate ? 'Deleted child update post' : 'Deleted family post',
-          meta,
+          meta: {
+            ...meta,
+            actorName: getAuthorName(req),
+          },
         })
 
         if (familyId) {
@@ -760,12 +784,15 @@ export const Posts: CollectionConfig = {
             familyId,
             actorUserId,
             childId,
-            type: 'status',
+            type: 'post',
             event: 'deleted',
             title: 'Post deleted',
             message: postLabel,
             link: '/oppdateringer',
-            meta,
+            meta: {
+              ...meta,
+              actorName: getAuthorName(req),
+            },
           })
         }
       },

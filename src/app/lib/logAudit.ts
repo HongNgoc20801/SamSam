@@ -35,10 +35,26 @@ function getActorType(req: any): 'customer' | 'admin' | 'system' {
   return 'system'
 }
 
-function getActorName(req: any) {
+function getActorDisplayName(req: any) {
   const u: any = req?.user
   if (!u) return 'System'
-  return u.fullName || u.name || u.email || String(u.id)
+
+  const firstName = String(u.firstName || u.fornavn || '').trim()
+  if (firstName) return firstName
+
+  const combined =
+    `${String(u.firstName || u.fornavn || '').trim()} ${String(
+      u.lastName || u.etternavn || '',
+    ).trim()}`.trim()
+  if (combined) return combined
+
+  const fullName = String(u.fullName || u.name || '').trim()
+  if (fullName) return fullName
+
+  const email = String(u.email || '').trim()
+  if (email) return email
+
+  return String(u.id || 'System')
 }
 
 function getActorRole(req: any): AuditActorRole {
@@ -90,6 +106,8 @@ export async function logAudit(
 
     if (!familyId) return
 
+    const actorName = getActorDisplayName(req)
+
     const normalizedChanges =
       Array.isArray(input.changes) && input.changes.length
         ? input.changes.map((c) => ({
@@ -101,6 +119,7 @@ export async function logAudit(
 
     const normalizedMeta = {
       ...(input.meta ?? {}),
+      actorName,
       changedFields:
         normalizedChanges?.map((c) => c.field) ?? input?.meta?.changedFields ?? [],
     }
@@ -115,7 +134,7 @@ export async function logAudit(
         actorType: getActorType(req),
         actorRole: input.actorRole ?? getActorRole(req),
         relatedToRole: input.relatedToRole ?? 'both',
-        actorName: getActorName(req),
+        actorName,
         action: input.action,
         entityType: input.entityType,
         entityId: input.entityId || undefined,

@@ -19,8 +19,28 @@ function isCustomer(req: any) {
   return false
 }
 
+function normalizeRelId(v: any): string | number | null {
+  if (v === null || v === undefined || v === '') return null
+
+  if (typeof v === 'number') return v
+
+  if (typeof v === 'string') {
+    const trimmed = v.trim()
+    if (!trimmed) return null
+    return /^\d+$/.test(trimmed) ? Number(trimmed) : trimmed
+  }
+
+  if (typeof v === 'object' && v?.id != null) {
+    return normalizeRelId(v.id)
+  }
+
+  return null
+}
+
 function cleanText(v: any, max = 120) {
-  return String(v ?? '').trim().slice(0, max)
+  return String(v ?? '')
+    .trim()
+    .slice(0, max)
 }
 
 function cleanPhone(v: any) {
@@ -35,7 +55,7 @@ function cleanLanguage(v: any) {
 function getFamilyIdFromUser(req: any) {
   const u: any = req?.user
   if (!u) return null
-  return typeof u.family === 'string' ? u.family : u.family?.id ?? null
+  return normalizeRelId(u.family)
 }
 
 export const Customers: CollectionConfig = {
@@ -54,18 +74,31 @@ export const Customers: CollectionConfig = {
       if (isAdmin(req)) return true
 
       const familyId = getFamilyIdFromUser(req)
+      const userId = normalizeRelId(req.user.id)
+
+      if (!userId) return false
 
       if (!familyId) {
         const where: Where = {
-          id: { equals: req.user.id },
+          id: {
+            equals: userId,
+          },
         }
         return where
       }
 
       const where: Where = {
         or: [
-          { id: { equals: req.user.id } },
-          { family: { equals: familyId } },
+          {
+            id: {
+              equals: userId,
+            },
+          },
+          {
+            family: {
+              equals: familyId,
+            },
+          },
         ],
       }
 
@@ -76,8 +109,13 @@ export const Customers: CollectionConfig = {
       if (!req.user) return false
       if (isAdmin(req)) return true
 
+      const userId = normalizeRelId(req.user.id)
+      if (!userId) return false
+
       return {
-        id: { equals: req.user.id },
+        id: {
+          equals: userId,
+        },
       }
     },
 
@@ -85,8 +123,13 @@ export const Customers: CollectionConfig = {
       if (!req.user) return false
       if (isAdmin(req)) return true
 
+      const userId = normalizeRelId(req.user.id)
+      if (!userId) return false
+
       return {
-        id: { equals: req.user.id },
+        id: {
+          equals: userId,
+        },
       }
     },
   },
@@ -131,8 +174,15 @@ export const Customers: CollectionConfig = {
             )
           }
 
-          const userId = req.user.id
+          const userId = normalizeRelId(req.user.id)
           const email = req.user.email
+
+          if (!userId || !email) {
+            return Response.json(
+              { message: 'Missing current user.' },
+              { status: 400 },
+            )
+          }
 
           const loginResult = await req.payload
             .login({
@@ -179,9 +229,14 @@ export const Customers: CollectionConfig = {
             return Response.json({ message: 'Unauthorized.' }, { status: 401 })
           }
 
+          const userId = normalizeRelId(req.user.id)
+          if (!userId) {
+            return Response.json({ message: 'Missing current user.' }, { status: 400 })
+          }
+
           const me = await req.payload.findByID({
             collection: 'customers',
-            id: req.user.id,
+            id: userId,
             req,
             overrideAccess: true,
           })
@@ -215,6 +270,11 @@ export const Customers: CollectionConfig = {
         try {
           if (!req.user || !isCustomer(req)) {
             return Response.json({ message: 'Unauthorized.' }, { status: 401 })
+          }
+
+          const userId = normalizeRelId(req.user.id)
+          if (!userId) {
+            return Response.json({ message: 'Missing current user.' }, { status: 400 })
           }
 
           const body =
@@ -258,7 +318,7 @@ export const Customers: CollectionConfig = {
 
           const updated = await req.payload.update({
             collection: 'customers',
-            id: req.user.id,
+            id: userId,
             data: patch,
             req,
             overrideAccess: true,
@@ -305,24 +365,30 @@ export const Customers: CollectionConfig = {
     afterChange: [
       async ({ doc, req, operation }) => {
         if (operation !== 'create') return
-        if ((doc as any)?.family) return
+        if (normalizeRelId((doc as any)?.family)) return
 
-        const userId = (doc as any).id
+        const userId = normalizeRelId((doc as any).id)
+        if (!userId) return
 
         try {
           const family = await req.payload.create({
             collection: 'families',
             data: {
-              name: `${(doc as any).firstName ?? 'My'} family`,
+              name: `${String((doc as any).firstName ?? 'My').trim() || 'My'} family`,
               members: [userId],
             } as any,
             overrideAccess: true,
           })
 
+          const familyId = normalizeRelId(family?.id)
+          if (!familyId) return
+
           await req.payload.update({
             collection: 'customers',
             id: userId,
-            data: { family: family.id } as any,
+            data: {
+              family: familyId,
+            } as any,
             overrideAccess: true,
           })
         } catch (e) {

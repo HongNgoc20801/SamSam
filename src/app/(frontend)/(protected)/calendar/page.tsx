@@ -2,6 +2,7 @@
 
 import { Children, cloneElement, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import styles from './calendar.module.css'
 import {
   Calendar as BigCalendar,
@@ -33,7 +34,7 @@ type EventType =
   | 'school'
   | 'activity'
   | 'medical'
-  | 'expense-related'
+  | 'payment'
   | 'other'
 
 type EventPriority = 'normal' | 'important' | 'urgent'
@@ -46,6 +47,8 @@ type RelationValue =
       id: string | number
       fullName?: string
       name?: string
+      firstName?: string
+      lastName?: string
       email?: string
     }
 
@@ -68,6 +71,7 @@ type CalEventDoc = {
   confirmedBy?: RelationValue
   confirmedAt?: string
   createdBy?: RelationValue
+  linkedEconomyTransaction?: string | number | null
 }
 
 type RBCResource = {
@@ -89,6 +93,7 @@ type RBCResource = {
   confirmedByName?: string
   confirmedAt?: string
   createdById?: string
+  linkedEconomyTransaction?: string
 }
 
 type RBCEvent = RBCBaseEvent & {
@@ -111,10 +116,22 @@ function getRelId(v: RelationValue | undefined | null) {
   return v?.id != null ? String(v.id) : ''
 }
 
-function getRelName(v: RelationValue | undefined | null) {
+function getRelDisplayName(
+  v: RelationValue | undefined | null,
+  nameMap?: Map<string, string>,
+) {
   if (v == null) return ''
-  if (typeof v === 'string' || typeof v === 'number') return String(v)
-  return v.fullName || v.name || v.email || ''
+
+  if (typeof v === 'string' || typeof v === 'number') {
+    const id = String(v)
+    return nameMap?.get(id) || id
+  }
+
+  const id = v?.id != null ? String(v.id) : ''
+  const full =
+    `${String(v?.firstName || '').trim()} ${String(v?.lastName || '').trim()}`.trim()
+
+  return v.fullName || v.name || full || (id ? nameMap?.get(id) || '' : '') || v.email || ''
 }
 
 function toEventType(value: unknown): EventType {
@@ -125,7 +142,7 @@ function toEventType(value: unknown): EventType {
     'school',
     'activity',
     'medical',
-    'expense-related',
+    'payment',
     'other',
   ]
   return allowed.includes(value as EventType) ? (value as EventType) : 'other'
@@ -185,15 +202,16 @@ const localizer = dateFnsLocalizer({
 })
 
 const EVENT_TYPE_COLORS: Record<EventType, string> = {
-  handover: '#2563EB',          
-  pickup: '#0D9488',           
-  dropoff: '#F59E0B',           
-  school: '#22C55E',            
-  activity: '#8B5CF6',          
-  medical: '#EF4444',          
-  'expense-related': '#EC4899', 
-  other: '#64748B',             
+  handover: '#2563EB',
+  pickup: '#0D9488',
+  dropoff: '#F59E0B',
+  school: '#22C55E',
+  activity: '#8B5CF6',
+  medical: '#EF4444',
+  payment: '#EC4899',
+  other: '#64748B',
 }
+
 const EVENT_TYPE_LABELS: Record<EventType, string> = {
   handover: 'Handover',
   pickup: 'Pickup',
@@ -201,7 +219,7 @@ const EVENT_TYPE_LABELS: Record<EventType, string> = {
   school: 'School',
   activity: 'Activity',
   medical: 'Medical',
-  'expense-related': 'Expense',
+  payment: 'Payment',
   other: 'Other',
 }
 
@@ -218,12 +236,51 @@ const CONFIRMATION_LABELS: Record<ConfirmationStatus, string> = {
   declined: 'Declined',
 }
 
+function getConfirmationMeta(
+  status?: ConfirmationStatus,
+  requiresConfirmation?: boolean,
+) {
+  const safe = toConfirmationStatus(status)
+
+  if (!requiresConfirmation || safe === 'not-required') {
+    return {
+      icon: '—',
+      label: 'Not required',
+      short: 'NR',
+    }
+  }
+
+  if (safe === 'pending') {
+    return {
+      icon: '⏳',
+      label: 'Pending',
+      short: 'P',
+    }
+  }
+
+  if (safe === 'confirmed') {
+    return {
+      icon: '✅',
+      label: 'Confirmed',
+      short: 'OK',
+    }
+  }
+
+  return {
+    icon: '❌',
+    label: 'Declined',
+    short: 'NO',
+  }
+}
+
 function getEventColor(type?: EventType) {
   return EVENT_TYPE_COLORS[toEventType(type)]
 }
 
 export default function CalendarPage() {
   const t = useTranslations()
+  const searchParams = useSearchParams()
+  const eventIdFromQuery = searchParams.get('event')
 
   const [loading, setLoading] = useState(true)
   const [children, setChildren] = useState<Child[]>([])
@@ -288,7 +345,7 @@ export default function CalendarPage() {
           credentials: 'include',
           cache: 'no-store',
         }),
-        fetch('/api/customers?limit=50&sort=createdAt&depth=0', {
+        fetch('/api/customers?limit=200&sort=createdAt&depth=0', {
           credentials: 'include',
           cache: 'no-store',
         }),
@@ -352,7 +409,12 @@ export default function CalendarPage() {
       setParents(
         (pData?.docs ?? []).map((p: any) => ({
           id: p.id,
-          fullName: p.fullName || p.name || p.email || `Parent ${p.id}`,
+          fullName:
+            p.fullName ||
+            p.name ||
+            `${String(p?.firstName || '').trim()} ${String(p?.lastName || '').trim()}`.trim() ||
+            p.email ||
+            `Parent ${p.id}`,
           email: p.email,
         })),
       )
@@ -386,27 +448,14 @@ export default function CalendarPage() {
         const confirmedByIdResolved = getRelId(d.confirmedBy) || undefined
         const createdByIdResolved = getRelId(d.createdBy) || undefined
 
-        const childNameResolved = childIdResolved
-          ? childNameById.get(childIdResolved) || getRelName(d.child)
-          : getRelName(d.child)
-
-        const handoverFromNameResolved =
-          getRelName(d.handoverFrom) ||
-          (handoverFromIdResolved ? parentNameById.get(handoverFromIdResolved) : undefined)
-
-        const handoverToNameResolved =
-          getRelName(d.handoverTo) ||
-          (handoverToIdResolved ? parentNameById.get(handoverToIdResolved) : undefined)
-
-        const responsibleParentNameResolved =
-          getRelName(d.responsibleParent) ||
-          (responsibleParentIdResolved
-            ? parentNameById.get(responsibleParentIdResolved)
-            : undefined)
-
-        const confirmedByNameResolved =
-          getRelName(d.confirmedBy) ||
-          (confirmedByIdResolved ? parentNameById.get(confirmedByIdResolved) : undefined)
+        const childNameResolved = getRelDisplayName(d.child, childNameById)
+        const handoverFromNameResolved = getRelDisplayName(d.handoverFrom, parentNameById)
+        const handoverToNameResolved = getRelDisplayName(d.handoverTo, parentNameById)
+        const responsibleParentNameResolved = getRelDisplayName(
+          d.responsibleParent,
+          parentNameById,
+        )
+        const confirmedByNameResolved = getRelDisplayName(d.confirmedBy, parentNameById)
 
         const ev: RBCEvent = {
           id: String(d.id),
@@ -433,6 +482,9 @@ export default function CalendarPage() {
             confirmedByName: confirmedByNameResolved,
             confirmedAt: d.confirmedAt,
             createdById: createdByIdResolved,
+            linkedEconomyTransaction: d.linkedEconomyTransaction
+              ? String(d.linkedEconomyTransaction)
+              : undefined,
           },
         }
 
@@ -443,6 +495,18 @@ export default function CalendarPage() {
     if (filterChild === 'all') return mapped
     return mapped.filter((e) => e.resource.childId === filterChild)
   }, [docs, childNameById, parentNameById, filterChild])
+
+  useEffect(() => {
+    if (!eventIdFromQuery || !events.length) return
+
+    const matched = events.find((ev) => String(ev.id) === String(eventIdFromQuery))
+    if (!matched) return
+
+    setCurrentDate(matched.start)
+    setMode('view')
+    setActiveEvent(matched)
+    setOpen(true)
+  }, [eventIdFromQuery, events])
 
   const dotsByDay = useMemo(() => {
     const map = new Map<string, string[]>()
@@ -460,6 +524,7 @@ export default function CalendarPage() {
         cur = addDays(cur, 1)
       }
     }
+
     return map
   }, [events])
 
@@ -589,8 +654,6 @@ export default function CalendarPage() {
       handoverTo: eventType === 'handover' && handoverTo ? normalizeID(handoverTo) : null,
       responsibleParent: responsibleParent ? normalizeID(responsibleParent) : null,
     }
-
-    return { startD, endD }
   }
 
   async function createEvent(e: React.FormEvent) {
@@ -602,6 +665,7 @@ export default function CalendarPage() {
     if (validationError) return setError(validationError)
 
     setSaving(true)
+
     try {
       const res = await fetch('/api/calendar-events', {
         method: 'POST',
@@ -612,6 +676,7 @@ export default function CalendarPage() {
 
       const raw = await res.text()
       let j: any = {}
+
       try {
         j = JSON.parse(raw)
       } catch {}
@@ -640,6 +705,7 @@ export default function CalendarPage() {
     if (validationError) return setError(validationError)
 
     setSaving(true)
+
     try {
       const res = await fetch(`/api/calendar-events/${activeEvent.id}`, {
         method: 'PATCH',
@@ -650,6 +716,7 @@ export default function CalendarPage() {
 
       const raw = await res.text()
       let j: any = {}
+
       try {
         j = JSON.parse(raw)
       } catch {}
@@ -671,6 +738,7 @@ export default function CalendarPage() {
   async function deleteEvent(id: string) {
     if (!confirm('Delete this event?')) return
     setError('')
+
     try {
       const res = await fetch(`/api/calendar-events/${id}`, {
         method: 'DELETE',
@@ -679,6 +747,7 @@ export default function CalendarPage() {
 
       const raw = await res.text()
       let j: any = {}
+
       try {
         j = JSON.parse(raw)
       } catch {}
@@ -719,7 +788,8 @@ export default function CalendarPage() {
       } catch {}
 
       if (!res.ok) {
-        const msg = j?.message || j?.errors?.[0]?.message || raw || 'Failed to update confirmation.'
+        const msg =
+          j?.message || j?.errors?.[0]?.message || raw || 'Failed to update confirmation.'
         throw new Error(msg)
       }
 
@@ -817,10 +887,17 @@ export default function CalendarPage() {
 
   function MonthEvent({ event }: { event: RBCEvent }) {
     const color = getEventColor(event.resource.eventType)
+    const confirmation = getConfirmationMeta(
+      event.resource.confirmationStatus,
+      event.resource.requiresConfirmation,
+    )
 
     return (
       <div className={styles.monthEvent}>
         <span className={styles.monthBar} style={{ backgroundColor: color }} />
+        <span className={styles.monthStatusIcon} title={confirmation.label}>
+          {confirmation.icon}
+        </span>
         <span className={styles.monthTitle}>{event.title}</span>
       </div>
     )
@@ -828,9 +905,16 @@ export default function CalendarPage() {
 
   function TimeEvent({ event }: { event: RBCEvent }) {
     const time = `${format(event.start, 'HH:mm')}–${format(event.end, 'HH:mm')}`
+    const confirmation = getConfirmationMeta(
+      event.resource.confirmationStatus,
+      event.resource.requiresConfirmation,
+    )
 
     return (
-      <div className={styles.timeEventRow} title={`${event.title} • ${time}`}>
+      <div className={styles.timeEventRow} title={`${event.title} • ${time} • ${confirmation.label}`}>
+        <span className={styles.timeEventStatus} aria-hidden="true">
+          {confirmation.icon}
+        </span>
         <span className={styles.timeEventTitle}>{event.title}</span>
         <span className={styles.timeEventSep}>•</span>
         <span className={styles.timeEventTimeInline}>{time}</span>
@@ -841,21 +925,29 @@ export default function CalendarPage() {
   function DayEvent({ event }: { event: RBCEvent }) {
     const time = `${format(event.start, 'HH:mm')}–${format(event.end, 'HH:mm')}`
     const safeType = toEventType(event.resource.eventType)
-    const safeConfirmation = toConfirmationStatus(event.resource.confirmationStatus)
+    const confirmation = getConfirmationMeta(
+      event.resource.confirmationStatus,
+      event.resource.requiresConfirmation,
+    )
 
     return (
-      <div className={styles.dayEvent} title={`${event.title} • ${time}`}>
+      <div className={styles.dayEvent} title={`${event.title} • ${time} • ${confirmation.label}`}>
         <div className={styles.dayEventTop}>
-          <span className={styles.dayEventTitle}>{event.title}</span>
+          <span className={styles.dayEventTitle}>
+            <span className={styles.dayEventStatusIcon} aria-hidden="true">
+              {confirmation.icon}
+            </span>{' '}
+            {event.title}
+          </span>
           <span className={styles.dayEventTime}>{time}</span>
         </div>
 
         <div className={styles.daySubRow}>
-          {event.resource.childName ? <div className={styles.dayEventSub}>{event.resource.childName}</div> : null}
-          <span className={styles.inlineMetaTag}>{EVENT_TYPE_LABELS[safeType]}</span>
-          {safeConfirmation === 'pending' ? (
-            <span className={styles.inlineMetaTag}>Needs confirmation</span>
+          {event.resource.childName ? (
+            <div className={styles.dayEventSub}>{event.resource.childName}</div>
           ) : null}
+          <span className={styles.inlineMetaTag}>{EVENT_TYPE_LABELS[safeType]}</span>
+          <span className={styles.inlineMetaTag}>{confirmation.label}</span>
         </div>
       </div>
     )
@@ -865,7 +957,6 @@ export default function CalendarPage() {
     const date: Date = props.value
     const key = format(date, 'yyyy-MM-dd')
     const dots = (dotsByDay.get(key) ?? []).slice(0, 4)
-
     const onlyChild = Children.only(props.children) as any
 
     return cloneElement(onlyChild, {
@@ -892,7 +983,7 @@ export default function CalendarPage() {
     school: styles.evtSchool,
     activity: styles.evtActivity,
     medical: styles.evtMedical,
-    'expense-related': styles.evtExpense,
+    payment: styles.evtExpense,
     other: styles.evtOther,
   }
 
@@ -988,17 +1079,23 @@ export default function CalendarPage() {
             setActiveEvent(ev)
             setOpen(true)
           }}
-          tooltipAccessor={(ev: RBCEvent) =>
-            [
+          tooltipAccessor={(ev: RBCEvent) => {
+            const confirmation = getConfirmationMeta(
+              ev.resource.confirmationStatus,
+              ev.resource.requiresConfirmation,
+            )
+
+            return [
               ev.resource.childName,
               ev.resource.location,
-              toConfirmationStatus(ev.resource.confirmationStatus) === 'pending'
-                ? 'Needs confirmation'
+              confirmation.label,
+              ev.resource.handoverFromName && ev.resource.handoverToName
+                ? `${ev.resource.handoverFromName} → ${ev.resource.handoverToName}`
                 : '',
             ]
               .filter(Boolean)
               .join(' • ')
-          }
+          }}
           components={{
             toolbar: Toolbar as any,
             dateCellWrapper: DateCellWrapper as any,
@@ -1013,8 +1110,17 @@ export default function CalendarPage() {
           timeslots={2}
           eventPropGetter={(ev: RBCEvent) => {
             const type = toEventType(ev.resource.eventType)
-            if (view === Views.MONTH) return { className: styles.evtMonth }
-            return { className: `${styles.evt} ${TYPE_CLASS[type]}` }
+            const status = toConfirmationStatus(ev.resource.confirmationStatus)
+
+            if (view === Views.MONTH) {
+              return {
+                className: `${styles.evtMonth} ${confirmationClassMap[status]}`,
+              }
+            }
+
+            return {
+              className: `${styles.evt} ${TYPE_CLASS[type]} ${confirmationClassMap[status]}`,
+            }
           }}
         />
       </div>
@@ -1038,6 +1144,8 @@ export default function CalendarPage() {
                   activeEvent.end,
                   'HH:mm',
                 )}`
+
+                const isEconomyGenerated = Boolean(activeEvent.resource.linkedEconomyTransaction)
 
                 const canCurrentUserConfirm =
                   Boolean(activeEvent.resource.requiresConfirmation) &&
@@ -1176,24 +1284,28 @@ export default function CalendarPage() {
                         Close
                       </button>
 
-                      <button
-                        type="button"
-                        className={styles.actionDelete}
-                        onClick={() => deleteEvent(activeEvent.id)}
-                      >
-                        Delete
-                      </button>
+                      {!isEconomyGenerated ? (
+                        <button
+                          type="button"
+                          className={styles.actionDelete}
+                          onClick={() => deleteEvent(activeEvent.id)}
+                        >
+                          Delete
+                        </button>
+                      ) : null}
 
-                      <button
-                        type="button"
-                        className={styles.actionEdit}
-                        onClick={() => {
-                          fillFormFromEvent(activeEvent)
-                          setMode('edit')
-                        }}
-                      >
-                        Edit event
-                      </button>
+                      {!isEconomyGenerated ? (
+                        <button
+                          type="button"
+                          className={styles.actionEdit}
+                          onClick={() => {
+                            fillFormFromEvent(activeEvent)
+                            setMode('edit')
+                          }}
+                        >
+                          Edit event
+                        </button>
+                      ) : null}
                     </div>
                   </div>
                 )
@@ -1244,7 +1356,6 @@ export default function CalendarPage() {
                       <option value="school">School</option>
                       <option value="activity">Activity</option>
                       <option value="medical">Medical</option>
-                      <option value="expense-related">Expense related</option>
                       <option value="other">Other</option>
                     </select>
                   </label>
@@ -1470,7 +1581,6 @@ export default function CalendarPage() {
                       <option value="school">School</option>
                       <option value="activity">Activity</option>
                       <option value="medical">Medical</option>
-                      <option value="expense-related">Expense related</option>
                       <option value="other">Other</option>
                     </select>
                   </label>

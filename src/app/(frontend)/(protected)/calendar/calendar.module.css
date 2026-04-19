@@ -922,7 +922,50 @@
 .actionEdit:hover {
   filter: brightness(0.96);
 }
+.monthStatusIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 6px;
+  font-size: 12px;
+  line-height: 1;
+  flex-shrink: 0;
+}
 
+.timeEventStatus {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 6px;
+  font-size: 12px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.dayEventStatusIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 4px;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.status_not_required {
+  box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.8);
+}
+
+.status_pending {
+  box-shadow: inset 0 0 0 2px rgba(245, 158, 11, 0.95);
+}
+
+.status_confirmed {
+  box-shadow: inset 0 0 0 2px rgba(34, 197, 94, 0.95);
+}
+
+.status_declined {
+  box-shadow: inset 0 0 0 2px rgba(239, 68, 68, 0.95);
+}
 @media (max-width: 900px) {
   .topBar {
     flex-direction: column;

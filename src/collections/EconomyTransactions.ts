@@ -1,3 +1,4 @@
+
 import type { CollectionConfig, Where } from 'payload'
 import { logAudit } from '@/app/lib/logAudit'
 
@@ -263,10 +264,21 @@ export const EconomyTransactions: CollectionConfig = {
       if (!isCustomer(req)) return false
 
       const familyId = getFamilyIdFromUser(req)
-      if (!familyId) return false
+      const userId = normalizeRelId((req.user as any)?.id)
+
+      if (!familyId || !userId) return false
 
       const where: Where = {
-        family: { equals: familyId },
+        and: [
+          { family: { equals: familyId } },
+          {
+            or: [
+              { status: { not_equals: 'paid' } },
+              { paidFromScope: { equals: 'family' } },
+              { paidBy: { equals: userId } },
+            ],
+          },
+        ],
       }
 
       return where
@@ -424,6 +436,8 @@ export const EconomyTransactions: CollectionConfig = {
             id: tx.id,
             data: {
               status: 'paid',
+              paidBy: userId,
+              paidFromScope: connectionScope,
             } as any,
             overrideAccess: true,
             req,
@@ -811,5 +825,45 @@ export const EconomyTransactions: CollectionConfig = {
       required: true,
       index: true,
     },
+
+    {
+      name: 'sourceType',
+      type: 'select',
+      required: false,
+      options: [
+        { label: 'Payment', value: 'payment' },
+        { label: 'Request', value: 'request' },
+      ],
+      index: true,
+    },
+    {
+      name: 'requestRef',
+      type: 'relationship',
+      relationTo: 'economy-requests',
+      required: false,
+      index: true,
+    },
+    {
+      name: 'requestCreatedByName',
+      type: 'text',
+      required: false,
+    },
+    {
+      name: 'approvedByName',
+      type: 'text',
+      required: false,
+    },
+    {
+      name: 'paidFromScope',
+      type: 'select',
+      required: false,
+      options: [
+        { label: 'Family', value: 'family' },
+        { label: 'Personal', value: 'personal' },
+      ],
+    },
   ],
 }
+
+
+

@@ -1,3 +1,4 @@
+
 import type { CollectionConfig, Where } from 'payload'
 import crypto from 'crypto'
 

@@ -84,6 +84,7 @@ export interface Config {
     'bank-transactions': BankTransaction;
     'bank-transfers': BankTransfer;
     'calendar-events': CalendarEvent;
+    'economy-requests': EconomyRequest;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
@@ -107,6 +108,7 @@ export interface Config {
     'bank-transactions': BankTransactionsSelect<false> | BankTransactionsSelect<true>;
     'bank-transfers': BankTransfersSelect<false> | BankTransfersSelect<true>;
     'calendar-events': CalendarEventsSelect<false> | CalendarEventsSelect<true>;
+    'economy-requests': EconomyRequestsSelect<false> | EconomyRequestsSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -632,6 +634,32 @@ export interface EconomyTransaction {
   currency: string;
   status: 'paid' | 'pending';
   transactionDate: string;
+  sourceType?: ('payment' | 'request') | null;
+  requestRef?: (number | null) | EconomyRequest;
+  requestCreatedByName?: string | null;
+  approvedByName?: string | null;
+  paidFromScope?: ('family' | 'personal') | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "economy-requests".
+ */
+export interface EconomyRequest {
+  id: number;
+  family: number | Family;
+  createdBy: number | Customer;
+  createdByName: string;
+  child?: (number | null) | Child;
+  title: string;
+  amount: number;
+  category: 'food' | 'housing' | 'transport' | 'health' | 'school' | 'activities' | 'clothes' | 'bills' | 'other';
+  notes?: string | null;
+  status: 'pending' | 'approved' | 'rejected';
+  reviewedBy?: (number | null) | Customer;
+  reviewedAt?: string | null;
+  decisionNote?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -831,6 +859,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'calendar-events';
         value: number | CalendarEvent;
+      } | null)
+    | ({
+        relationTo: 'economy-requests';
+        value: number | EconomyRequest;
       } | null);
   globalSlug?: string | null;
   user:
@@ -1348,6 +1380,11 @@ export interface EconomyTransactionsSelect<T extends boolean = true> {
   currency?: T;
   status?: T;
   transactionDate?: T;
+  sourceType?: T;
+  requestRef?: T;
+  requestCreatedByName?: T;
+  approvedByName?: T;
+  paidFromScope?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -1437,6 +1474,26 @@ export interface CalendarEventsSelect<T extends boolean = true> {
   endAt?: T;
   allDay?: T;
   createdBy?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "economy-requests_select".
+ */
+export interface EconomyRequestsSelect<T extends boolean = true> {
+  family?: T;
+  createdBy?: T;
+  createdByName?: T;
+  child?: T;
+  title?: T;
+  amount?: T;
+  category?: T;
+  notes?: T;
+  status?: T;
+  reviewedBy?: T;
+  reviewedAt?: T;
+  decisionNote?: T;
   updatedAt?: T;
   createdAt?: T;
 }

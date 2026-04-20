@@ -22,6 +22,7 @@ import { BankTransfers } from './collections/BankTransfers'
 
 import { CalendarEvents } from './collections/CalendarEvents'
 import { Notifications } from './collections/Notifications'
+import { EconomyRequests } from './collections/EconomyRequests'
 
 
 
@@ -37,7 +38,7 @@ export default buildConfig({
   },
   collections: [Users, Media, LandingPage, Posts,
     AboutPage,Customers, Families, Children, ChildDocuments, AuditLogs, Notifications,
-    EconomyTransactions,BankConnections,BankTransactions,BankTransfers,CalendarEvents,],
+    EconomyTransactions,BankConnections,BankTransactions,BankTransfers,CalendarEvents,EconomyRequests],
   editor: lexicalEditor(),
   secret: process.env.PAYLOAD_SECRET || '',
   typescript: {

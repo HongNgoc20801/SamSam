@@ -67,7 +67,7 @@ body {
 
 body {
   margin: 0;
-  font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+  font-family: var(--font-inter), sans-serif;
   color: var(--text);
 
   /* ✅ Không để transparent nữa */
@@ -77,14 +77,26 @@ body {
   line-height: 1.6;
 }
 
-/* Ảnh an toàn */
+.title,
+.heroTitle {
+  font-family: var(--font-merriweather), serif;
+}
+
+.subtitle,
+.label,
+.field input,
+.field select,
+.primaryBtn,
+.secondaryBtn,
+.heroText {
+  font-family: var(--font-inter), sans-serif;
+}
 img {
   max-width: 100%;
   height: auto;
   display: block;
 }
 
-/* Tránh margin mặc định làm "lệch layout" */
 p {
   margin: 0;
 }
@@ -100,17 +112,13 @@ a:focus-visible {
   border-radius: 10px;
 }
 
-/* Nếu bạn vẫn muốn scale font nhẹ theo màn hình */
 @media (max-width: 1024px) {
   body {
     font-size: 15px;
   }
 }
 
-/* =========================
-   OPTIONAL HELPERS (tiện đồng bộ)
-   Bạn có thể dùng hoặc không
-   ========================= */
+
 .section {
   padding-block: var(--section-y);
 }

@@ -10,15 +10,20 @@ import {
   Heart,
   FileText,
   CalendarDays,
+  Wallet,
+  Landmark,
 } from 'lucide-react'
 
-type AuditLogListLabels = {
+export type AuditLogListLabels = {
   today: string
   yesterday: string
   noValue: string
   system: string
   unknownUser: string
   activity: string
+
+  yesLabel: string
+  noLabel: string
 
   created: string
   updated: string
@@ -57,11 +62,28 @@ type AuditLogListLabels = {
   fieldAllDay: string
   fieldFallback: string
 
-  fieldCategoryAgreement?: string
-  fieldCategorySchool?: string
-  fieldCategoryHealth?: string
-  fieldCategoryId?: string
-  fieldCategoryOther?: string
+  fieldAmount: string
+  fieldCurrency: string
+  fieldTransactionDate: string
+  fieldPaidBy: string
+  fieldPaidFromScope: string
+  fieldStatusReason: string
+  fieldPaidAt: string
+  fieldPaidByName: string
+  fieldReviewedAt: string
+  fieldReviewedByName: string
+  fieldBankName: string
+  fieldConnectionScope: string
+  fieldFromScope: string
+  fieldToScope: string
+  fieldLocation: string
+  fieldDecisionNote: string
+
+  fieldCategoryAgreement: string
+  fieldCategorySchool: string
+  fieldCategoryHealth: string
+  fieldCategoryId: string
+  fieldCategoryOther: string
 
   statusAdmin: string
   statusPersonal: string
@@ -69,6 +91,8 @@ type AuditLogListLabels = {
   statusChild: string
 
   forChild: string
+  fromLabel: string
+  bankLabel: string
   fieldsChanged: string
   confirmationReset: string
   childUpdate: string
@@ -94,8 +118,25 @@ type AuditLogListLabels = {
   likedPost: string
   removedLikeFromPost: string
   commentedOnPost: string
+
+  createdPaymentItem: string
+  updatedPaymentItem: string
+  deletedPaymentItem: string
+  paidPaymentItem: string
+
+  createdMoneyRequest: string
+  approvedMoneyRequest: string
+  rejectedMoneyRequest: string
+
+  transferredMoney: string
+  connectedBank: string
+  disconnectedBank: string
+
   didActivity: string
+  viewDetails: string
+  hideDetails: string
 }
+
 export function fmtDateTime(
   value?: string | null,
   locale = 'nb-NO',
@@ -156,6 +197,20 @@ export function fmtTimeOnly(
   })
 }
 
+function getDateKey(value?: string | null, timeZone = 'Europe/Oslo') {
+  if (!value) return ''
+
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(date)
+}
+
 export function actorDisplayName(
   a: AuditLog,
   labels?: Pick<AuditLogListLabels, 'system' | 'unknownUser'>,
@@ -200,6 +255,8 @@ export function getActionIcon(action?: string) {
   const a = String(action || '').toLowerCase()
 
   if (a.startsWith('event.')) return CalendarDays
+  if (a.startsWith('economy.')) return Wallet
+  if (a.startsWith('bank.')) return Landmark
   if (a.includes('confirm')) return CheckCircle
   if (a.includes('create')) return PlusCircle
   if (a.includes('upload')) return Upload
@@ -215,34 +272,48 @@ export function getActionIcon(action?: string) {
 export function formatDayLabel(
   dateStr: string,
   labels?: Pick<AuditLogListLabels, 'today' | 'yesterday'>,
+  locale = 'nb-NO',
+  timeZone = 'Europe/Oslo',
 ) {
-  const date = new Date(dateStr)
+  if (!dateStr) return ''
+
+  const date = new Date(`${dateStr}T12:00:00`)
   if (Number.isNaN(date.getTime())) return dateStr
 
-  const today = new Date()
-  const yesterday = new Date()
-  yesterday.setDate(today.getDate() - 1)
+  const now = new Date()
+  const currentKey = getDateKey(now.toISOString(), timeZone)
 
-  if (date.toDateString() === today.toDateString()) {
+  const yesterday = new Date(now)
+  yesterday.setDate(yesterday.getDate() - 1)
+  const yesterdayKey = getDateKey(yesterday.toISOString(), timeZone)
+
+  const dateKey = getDateKey(date.toISOString(), timeZone)
+
+  if (dateKey === currentKey) {
     return labels?.today || 'Today'
   }
 
-  if (date.toDateString() === yesterday.toDateString()) {
+  if (dateKey === yesterdayKey) {
     return labels?.yesterday || 'Yesterday'
   }
 
-  return dateStr
+  return date.toLocaleDateString(locale, {
+    timeZone,
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  })
 }
 
 export function actionTone(action?: string) {
   const a = String(action || '').toLowerCase()
 
-  if (a.includes('confirm')) return 'confirm'
+  if (a.includes('confirm') || a.includes('approve') || a.includes('pay')) return 'confirm'
   if (a.includes('create')) return 'create'
   if (a.includes('upload')) return 'upload'
   if (a.includes('replace')) return 'replace'
-  if (a.includes('delete')) return 'delete'
-  if (a.includes('update')) return 'update'
+  if (a.includes('delete') || a.includes('reject')) return 'delete'
+  if (a.includes('update') || a.includes('transfer') || a.includes('connect')) return 'update'
   return 'default'
 }
 
@@ -255,12 +326,16 @@ export function actionLabel(
 ) {
   const a = String(action || '').toLowerCase()
 
-  if (a.includes('confirm')) return labels?.confirmed || 'Confirmed'
+  if (a.includes('confirm') || a.includes('approve') || a.includes('pay')) {
+    return labels?.confirmed || 'Confirmed'
+  }
   if (a.includes('create')) return labels?.created || 'Created'
   if (a.includes('upload')) return labels?.uploaded || 'Uploaded'
   if (a.includes('replace')) return labels?.replaced || 'Replaced'
-  if (a.includes('delete')) return labels?.deleted || 'Deleted'
-  if (a.includes('update')) return labels?.updated || 'Updated'
+  if (a.includes('delete') || a.includes('reject')) return labels?.deleted || 'Deleted'
+  if (a.includes('update') || a.includes('transfer') || a.includes('connect')) {
+    return labels?.updated || 'Updated'
+  }
 
   return labels?.activity || 'Activity'
 }
@@ -287,6 +362,22 @@ export function fieldLabel(
     | 'fieldNotes'
     | 'fieldAllDay'
     | 'fieldFallback'
+    | 'fieldAmount'
+    | 'fieldCurrency'
+    | 'fieldTransactionDate'
+    | 'fieldPaidBy'
+    | 'fieldPaidFromScope'
+    | 'fieldStatusReason'
+    | 'fieldPaidAt'
+    | 'fieldPaidByName'
+    | 'fieldReviewedAt'
+    | 'fieldReviewedByName'
+    | 'fieldBankName'
+    | 'fieldConnectionScope'
+    | 'fieldFromScope'
+    | 'fieldToScope'
+    | 'fieldLocation'
+    | 'fieldDecisionNote'
   >,
 ) {
   const map: Record<string, string> = {
@@ -307,6 +398,22 @@ export function fieldLabel(
     endAt: labels?.fieldEndAt || 'End time',
     notes: labels?.fieldNotes || 'Notes',
     allDay: labels?.fieldAllDay || 'All day',
+    amount: labels?.fieldAmount || 'Amount',
+    currency: labels?.fieldCurrency || 'Currency',
+    transactionDate: labels?.fieldTransactionDate || 'Transaction date',
+    paidBy: labels?.fieldPaidBy || 'Paid by',
+    paidFromScope: labels?.fieldPaidFromScope || 'Paid from',
+    statusReason: labels?.fieldStatusReason || 'Reason',
+    paidAt: labels?.fieldPaidAt || 'Paid at',
+    paidByName: labels?.fieldPaidByName || 'Paid by',
+    reviewedAt: labels?.fieldReviewedAt || 'Reviewed at',
+    reviewedByName: labels?.fieldReviewedByName || 'Reviewed by',
+    bankName: labels?.fieldBankName || 'Bank',
+    connectionScope: labels?.fieldConnectionScope || 'Connection scope',
+    fromScope: labels?.fieldFromScope || 'From account',
+    toScope: labels?.fieldToScope || 'To account',
+    location: labels?.fieldLocation || 'Location',
+    decisionNote: labels?.fieldDecisionNote || 'Decision note',
   }
 
   return map[field || ''] || field || labels?.fieldFallback || 'Field'
@@ -335,22 +442,28 @@ export function renderChangeValue(
   empty = '—',
   labels?: Pick<
     AuditLogListLabels,
-    'statusAdmin' | 'statusPersonal' | 'statusImportant' | 'statusChild'
+    | 'statusAdmin'
+    | 'statusPersonal'
+    | 'statusImportant'
+    | 'statusChild'
+    | 'yesLabel'
+    | 'noLabel'
   >,
   locale = 'nb-NO',
+  timeZone = 'Europe/Oslo',
 ) {
   const value = String(v ?? '').trim()
   if (!value) return empty
 
-  if (value === 'true') return 'Yes'
-  if (value === 'false') return 'No'
+  if (value === 'true') return labels?.yesLabel || 'Yes'
+  if (value === 'false') return labels?.noLabel || 'No'
 
   const statusValue = normalizeStatusDisplay(value, labels)
   if (statusValue && statusValue !== value) return statusValue
 
   const maybeDate = new Date(value)
   if (!Number.isNaN(maybeDate.getTime()) && value.includes('T')) {
-    return fmtDateTime(value, locale)
+    return fmtDateTime(value, locale, timeZone, empty)
   }
 
   if (value.length > 120) return `${value.slice(0, 120)}…`
@@ -371,24 +484,6 @@ function getChildName(a: AuditLog) {
   }
 
   return ''
-}
-
-function statusLabel(
-  status?: string,
-  labels?: Pick<
-    AuditLogListLabels,
-    'statusAdmin' | 'statusPersonal' | 'statusImportant' | 'statusChild'
-  >,
-) {
-  const s = String(status || '').toLowerCase()
-
-  if (!s) return ''
-  if (s === 'admin') return labels?.statusAdmin || 'Admin'
-  if (s === 'personal') return labels?.statusPersonal || 'Personal'
-  if (s === 'important') return labels?.statusImportant || 'Important'
-  if (s === 'child') return labels?.statusChild || 'Child'
-
-  return status || ''
 }
 
 function documentCategoryLabel(
@@ -422,9 +517,9 @@ export function getAuditTarget(a: AuditLog) {
 function buildEventSub(
   meta: any,
   a: AuditLog,
-  labels?: AuditLogListLabels,
+  labels?: Pick<AuditLogListLabels, 'forChild'>,
   locale = 'nb-NO',
-  changesCount = 0,
+  timeZone = 'Europe/Oslo',
 ) {
   const childName = getChildName(a)
   const parts: string[] = []
@@ -433,40 +528,34 @@ function buildEventSub(
 
   if (meta?.startAt && meta?.endAt) {
     const sameDay =
-      fmtDateOnly(meta.startAt, locale) === fmtDateOnly(meta.endAt, locale)
+      fmtDateOnly(meta.startAt, locale, timeZone) ===
+      fmtDateOnly(meta.endAt, locale, timeZone)
 
     if (meta?.allDay) {
       parts.push(
         sameDay
-          ? fmtDateOnly(meta.startAt, locale)
-          : `${fmtDateOnly(meta.startAt, locale)} → ${fmtDateOnly(meta.endAt, locale)}`,
+          ? fmtDateOnly(meta.startAt, locale, timeZone)
+          : `${fmtDateOnly(meta.startAt, locale, timeZone)} → ${fmtDateOnly(meta.endAt, locale, timeZone)}`,
       )
     } else {
       parts.push(
         sameDay
-          ? `${fmtDateOnly(meta.startAt, locale)} • ${fmtTimeOnly(meta.startAt, locale)}–${fmtTimeOnly(meta.endAt, locale)}`
-          : `${fmtDateTime(meta.startAt, locale)} → ${fmtDateTime(meta.endAt, locale)}`,
+          ? `${fmtDateOnly(meta.startAt, locale, timeZone)} • ${fmtTimeOnly(meta.startAt, locale, timeZone)}–${fmtTimeOnly(meta.endAt, locale, timeZone)}`
+          : `${fmtDateTime(meta.startAt, locale, timeZone)} → ${fmtDateTime(meta.endAt, locale, timeZone)}`,
       )
     }
   }
 
-  const currentStatus = statusLabel(meta?.status, labels)
-  const previousStatus = statusLabel(meta?.previousStatus, labels)
-
-  if (currentStatus && previousStatus && currentStatus !== previousStatus) {
-    parts.push(`${previousStatus} → ${currentStatus}`)
-  } else if (currentStatus) {
-    parts.push(currentStatus)
-  }
-
-  if (!parts.length && changesCount > 0) {
-    parts.push(`${changesCount} ${labels?.fieldsChanged || 'fields changed'}`)
-  }
+  if (meta?.location) parts.push(meta.location)
 
   return parts.join(' • ')
 }
 
-function buildDocumentSub(a: AuditLog, fallback?: string, labels?: AuditLogListLabels) {
+function buildDocumentSub(
+  a: AuditLog,
+  fallback?: string,
+  labels?: Pick<AuditLogListLabels, 'forChild'>,
+) {
   const childName = getChildName(a)
   const parts: string[] = []
 
@@ -476,37 +565,19 @@ function buildDocumentSub(a: AuditLog, fallback?: string, labels?: AuditLogListL
   return parts.join(' • ')
 }
 
-function buildPostSentence(
-  base: 'created' | 'updated' | 'deleted',
-  meta: any,
-  labels?: AuditLogListLabels,
+function buildConnectionScopeLabel(
+  scope?: string,
+  labels?: Pick<AuditLogListLabels, 'fromLabel' | 'bankLabel'>,
 ) {
-  const isChildUpdate = meta?.type === 'child-update'
-  const childName = String(meta?.childName || '').trim()
-
-  if (isChildUpdate) {
-    return `${base === 'created'
-      ? labels?.created || 'Created'
-      : base === 'updated'
-      ? labels?.updated || 'Updated'
-      : labels?.deleted || 'Deleted'} ${labels?.childUpdate || 'child update'}${
-      childName ? ` ${labels?.forChild || 'for'} ${childName}` : ''
-    }`
-  }
-
-  return `${
-    base === 'created'
-      ? labels?.created || 'Created'
-      : base === 'updated'
-      ? labels?.updated || 'Updated'
-      : labels?.deleted || 'Deleted'
-  } ${labels?.generalPost || 'family post'}`
+  if (!scope) return ''
+  return `${labels?.fromLabel || 'from'} ${scope} ${labels?.bankLabel || 'bank'}`
 }
 
 export function auditPretty(
   a: AuditLog,
   labels?: AuditLogListLabels,
   locale = 'nb-NO',
+  timeZone = 'Europe/Oslo',
 ) {
   const action = String(a.action || '').toLowerCase()
   const meta = a.meta || {}
@@ -542,7 +613,7 @@ export function auditPretty(
     return {
       sentence: labels?.createdCalendarEvent || 'created calendar event',
       target: meta?.title || a.targetLabel || '',
-      sub: buildEventSub(meta, a, labels, locale),
+      sub: buildEventSub(meta, a, labels, locale, timeZone),
     }
   }
 
@@ -550,7 +621,9 @@ export function auditPretty(
     return {
       sentence: labels?.updatedCalendarEvent || 'updated calendar event',
       target: meta?.title || a.targetLabel || '',
-      sub: buildEventSub(meta, a, labels, locale, changes.length),
+      sub:
+        buildEventSub(meta, a, labels, locale, timeZone) ||
+        `${changes.length} ${labels?.fieldsChanged || 'fields changed'}`,
     }
   }
 
@@ -558,7 +631,7 @@ export function auditPretty(
     return {
       sentence: labels?.deletedCalendarEvent || 'deleted calendar event',
       target: meta?.title || a.targetLabel || '',
-      sub: buildEventSub(meta, a, labels, locale),
+      sub: buildEventSub(meta, a, labels, locale, timeZone),
     }
   }
 
@@ -626,17 +699,24 @@ export function auditPretty(
 
   if (action === 'post.create') {
     return {
-      sentence: buildPostSentence('created', meta, labels),
+      sentence:
+        meta?.type === 'child-update'
+          ? labels?.created || 'Created'
+          : labels?.createdFamilyPost || 'created family post',
       target: meta?.title || '',
-      sub: meta?.type === 'child-update'
-        ? labels?.childUpdate || 'Child update'
-        : labels?.generalPost || 'General post',
+      sub:
+        meta?.type === 'child-update'
+          ? labels?.childUpdate || 'Child update'
+          : labels?.generalPost || 'General post',
     }
   }
 
   if (action === 'post.update') {
     return {
-      sentence: buildPostSentence('updated', meta, labels),
+      sentence:
+        meta?.type === 'child-update'
+          ? labels?.updated || 'Updated'
+          : labels?.updatedFamilyPost || 'updated family post',
       target: meta?.title || '',
       sub: `${changes.length} ${labels?.fieldsChanged || 'fields changed'}`,
     }
@@ -644,11 +724,15 @@ export function auditPretty(
 
   if (action === 'post.delete') {
     return {
-      sentence: buildPostSentence('deleted', meta, labels),
+      sentence:
+        meta?.type === 'child-update'
+          ? labels?.deleted || 'Deleted'
+          : labels?.deletedFamilyPost || 'deleted family post',
       target: meta?.title || '',
-      sub: meta?.type === 'child-update'
-        ? labels?.childUpdate || 'Child update'
-        : labels?.generalPost || 'General post',
+      sub:
+        meta?.type === 'child-update'
+          ? labels?.childUpdate || 'Child update'
+          : labels?.generalPost || 'General post',
     }
   }
 
@@ -673,6 +757,123 @@ export function auditPretty(
       sentence: labels?.commentedOnPost || 'commented on post',
       target: meta?.title || '',
       sub: '',
+    }
+  }
+
+  if (action === 'economy.transaction.create') {
+    return {
+      sentence: labels?.createdPaymentItem || 'created payment item',
+      target: meta?.title || a.targetLabel || '',
+      sub: [
+        meta?.amount ? `${meta.amount} ${meta?.currency || 'NOK'}` : '',
+        meta?.category || '',
+        meta?.transactionDate
+          ? fmtDateOnly(meta.transactionDate, locale, timeZone)
+          : '',
+      ]
+        .filter(Boolean)
+        .join(' • '),
+    }
+  }
+
+  if (action === 'economy.transaction.update') {
+    return {
+      sentence: labels?.updatedPaymentItem || 'updated payment item',
+      target: meta?.title || a.targetLabel || '',
+      sub:
+        changes.length > 0
+          ? `${changes.length} ${labels?.fieldsChanged || 'fields changed'}`
+          : '',
+    }
+  }
+
+  if (action === 'economy.transaction.delete') {
+    return {
+      sentence: labels?.deletedPaymentItem || 'deleted payment item',
+      target: meta?.title || a.targetLabel || '',
+      sub: [
+        meta?.amount ? `${meta.amount} ${meta?.currency || 'NOK'}` : '',
+        meta?.category || '',
+      ]
+        .filter(Boolean)
+        .join(' • '),
+    }
+  }
+
+  if (action === 'economy.transaction.pay') {
+    return {
+      sentence: labels?.paidPaymentItem || 'paid payment item',
+      target: meta?.title || a.targetLabel || '',
+      sub: [
+        meta?.amount ? `${meta.amount} ${meta?.currency || 'NOK'}` : '',
+        buildConnectionScopeLabel(meta?.connectionScope, labels),
+      ]
+        .filter(Boolean)
+        .join(' • '),
+    }
+  }
+
+  if (action === 'economy.request.create') {
+    return {
+      sentence: labels?.createdMoneyRequest || 'created money request',
+      target: meta?.title || a.targetLabel || '',
+      sub: [
+        meta?.amount ? `${meta.amount} ${meta?.currency || 'NOK'}` : '',
+        meta?.category || '',
+        meta?.childName ? `${labels?.forChild || 'for'} ${meta.childName}` : '',
+      ]
+        .filter(Boolean)
+        .join(' • '),
+    }
+  }
+
+  if (action === 'economy.request.approve') {
+    return {
+      sentence: labels?.approvedMoneyRequest || 'approved money request',
+      target: meta?.title || a.targetLabel || '',
+      sub: [
+        meta?.amount ? `${meta.amount} ${meta?.currency || 'NOK'}` : '',
+        buildConnectionScopeLabel(meta?.connectionScope, labels),
+      ]
+        .filter(Boolean)
+        .join(' • '),
+    }
+  }
+
+  if (action === 'economy.request.reject') {
+    return {
+      sentence: labels?.rejectedMoneyRequest || 'rejected money request',
+      target: meta?.title || a.targetLabel || '',
+      sub: meta?.decisionNote || '',
+    }
+  }
+
+  if (action === 'bank.transfer') {
+    return {
+      sentence: labels?.transferredMoney || 'transferred money',
+      target: meta?.note || '',
+      sub: [
+        meta?.amount ? `${meta.amount} ${meta?.currency || 'NOK'}` : '',
+        meta?.fromScope && meta?.toScope ? `${meta.fromScope} → ${meta.toScope}` : '',
+      ]
+        .filter(Boolean)
+        .join(' • '),
+    }
+  }
+
+  if (action === 'bank.connect') {
+    return {
+      sentence: labels?.connectedBank || 'connected bank',
+      target: meta?.bankName || '',
+      sub: meta?.connectionScope || '',
+    }
+  }
+
+  if (action === 'bank.disconnect') {
+    return {
+      sentence: labels?.disconnectedBank || 'disconnected bank',
+      target: meta?.bankName || '',
+      sub: meta?.connectionScope || '',
     }
   }
 
@@ -701,11 +902,14 @@ export function isImportantAudit(a: AuditLog) {
   return true
 }
 
-export function groupAuditLogsByDay(audits: AuditLog[]) {
+export function groupAuditLogsByDay(
+  audits: AuditLog[],
+  timeZone = 'Europe/Oslo',
+) {
   const groups = new Map<string, AuditLog[]>()
 
   for (const audit of audits) {
-    const key = audit.createdAt ? audit.createdAt.slice(0, 10) : 'Unknown'
+    const key = getDateKey(audit.createdAt, timeZone) || 'Unknown'
     const existing = groups.get(key) || []
     existing.push(audit)
     groups.set(key, existing)

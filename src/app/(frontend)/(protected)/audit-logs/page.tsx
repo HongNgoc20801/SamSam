@@ -34,6 +34,7 @@ export default async function AuditLogsPage() {
         audits={audits}
         children={children}
         title={td.title}
+        subtitle={td.subtitle}
         compact={false}
         allowFilter={true}
         defaultImportantOnly={false}

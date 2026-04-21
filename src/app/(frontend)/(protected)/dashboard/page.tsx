@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { format } from 'date-fns'
+import { useTranslations } from '@/app/lib/i18n/useTranslations'
 import {
   Bell,
   CalendarDays,
@@ -18,6 +19,8 @@ import {
   Loader2,
   Users,
   AlertTriangle,
+  Wallet,
+  Receipt,
 } from 'lucide-react'
 import styles from './dashboard.module.css'
 
@@ -31,6 +34,9 @@ type NotificationEventType =
   | 'liked'
   | 'uploaded'
   | 'replaced'
+  | 'approved'
+  | 'rejected'
+  | 'paid'
 
 type MeUser = {
   id: string | number
@@ -54,7 +60,7 @@ type NotificationItem = {
   link?: string
   readAt?: string | null
   isRead?: boolean
-  type?: 'calendar' | 'expense' | 'status' | 'documents' | 'post'
+  type?: 'calendar' | 'expense' | 'request' | 'bank' | 'status' | 'documents' | 'post'
   event?: NotificationEventType
   meta?: Record<string, any>
 }
@@ -162,18 +168,69 @@ type FamilyJoinPreview = {
   } | null
 }
 
-type PendingActionItem = {
+type EconomyTransactionDoc = {
   id: string | number
-  kind: 'child' | 'event'
+  title: string
+  amount: number
+  currency?: string
+  status?: 'paid' | 'pending'
+  type?: 'expense' | 'income'
+  category?: string
+  transactionDate?: string
+  child?: string | number | { id: string | number; fullName?: string; name?: string } | null
+}
+
+type EconomyRequestDoc = {
+  id: string | number
+  title: string
+  amount: number
+  category?: string
+  notes?: string
+  status?: 'pending' | 'approved' | 'rejected'
+  child?: string | number | { id: string | number; fullName?: string; name?: string } | null
+  createdBy?: string | number | { id: string | number } | null
+  createdByName?: string
+  createdAt?: string
+}
+
+type BankConnection = {
+  id: string | number
+  bankName?: string
+  currentBalance?: number
+  currency?: string
+  status?: 'not_connected' | 'pending' | 'connected' | 'expired' | 'failed' | string
+  connectionScope?: 'family' | 'personal'
+}
+
+type DecisionActionItem = {
+  id: string | number
+  kind: 'child' | 'event' | 'request-review'
   title: string
   subtitle: string
   detail: string
   href: string
   createdAt?: string
-  startAt?: string
-  confirmationStatus?: string
-  eventType?: string
-  location?: string
+}
+
+type OpenFinanceItem = {
+  id: string | number
+  kind: 'payment' | 'request-waiting'
+  title: string
+  subtitle: string
+  detail: string
+  href: string
+  amount?: number
+  currency?: string
+  createdAt?: string
+}
+
+type FinanceOverview = {
+  pendingPaymentCount: number
+  pendingPaymentTotal: number
+  pendingRequestReviewCount: number
+  waitingRequestCount: number
+  familyBankBalance: number
+  familyBankCurrency: string
 }
 
 type DashboardData = {
@@ -195,7 +252,9 @@ type DashboardData = {
     confirmedByName: string
     confirmedAt?: string
   } | null
-  pendingActions: PendingActionItem[]
+  decisionActions: DecisionActionItem[]
+  openFinanceItems: OpenFinanceItem[]
+  financeOverview: FinanceOverview
   upcomingEvents: Array<{
     id: string | number
     title: string
@@ -230,72 +289,6 @@ function getRelDisplayName(v: any, nameMap?: Map<string, string>) {
   return v.fullName || v.name || full || (id ? nameMap?.get(id) || '' : '') || v.email || ''
 }
 
-function getDisplayName(me: MeUser | null) {
-  if (!me) return 'there'
-
-  const full =
-    `${String(me.firstName || '').trim()} ${String(me.lastName || '').trim()}`.trim() ||
-    String(me.fullName || '').trim()
-
-  return full || 'there'
-}
-
-function getEventTypeLabel(type?: string) {
-  switch (String(type || 'other')) {
-    case 'handover':
-      return 'Handover'
-    case 'pickup':
-      return 'Pickup'
-    case 'dropoff':
-      return 'Drop-off'
-    case 'school':
-      return 'School'
-    case 'activity':
-      return 'Activity'
-    case 'medical':
-      return 'Medical'
-    case 'payment':
-      return 'Payment'
-    default:
-      return 'Other'
-  }
-}
-
-function getStatusTone(status?: string, requiresConfirmation?: boolean) {
-  if (!requiresConfirmation || status === 'not-required') {
-    return {
-      label: 'No confirmation needed',
-      className: styles.statusNeutral,
-    }
-  }
-
-  if (status === 'pending') {
-    return {
-      label: 'Needs confirmation',
-      className: styles.statusPending,
-    }
-  }
-
-  if (status === 'confirmed') {
-    return {
-      label: 'Confirmed',
-      className: styles.statusConfirmed,
-    }
-  }
-
-  return {
-    label: 'Declined',
-    className: styles.statusDeclined,
-  }
-}
-
-function formatNotificationTime(value?: string) {
-  if (!value) return '—'
-  const d = new Date(value)
-  if (Number.isNaN(d.getTime())) return '—'
-  return format(d, 'dd.MM, HH:mm')
-}
-
 function shorten(text?: string, max = 80) {
   const value = String(text || '').trim()
   if (!value) return ''
@@ -321,273 +314,9 @@ function getCountdownParts(targetIso?: string) {
   return { days, hours, minutes, expired: false }
 }
 
-function buildNotificationTitle(item: NotificationItem) {
-  const meta = item.meta || {}
-  const actorName = String(meta.actorName || 'A parent').trim()
-  const childName = String(meta.childName || '').trim()
-  const eventType = getEventTypeLabel(meta.eventType)
-  const rawTitle = String(item.title || 'Notification').trim()
-  const isChildUpdate = !!meta.isChildUpdate
-  const documentName = String(meta.documentName || item.title || '').trim()
-
-  if (item.type === 'calendar') {
-    if (item.event === 'created') {
-      return `${actorName} created ${eventType.toLowerCase()}${childName ? ` for ${childName}` : ''}`
-    }
-
-    if (
-      item.event === 'updated' &&
-      meta.requiresConfirmation &&
-      meta.confirmationStatus === 'pending'
-    ) {
-      return `${actorName} updated ${eventType.toLowerCase()}${childName ? ` for ${childName}` : ''}`
-    }
-
-    if (item.event === 'updated') {
-      return `${actorName} updated ${eventType.toLowerCase()}${childName ? ` for ${childName}` : ''}`
-    }
-
-    if (item.event === 'deleted') {
-      return `${actorName} deleted ${eventType.toLowerCase()}${childName ? ` for ${childName}` : ''}`
-    }
-
-    if (item.event === 'confirmed') {
-      return `${actorName} accepted ${eventType.toLowerCase()}${childName ? ` for ${childName}` : ''}`
-    }
-
-    if (item.event === 'declined') {
-      return `${actorName} declined ${eventType.toLowerCase()}${childName ? ` for ${childName}` : ''}`
-    }
-  }
-
-  if (item.type === 'status') {
-    if (item.event === 'created' && childName) {
-      return `New child profile: ${childName}`
-    }
-
-    if (item.event === 'updated' && childName && meta.needsConfirmation) {
-      return `${childName} needs confirmation`
-    }
-
-    if (item.event === 'updated' && childName) {
-      return `${childName} profile updated`
-    }
-
-    if (item.event === 'confirmed' && childName) {
-      return `${childName} was confirmed`
-    }
-
-    if (item.event === 'declined' && childName) {
-      return `${childName} was declined`
-    }
-  }
-
-  if (item.type === 'documents') {
-    if (item.event === 'uploaded') {
-      return childName
-        ? `Document uploaded for ${childName}`
-        : documentName
-          ? `Document uploaded: ${documentName}`
-          : 'Document uploaded'
-    }
-
-    if (item.event === 'replaced') {
-      return childName
-        ? `Document replaced for ${childName}`
-        : documentName
-          ? `Document replaced: ${documentName}`
-          : 'Document replaced'
-    }
-
-    if (item.event === 'updated') {
-      return childName
-        ? `Document updated for ${childName}`
-        : documentName
-          ? `Document updated: ${documentName}`
-          : 'Document updated'
-    }
-
-    if (item.event === 'deleted') {
-      return childName
-        ? `Document deleted for ${childName}`
-        : documentName
-          ? `Document deleted: ${documentName}`
-          : 'Document deleted'
-    }
-  }
-
-  if (item.type === 'post') {
-    if (item.event === 'created') {
-      return isChildUpdate
-        ? `New update${childName ? ` for ${childName}` : ''}`
-        : 'New family update'
-    }
-
-    if (item.event === 'updated') {
-      return isChildUpdate
-        ? `Update edited${childName ? ` for ${childName}` : ''}`
-        : 'Family update edited'
-    }
-
-    if (item.event === 'deleted') {
-      return isChildUpdate
-        ? `Update deleted${childName ? ` for ${childName}` : ''}`
-        : 'Family update deleted'
-    }
-
-    if (item.event === 'commented') {
-      return childName ? `New comment for ${childName}` : 'New comment on update'
-    }
-
-    if (item.event === 'liked') {
-      return childName ? `Update liked for ${childName}` : 'Update liked'
-    }
-  }
-
-  return rawTitle || 'Notification'
-}
-
-function buildNotificationMessage(item: NotificationItem) {
-  const meta = item.meta || {}
-  const actorName = String(meta.actorName || 'A parent').trim()
-  const childName = String(meta.childName || '').trim()
-  const documentName = shorten(meta.documentName || item.title || '')
-  const postTitle = shorten(meta.title || item.message || '')
-  const confirmedAt = String(meta.confirmedAt || '').trim()
-
-  if (item.type === 'calendar') {
-    if (item.event === 'created') {
-      const parts = [
-        meta.startAt ? formatNotificationTime(meta.startAt) : '',
-        meta.handoverFromName && meta.handoverToName
-          ? `${meta.handoverFromName} → ${meta.handoverToName}`
-          : '',
-        meta.location || '',
-      ].filter(Boolean)
-
-      return parts.length
-        ? `${actorName} created this event. ${parts.join(' · ')}`
-        : `${actorName} created this event.`
-    }
-
-    if (item.event === 'confirmed') {
-      return `${actorName} accepted this event${confirmedAt ? ` at ${confirmedAt}` : ''}.`
-    }
-
-    if (item.event === 'declined') {
-      return `${actorName} declined this event${confirmedAt ? ` at ${confirmedAt}` : ''}.`
-    }
-
-    if (item.event === 'deleted') {
-      const parts = [
-        meta.startAt ? formatNotificationTime(meta.startAt) : '',
-        meta.handoverFromName && meta.handoverToName
-          ? `${meta.handoverFromName} → ${meta.handoverToName}`
-          : '',
-        meta.location || '',
-      ].filter(Boolean)
-
-      return parts.length
-        ? `${actorName} deleted this event. ${parts.join(' · ')}`
-        : `${actorName} deleted this event.`
-    }
-
-    if (
-      item.event === 'updated' &&
-      meta.requiresConfirmation &&
-      meta.confirmationStatus === 'pending'
-    ) {
-      return `${actorName} updated this event. Waiting for second parent confirmation.`
-    }
-
-    if (item.event === 'updated') {
-      const parts = [
-        meta.startAt ? formatNotificationTime(meta.startAt) : '',
-        meta.handoverFromName && meta.handoverToName
-          ? `${meta.handoverFromName} → ${meta.handoverToName}`
-          : '',
-        meta.location || '',
-      ].filter(Boolean)
-
-      return parts.length
-        ? `${actorName} updated this event. ${parts.join(' · ')}`
-        : `${actorName} updated this event.`
-    }
-  }
-
-  if (item.type === 'status') {
-    if (item.event === 'created' && childName) {
-      return `${actorName} created this child profile. Waiting for second parent confirmation.`
-    }
-
-    if (item.event === 'updated' && childName && meta.needsConfirmation) {
-      return `${actorName} updated this child profile. Waiting for second parent confirmation.`
-    }
-
-    if (item.event === 'updated' && childName) {
-      return `${actorName} updated this child profile.`
-    }
-
-    if (item.event === 'confirmed' && childName) {
-      return `${actorName} confirmed this child profile.`
-    }
-
-    if (item.event === 'declined' && childName) {
-      return `${actorName} declined this child profile.`
-    }
-  }
-
-  if (item.type === 'documents') {
-    if (item.event === 'uploaded') {
-      return `${actorName} uploaded${documentName ? ` "${documentName}"` : ' a document'}.`
-    }
-
-    if (item.event === 'replaced') {
-      return `${actorName} replaced${documentName ? ` "${documentName}"` : ' a document'}.`
-    }
-
-    if (item.event === 'updated') {
-      return `${actorName} updated${documentName ? ` "${documentName}"` : ' a document'}.`
-    }
-
-    if (item.event === 'deleted') {
-      return `${actorName} deleted${documentName ? ` "${documentName}"` : ' a document'}.`
-    }
-  }
-
-  if (item.type === 'post') {
-    if (item.event === 'created') {
-      return childName
-        ? `${actorName} created the post "${postTitle}" for ${childName}.`
-        : `${actorName} created the post "${postTitle}".`
-    }
-
-    if (item.event === 'updated') {
-      return childName
-        ? `${actorName} updated the post "${postTitle}" for ${childName}.`
-        : `${actorName} updated the post "${postTitle}".`
-    }
-
-    if (item.event === 'deleted') {
-      return childName
-        ? `${actorName} deleted the post "${postTitle}" for ${childName}.`
-        : `${actorName} deleted the post "${postTitle}".`
-    }
-
-    if (item.event === 'commented') {
-      return `${actorName} commented on "${postTitle}".`
-    }
-
-    if (item.event === 'liked') {
-      return `${actorName} liked "${postTitle}".`
-    }
-  }
-
-  return item.message || 'Open to view details.'
-}
-
 export default function DashboardPage() {
   const router = useRouter()
+  const t = useTranslations()
 
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -598,6 +327,304 @@ export default function DashboardPage() {
   const [joinCode, setJoinCode] = useState('')
   const [joinPreview, setJoinPreview] = useState<FamilyJoinPreview | null>(null)
   const [joinModalOpen, setJoinModalOpen] = useState(false)
+
+const locale =
+  typeof window !== 'undefined' && window.location.pathname.startsWith('/en')
+    ? 'en-US'
+    : 'nb-NO'
+    
+  function fmtCurrency(amount?: number, currency = 'NOK') {
+    const value = Number(amount || 0)
+
+    try {
+      return new Intl.NumberFormat(locale, {
+        style: 'currency',
+        currency,
+        maximumFractionDigits: 2,
+      }).format(value)
+    } catch {
+      return `${value.toFixed(2)} ${currency}`
+    }
+  }
+
+  function formatNotificationTime(value?: string) {
+    if (!value) return '—'
+    const d = new Date(value)
+    if (Number.isNaN(d.getTime())) return '—'
+    return format(d, 'dd.MM, HH:mm')
+  }
+
+  function getDisplayName(me: MeUser | null) {
+    if (!me) return t.dashboard.there
+
+    const full =
+      `${String(me.firstName || '').trim()} ${String(me.lastName || '').trim()}`.trim() ||
+      String(me.fullName || '').trim()
+
+    return full || t.dashboard.there
+  }
+
+  function getEventTypeLabel(type?: string) {
+    switch (String(type || 'other')) {
+      case 'handover':
+        return t.dashboard.eventTypeHandover
+      case 'pickup':
+        return t.dashboard.eventTypePickup
+      case 'dropoff':
+        return t.dashboard.eventTypeDropoff
+      case 'school':
+        return t.dashboard.eventTypeSchool
+      case 'activity':
+        return t.dashboard.eventTypeActivity
+      case 'medical':
+        return t.dashboard.eventTypeMedical
+      case 'payment':
+        return t.dashboard.eventTypePayment
+      default:
+        return t.dashboard.eventTypeOther
+    }
+  }
+
+  function getStatusTone(status?: string, requiresConfirmation?: boolean) {
+    if (!requiresConfirmation || status === 'not-required') {
+      return {
+        label: t.dashboard.noConfirmationNeeded,
+        className: styles.statusNeutral,
+      }
+    }
+
+    if (status === 'pending') {
+      return {
+        label: t.dashboard.needsConfirmation,
+        className: styles.statusPending,
+      }
+    }
+
+    if (status === 'confirmed') {
+      return {
+        label: t.dashboard.confirmed,
+        className: styles.statusConfirmed,
+      }
+    }
+
+    return {
+      label: t.dashboard.declined,
+      className: styles.statusDeclined,
+    }
+  }
+
+  function buildNotificationTitle(item: NotificationItem) {
+    const meta = item.meta || {}
+    const actorName = String(meta.actorName || t.dashboard.aParent).trim()
+    const childName = String(meta.childName || '').trim()
+    const eventType = getEventTypeLabel(meta.eventType)
+    const rawTitle = String(item.title || t.dashboard.notification).trim()
+    const isChildUpdate = !!meta.isChildUpdate
+    const documentName = String(meta.documentName || item.title || '').trim()
+
+    if (item.type === 'calendar') {
+      if (item.event === 'created') {
+        return `${actorName} ${t.dashboard.createdEventTitle} ${eventType.toLowerCase()}${childName ? ` ${t.dashboard.forChild} ${childName}` : ''}`
+      }
+      if (item.event === 'updated') {
+        return `${actorName} ${t.dashboard.updatedEventTitle} ${eventType.toLowerCase()}${childName ? ` ${t.dashboard.forChild} ${childName}` : ''}`
+      }
+      if (item.event === 'deleted') {
+        return `${actorName} ${t.dashboard.deletedEventTitle} ${eventType.toLowerCase()}${childName ? ` ${t.dashboard.forChild} ${childName}` : ''}`
+      }
+      if (item.event === 'confirmed') {
+        return `${actorName} ${t.dashboard.acceptedEventTitle} ${eventType.toLowerCase()}${childName ? ` ${t.dashboard.forChild} ${childName}` : ''}`
+      }
+      if (item.event === 'declined') {
+        return `${actorName} ${t.dashboard.declinedEventTitle} ${eventType.toLowerCase()}${childName ? ` ${t.dashboard.forChild} ${childName}` : ''}`
+      }
+    }
+
+    if (item.type === 'expense') {
+      if (item.event === 'created') return `${actorName} ${t.dashboard.createdPaymentItem}`
+      if (item.event === 'updated') return `${actorName} ${t.dashboard.updatedPaymentItem}`
+      if (item.event === 'deleted') return `${actorName} ${t.dashboard.deletedPaymentItem}`
+      if (item.event === 'paid') return `${actorName} ${t.dashboard.paidPaymentItem}`
+    }
+
+    if (item.type === 'request') {
+      if (item.event === 'created') return `${actorName} ${t.dashboard.createdMoneyRequest}`
+      if (item.event === 'approved') return `${actorName} ${t.dashboard.approvedMoneyRequest}`
+      if (item.event === 'rejected') return `${actorName} ${t.dashboard.rejectedMoneyRequest}`
+    }
+
+    if (item.type === 'status') {
+      if (item.event === 'created' && childName) return `${t.dashboard.newChildProfile}: ${childName}`
+      if (item.event === 'updated' && childName && meta.needsConfirmation) {
+        return `${childName} ${t.dashboard.needsConfirmationShort}`
+      }
+      if (item.event === 'updated' && childName) return `${childName} ${t.dashboard.profileUpdated}`
+      if (item.event === 'confirmed' && childName) return `${childName} ${t.dashboard.wasConfirmed}`
+      if (item.event === 'declined' && childName) return `${childName} ${t.dashboard.wasDeclined}`
+    }
+
+    if (item.type === 'documents') {
+      if (item.event === 'uploaded') {
+        return childName
+          ? `${t.dashboard.documentUploadedFor} ${childName}`
+          : documentName
+            ? `${t.dashboard.documentUploaded}: ${documentName}`
+            : t.dashboard.documentUploadedPlain
+      }
+      if (item.event === 'replaced') {
+        return childName
+          ? `${t.dashboard.documentReplacedFor} ${childName}`
+          : documentName
+            ? `${t.dashboard.documentReplaced}: ${documentName}`
+            : t.dashboard.documentReplacedPlain
+      }
+      if (item.event === 'updated') {
+        return childName
+          ? `${t.dashboard.documentUpdatedFor} ${childName}`
+          : documentName
+            ? `${t.dashboard.documentUpdated}: ${documentName}`
+            : t.dashboard.documentUpdatedPlain
+      }
+      if (item.event === 'deleted') {
+        return childName
+          ? `${t.dashboard.documentDeletedFor} ${childName}`
+          : documentName
+            ? `${t.dashboard.documentDeleted}: ${documentName}`
+            : t.dashboard.documentDeletedPlain
+      }
+    }
+
+    if (item.type === 'post') {
+      if (item.event === 'created') {
+        return isChildUpdate
+          ? `${t.dashboard.newUpdate}${childName ? ` ${t.dashboard.forChild} ${childName}` : ''}`
+          : t.dashboard.newFamilyUpdate
+      }
+      if (item.event === 'updated') {
+        return isChildUpdate
+          ? `${t.dashboard.updateEdited}${childName ? ` ${t.dashboard.forChild} ${childName}` : ''}`
+          : t.dashboard.familyUpdateEdited
+      }
+      if (item.event === 'deleted') {
+        return isChildUpdate
+          ? `${t.dashboard.updateDeleted}${childName ? ` ${t.dashboard.forChild} ${childName}` : ''}`
+          : t.dashboard.familyUpdateDeleted
+      }
+      if (item.event === 'commented') {
+        return childName ? `${t.dashboard.newCommentFor} ${childName}` : t.dashboard.newCommentOnUpdate
+      }
+      if (item.event === 'liked') {
+        return childName ? `${t.dashboard.updateLikedFor} ${childName}` : t.dashboard.updateLiked
+      }
+    }
+
+    return rawTitle || t.dashboard.notification
+  }
+
+  function buildNotificationMessage(item: NotificationItem) {
+    const meta = item.meta || {}
+    const actorName = String(meta.actorName || t.dashboard.aParent).trim()
+    const childName = String(meta.childName || '').trim()
+    const documentName = shorten(meta.documentName || item.title || '')
+    const postTitle = shorten(meta.title || item.message || '')
+    const confirmedAt = String(meta.confirmedAt || '').trim()
+
+    if (item.type === 'calendar') {
+      const parts = [
+        meta.startAt ? formatNotificationTime(meta.startAt) : '',
+        meta.handoverFromName && meta.handoverToName
+          ? `${meta.handoverFromName} → ${meta.handoverToName}`
+          : '',
+        meta.location || '',
+      ].filter(Boolean)
+
+      if (item.event === 'created') {
+        return parts.length
+          ? `${actorName} ${t.dashboard.createdThisEvent}. ${parts.join(' · ')}`
+          : `${actorName} ${t.dashboard.createdThisEvent}.`
+      }
+      if (item.event === 'confirmed') {
+        return `${actorName} ${t.dashboard.acceptedThisEvent}${confirmedAt ? ` ${t.dashboard.at} ${confirmedAt}` : ''}.`
+      }
+      if (item.event === 'declined') {
+        return `${actorName} ${t.dashboard.declinedThisEvent}${confirmedAt ? ` ${t.dashboard.at} ${confirmedAt}` : ''}.`
+      }
+      if (item.event === 'deleted') {
+        return parts.length
+          ? `${actorName} ${t.dashboard.deletedThisEvent}. ${parts.join(' · ')}`
+          : `${actorName} ${t.dashboard.deletedThisEvent}.`
+      }
+      if (item.event === 'updated') {
+        return parts.length
+          ? `${actorName} ${t.dashboard.updatedThisEvent}. ${parts.join(' · ')}`
+          : `${actorName} ${t.dashboard.updatedThisEvent}.`
+      }
+    }
+
+    if (item.type === 'expense') {
+      const amount = meta.amount ? fmtCurrency(meta.amount, meta.currency || 'NOK') : ''
+      const due = meta.transactionDate ? formatNotificationTime(meta.transactionDate) : ''
+      return [amount, due, childName ? `${t.dashboard.childLabel}: ${childName}` : '']
+        .filter(Boolean)
+        .join(' · ')
+    }
+
+    if (item.type === 'request') {
+      const amount = meta.amount ? fmtCurrency(meta.amount, meta.currency || 'NOK') : ''
+      return [amount, childName ? `${t.dashboard.childLabel}: ${childName}` : '', meta.category || '']
+        .filter(Boolean)
+        .join(' · ')
+    }
+
+    if (item.type === 'status') {
+      if (item.event === 'created' && childName) {
+        return `${actorName} ${t.dashboard.createdThisChildProfile}. ${t.dashboard.waitingForSecondParentConfirmation}`
+      }
+      if (item.event === 'updated' && childName && meta.needsConfirmation) {
+        return `${actorName} ${t.dashboard.updatedThisChildProfile}. ${t.dashboard.waitingForSecondParentConfirmation}`
+      }
+      if (item.event === 'updated' && childName) return `${actorName} ${t.dashboard.updatedThisChildProfile}.`
+      if (item.event === 'confirmed' && childName) return `${actorName} ${t.dashboard.confirmedThisChildProfile}.`
+      if (item.event === 'declined' && childName) return `${actorName} ${t.dashboard.declinedThisChildProfile}.`
+    }
+
+    if (item.type === 'documents') {
+      if (item.event === 'uploaded') {
+        return `${actorName} ${t.dashboard.uploaded}${documentName ? ` "${documentName}"` : ` ${t.dashboard.aDocument}`}.`
+      }
+      if (item.event === 'replaced') {
+        return `${actorName} ${t.dashboard.replaced}${documentName ? ` "${documentName}"` : ` ${t.dashboard.aDocument}`}.`
+      }
+      if (item.event === 'updated') {
+        return `${actorName} ${t.dashboard.updated}${documentName ? ` "${documentName}"` : ` ${t.dashboard.aDocument}`}.`
+      }
+      if (item.event === 'deleted') {
+        return `${actorName} ${t.dashboard.deleted}${documentName ? ` "${documentName}"` : ` ${t.dashboard.aDocument}`}.`
+      }
+    }
+
+    if (item.type === 'post') {
+      if (item.event === 'created') {
+        return childName
+          ? `${actorName} ${t.dashboard.createdThePost} "${postTitle}" ${t.dashboard.forChild} ${childName}.`
+          : `${actorName} ${t.dashboard.createdThePost} "${postTitle}".`
+      }
+      if (item.event === 'updated') {
+        return childName
+          ? `${actorName} ${t.dashboard.updatedThePost} "${postTitle}" ${t.dashboard.forChild} ${childName}.`
+          : `${actorName} ${t.dashboard.updatedThePost} "${postTitle}".`
+      }
+      if (item.event === 'deleted') {
+        return childName
+          ? `${actorName} ${t.dashboard.deletedThePost} "${postTitle}" ${t.dashboard.forChild} ${childName}.`
+          : `${actorName} ${t.dashboard.deletedThePost} "${postTitle}".`
+      }
+      if (item.event === 'commented') return `${actorName} ${t.dashboard.commentedOn} "${postTitle}".`
+      if (item.event === 'liked') return `${actorName} ${t.dashboard.liked} "${postTitle}".`
+    }
+
+    return item.message || t.dashboard.openToViewDetails
+  }
 
   const parentNameById = useMemo(() => {
     const m = new Map<string, string>()
@@ -619,11 +646,11 @@ export default function DashboardPage() {
         childrenCountRes,
         pendingChildrenRes,
         parentsRes,
+        economyTransactionsRes,
+        economyRequestsRes,
+        bankStatusRes,
       ] = await Promise.all([
-        fetch('/api/customers/me', {
-          credentials: 'include',
-          cache: 'no-store',
-        }),
+        fetch('/api/customers/me', { credentials: 'include', cache: 'no-store' }),
         fetch('/api/calendar-events?limit=100&sort=startAt&depth=1', {
           credentials: 'include',
           cache: 'no-store',
@@ -632,10 +659,7 @@ export default function DashboardPage() {
           credentials: 'include',
           cache: 'no-store',
         }).catch(() => null),
-        fetch('/api/children?limit=100', {
-          credentials: 'include',
-          cache: 'no-store',
-        }).catch(() => null),
+        fetch('/api/children?limit=100', { credentials: 'include', cache: 'no-store' }).catch(() => null),
         fetch('/api/children?limit=20&sort=-updatedAt&where[status][equals]=pending&depth=1', {
           credentials: 'include',
           cache: 'no-store',
@@ -644,29 +668,33 @@ export default function DashboardPage() {
           credentials: 'include',
           cache: 'no-store',
         }).catch(() => null),
+        fetch('/api/economy-transactions?limit=100&sort=transactionDate', {
+          credentials: 'include',
+          cache: 'no-store',
+        }).catch(() => null),
+        fetch('/api/economy-requests?limit=100&sort=-createdAt', {
+          credentials: 'include',
+          cache: 'no-store',
+        }).catch(() => null),
+        fetch('/api/bank-connections/status', {
+          credentials: 'include',
+          cache: 'no-store',
+        }).catch(() => null),
       ])
 
       const meJson = await meRes.json().catch(() => null)
       const calendarJson = await calendarRes.json().catch(() => null)
-      const notificationsJson = notificationsRes
-        ? await notificationsRes.json().catch(() => null)
-        : null
-      const childrenCountJson = childrenCountRes
-        ? await childrenCountRes.json().catch(() => null)
-        : null
-      const pendingChildrenJson = pendingChildrenRes
-        ? await pendingChildrenRes.json().catch(() => null)
-        : null
+      const notificationsJson = notificationsRes ? await notificationsRes.json().catch(() => null) : null
+      const childrenCountJson = childrenCountRes ? await childrenCountRes.json().catch(() => null) : null
+      const pendingChildrenJson = pendingChildrenRes ? await pendingChildrenRes.json().catch(() => null) : null
       const parentsJson = parentsRes ? await parentsRes.json().catch(() => null) : null
+      const economyTransactionsJson = economyTransactionsRes ? await economyTransactionsRes.json().catch(() => null) : null
+      const economyRequestsJson = economyRequestsRes ? await economyRequestsRes.json().catch(() => null) : null
+      const bankStatusJson = bankStatusRes ? await bankStatusRes.json().catch(() => null) : null
 
-      if (!meRes.ok) {
-        throw new Error(meJson?.message || `Could not load current user (${meRes.status})`)
-      }
-
+      if (!meRes.ok) throw new Error(meJson?.message || `${t.dashboard.couldNotLoadCurrentUser} (${meRes.status})`)
       if (!calendarRes.ok) {
-        throw new Error(
-          calendarJson?.message || `Could not load calendar events (${calendarRes.status})`,
-        )
+        throw new Error(calendarJson?.message || `${t.dashboard.couldNotLoadCalendarEvents} (${calendarRes.status})`)
       }
 
       setParents(
@@ -677,7 +705,7 @@ export default function DashboardPage() {
             p.name ||
             `${String(p?.firstName || '').trim()} ${String(p?.lastName || '').trim()}`.trim() ||
             p.email ||
-            `Parent ${p.id}`,
+            `${t.dashboard.parent} ${p.id}`,
           email: p.email,
         })),
       )
@@ -690,9 +718,7 @@ export default function DashboardPage() {
         .filter((event) => new Date(event.endAt).getTime() >= now.getTime())
         .sort((a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime())
 
-      const visibleUpcoming = upcoming.filter(
-        (event) => event.confirmationStatus !== 'declined',
-      )
+      const visibleUpcoming = upcoming.filter((event) => event.confirmationStatus !== 'declined')
 
       const confirmableUpcoming = visibleUpcoming.filter((event) => {
         return (
@@ -702,43 +728,96 @@ export default function DashboardPage() {
         )
       })
 
-      const upcomingHandover =
-        visibleUpcoming.find((event) => event.eventType === 'handover') ?? null
+      const upcomingHandover = visibleUpcoming.find((event) => event.eventType === 'handover') ?? null
 
-      const pendingEventActions: PendingActionItem[] = confirmableUpcoming.map((event) => ({
+      const decisionEventActions: DecisionActionItem[] = confirmableUpcoming.map((event) => ({
         id: event.id,
-        kind: 'event' as const,
+        kind: 'event',
         title: event.title,
-        subtitle: `${getRelDisplayName(event.child) || 'No child'} · ${getEventTypeLabel(
-          event.eventType,
-        )}`,
-        detail: `${format(new Date(event.startAt), 'dd.MM.yyyy HH:mm')}${
-          event.location ? ` · ${event.location}` : ''
-        }`,
+        subtitle: `${getRelDisplayName(event.child) || t.dashboard.noChild} · ${getEventTypeLabel(event.eventType)}`,
+        detail: `${format(new Date(event.startAt), 'dd.MM.yyyy HH:mm')}${event.location ? ` · ${event.location}` : ''}`,
         href: `/calendar?event=${event.id}`,
-        startAt: event.startAt,
-        confirmationStatus: event.confirmationStatus || 'pending',
-        eventType: event.eventType || 'other',
-        location: event.location || '',
+        createdAt: event.startAt,
       }))
 
       const pendingChildDocs: ChildDashboardItem[] = pendingChildrenJson?.docs ?? []
 
-      const pendingChildActions: PendingActionItem[] = pendingChildDocs.map((child) => ({
+      const decisionChildActions: DecisionActionItem[] = pendingChildDocs.map((child) => ({
         id: child.id,
-        kind: 'child' as const,
-        title: child.fullName || 'Child profile',
-        subtitle: 'Child profile · Pending confirmation',
+        kind: 'child',
+        title: child.fullName || t.dashboard.childProfile,
+        subtitle: t.dashboard.childProfilePendingConfirmation,
         detail: child.updatedAt
-          ? `Last updated ${format(new Date(child.updatedAt), 'dd.MM.yyyy HH:mm')}`
-          : 'Needs second parent confirmation',
+          ? `${t.dashboard.lastUpdated} ${format(new Date(child.updatedAt), 'dd.MM.yyyy HH:mm')}`
+          : t.dashboard.needsSecondParentConfirmation,
         href: `/child-info/${child.id}`,
         createdAt: child.createdAt,
-        confirmationStatus: child.status || 'pending',
       }))
 
-      const pendingActions = [...pendingChildActions, ...pendingEventActions]
-      const upcomingEvents = visibleUpcoming.slice(0, 6)
+      const txDocs: EconomyTransactionDoc[] = economyTransactionsJson?.docs ?? []
+      const pendingPayments = txDocs
+        .filter((item) => item.type === 'expense' && item.status === 'pending')
+        .sort((a, b) => new Date(a.transactionDate || 0).getTime() - new Date(b.transactionDate || 0).getTime())
+
+      const openPaymentItems: OpenFinanceItem[] = pendingPayments.slice(0, 5).map((item) => ({
+        id: item.id,
+        kind: 'payment',
+        title: item.title,
+        subtitle: `${getRelDisplayName(item.child) || t.dashboard.noChild} · ${t.dashboard.sharedPaymentItem}`,
+        detail: `${item.transactionDate ? `${t.dashboard.due} ${format(new Date(item.transactionDate), 'dd.MM.yyyy')}` : t.dashboard.noDueDate} · ${fmtCurrency(item.amount, item.currency || 'NOK')}`,
+        href: '/economy',
+        createdAt: item.transactionDate,
+        amount: item.amount,
+        currency: item.currency || 'NOK',
+      }))
+
+      const requestDocs: EconomyRequestDoc[] = economyRequestsJson?.docs ?? []
+      const pendingRequests = requestDocs
+        .filter((item) => item.status === 'pending')
+        .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
+
+      const dashboardCurrency =
+        bankStatusJson?.familyBank?.currency || bankStatusJson?.personalBank?.currency || 'NOK'
+
+      const decisionRequestActions: DecisionActionItem[] = pendingRequests
+        .filter((item) => String(getRelId(item.createdBy)) !== currentUserId)
+        .slice(0, 5)
+        .map((item) => ({
+          id: item.id,
+          kind: 'request-review',
+          title: item.title,
+          subtitle: `${item.createdByName || t.dashboard.otherParent} · ${t.dashboard.requestNeedsReview}`,
+          detail: `${fmtCurrency(item.amount, dashboardCurrency)}${item.category ? ` · ${item.category}` : ''}`,
+          href: '/economy',
+          createdAt: item.createdAt,
+        }))
+
+      const openWaitingRequests: OpenFinanceItem[] = pendingRequests
+        .filter((item) => String(getRelId(item.createdBy)) === currentUserId)
+        .slice(0, 5)
+        .map((item) => ({
+          id: item.id,
+          kind: 'request-waiting',
+          title: item.title,
+          subtitle: t.dashboard.yourRequestWaitingForReview,
+          detail: `${fmtCurrency(item.amount, dashboardCurrency)}${item.category ? ` · ${item.category}` : ''}`,
+          href: '/economy',
+          createdAt: item.createdAt,
+          amount: item.amount,
+          currency: dashboardCurrency,
+        }))
+
+      const familyBank: BankConnection | null = bankStatusJson?.familyBank ?? null
+
+      const financeOverview: FinanceOverview = {
+        pendingPaymentCount: pendingPayments.length,
+        pendingPaymentTotal: pendingPayments.reduce((sum, item) => sum + Number(item.amount || 0), 0),
+        pendingRequestReviewCount: pendingRequests.filter((item) => String(getRelId(item.createdBy)) !== currentUserId).length,
+        waitingRequestCount: pendingRequests.filter((item) => String(getRelId(item.createdBy)) === currentUserId).length,
+        familyBankBalance: Number(familyBank?.currentBalance || 0),
+        familyBankCurrency: familyBank?.currency || 'NOK',
+      }
+
       const notifications: NotificationItem[] = notificationsJson?.docs ?? []
       const unreadNotifications = notifications.filter((item) => !item.readAt && !item.isRead).length
 
@@ -757,28 +836,18 @@ export default function DashboardPage() {
               endAt: upcomingHandover.endAt,
               location: upcomingHandover.location || '',
               childName: getRelDisplayName(upcomingHandover.child),
-              handoverFromName: getRelDisplayName(
-                upcomingHandover.handoverFrom,
-                parentNameById,
-              ),
-              handoverToName: getRelDisplayName(
-                upcomingHandover.handoverTo,
-                parentNameById,
-              ),
-              responsibleParentName: getRelDisplayName(
-                upcomingHandover.responsibleParent,
-                parentNameById,
-              ),
+              handoverFromName: getRelDisplayName(upcomingHandover.handoverFrom, parentNameById),
+              handoverToName: getRelDisplayName(upcomingHandover.handoverTo, parentNameById),
+              responsibleParentName: getRelDisplayName(upcomingHandover.responsibleParent, parentNameById),
               confirmationStatus: upcomingHandover.confirmationStatus || 'not-required',
-              confirmedByName: getRelDisplayName(
-                upcomingHandover.confirmedBy,
-                parentNameById,
-              ),
+              confirmedByName: getRelDisplayName(upcomingHandover.confirmedBy, parentNameById),
               confirmedAt: upcomingHandover.confirmedAt,
             }
           : null,
-        pendingActions,
-        upcomingEvents: upcomingEvents.map((event) => ({
+        decisionActions: [...decisionChildActions, ...decisionEventActions, ...decisionRequestActions],
+        openFinanceItems: [...openWaitingRequests, ...openPaymentItems],
+        financeOverview,
+        upcomingEvents: visibleUpcoming.slice(0, 6).map((event) => ({
           id: event.id,
           title: event.title,
           startAt: event.startAt,
@@ -791,7 +860,7 @@ export default function DashboardPage() {
         })),
       })
     } catch (err: any) {
-      setError(err?.message || 'Something went wrong')
+      setError(err?.message || t.dashboard.somethingWentWrong)
       setData(null)
     } finally {
       setLoading(false)
@@ -803,10 +872,7 @@ export default function DashboardPage() {
   }, [])
 
   const greetingName = useMemo(() => getDisplayName(data?.me ?? null), [data?.me])
-  const countdown = useMemo(
-    () => getCountdownParts(data?.upcomingHandover?.startAt),
-    [data?.upcomingHandover?.startAt],
-  )
+  const countdown = useMemo(() => getCountdownParts(data?.upcomingHandover?.startAt), [data?.upcomingHandover?.startAt])
 
   async function markNotificationAsRead(id: string | number) {
     try {
@@ -817,10 +883,7 @@ export default function DashboardPage() {
     } catch {}
   }
 
-  async function handleNotificationClick(
-    e: React.MouseEvent<HTMLAnchorElement>,
-    item: NotificationItem,
-  ) {
+  async function handleNotificationClick(e: React.MouseEvent<HTMLAnchorElement>, item: NotificationItem) {
     e.preventDefault()
 
     const href = item.link || '/notifications'
@@ -829,17 +892,12 @@ export default function DashboardPage() {
     if (wasUnread) {
       setData((prev) => {
         if (!prev) return prev
-
         return {
           ...prev,
           unreadNotifications: Math.max(0, prev.unreadNotifications - 1),
           notifications: prev.notifications.map((n) =>
             String(n.id) === String(item.id)
-              ? {
-                  ...n,
-                  isRead: true,
-                  readAt: new Date().toISOString(),
-                }
+              ? { ...n, isRead: true, readAt: new Date().toISOString() }
               : n,
           ),
         }
@@ -851,10 +909,7 @@ export default function DashboardPage() {
     router.push(href)
   }
 
-  async function handleConfirmation(
-    eventId: string | number,
-    nextStatus: 'confirmed' | 'declined',
-  ) {
+  async function handleConfirmation(eventId: string | number, nextStatus: 'confirmed' | 'declined') {
     try {
       setActionLoading(`confirm-${eventId}-${nextStatus}`)
 
@@ -878,16 +933,13 @@ export default function DashboardPage() {
 
       if (!res.ok) {
         throw new Error(
-          json?.message ||
-            json?.errors?.[0]?.message ||
-            raw ||
-            'Could not update confirmation.',
+          json?.message || json?.errors?.[0]?.message || raw || t.dashboard.couldNotUpdateConfirmation,
         )
       }
 
       await loadDashboard()
     } catch (err: any) {
-      setError(err?.message || 'Could not update confirmation.')
+      setError(err?.message || t.dashboard.couldNotUpdateConfirmation)
     } finally {
       setActionLoading('')
     }
@@ -899,9 +951,7 @@ export default function DashboardPage() {
       setActionLoading('join-preview')
 
       const code = joinCode.trim().toUpperCase()
-      if (!code) {
-        throw new Error('Please enter an invite code.')
-      }
+      if (!code) throw new Error(t.dashboard.pleaseEnterInviteCode)
 
       const res = await fetch('/api/families/join/preview', {
         method: 'POST',
@@ -912,21 +962,18 @@ export default function DashboardPage() {
 
       const raw = await res.text()
       let json: any = null
-
       try {
         json = raw ? JSON.parse(raw) : null
       } catch {
         json = null
       }
 
-      if (!res.ok) {
-        throw new Error(json?.message || raw || 'Could not preview family join.')
-      }
+      if (!res.ok) throw new Error(json?.message || raw || t.dashboard.couldNotPreviewFamilyJoin)
 
       setJoinPreview(json)
       setJoinModalOpen(true)
     } catch (err: any) {
-      setError(err?.message || 'Could not preview family join.')
+      setError(err?.message || t.dashboard.couldNotPreviewFamilyJoin)
     } finally {
       setActionLoading('')
     }
@@ -938,9 +985,7 @@ export default function DashboardPage() {
       setActionLoading('join-confirm')
 
       const code = joinCode.trim().toUpperCase()
-      if (!code) {
-        throw new Error('Please enter an invite code.')
-      }
+      if (!code) throw new Error(t.dashboard.pleaseEnterInviteCode)
 
       const res = await fetch('/api/families/join', {
         method: 'POST',
@@ -954,30 +999,27 @@ export default function DashboardPage() {
 
       const raw = await res.text()
       let json: any = null
-
       try {
         json = raw ? JSON.parse(raw) : null
       } catch {
         json = null
       }
 
-      if (!res.ok) {
-        throw new Error(json?.message || raw || 'Could not join family.')
-      }
+      if (!res.ok) throw new Error(json?.message || raw || t.dashboard.couldNotJoinFamily)
 
       setJoinModalOpen(false)
       setJoinPreview(null)
       setJoinCode('')
       await loadDashboard()
     } catch (err: any) {
-      setError(err?.message || 'Could not join family.')
+      setError(err?.message || t.dashboard.couldNotJoinFamily)
     } finally {
       setActionLoading('')
     }
   }
 
   if (loading) {
-    return <div className={styles.state}>Loading dashboard...</div>
+    return <div className={styles.state}>{t.dashboard.loadingDashboard}</div>
   }
 
   if (error && !data) {
@@ -985,7 +1027,7 @@ export default function DashboardPage() {
   }
 
   if (!data) {
-    return <div className={styles.state}>No data</div>
+    return <div className={styles.state}>{t.dashboard.noData}</div>
   }
 
   const handoverTone = getStatusTone(
@@ -997,10 +1039,10 @@ export default function DashboardPage() {
     <div className={styles.wrapper}>
       <header className={styles.header}>
         <div>
-          <h1 className={styles.title}>Good morning, {greetingName}</h1>
-          <p className={styles.subtitle}>
-            Here is your structured coordination overview for today.
-          </p>
+          <h1 className={styles.title}>
+            {t.dashboard.goodMorning}, {greetingName}
+          </h1>
+          <p className={styles.subtitle}>{t.dashboard.structuredOverviewToday}</p>
         </div>
 
         <div className={styles.headerActions}>
@@ -1009,7 +1051,7 @@ export default function DashboardPage() {
               type="button"
               className={styles.bellBtn}
               onClick={() => setNotifOpen((prev) => !prev)}
-              aria-label="Open notifications"
+              aria-label={t.dashboard.openNotifications}
             >
               <Bell size={18} />
               {data.unreadNotifications > 0 ? (
@@ -1022,14 +1064,14 @@ export default function DashboardPage() {
             {notifOpen ? (
               <div className={styles.notifDropdown}>
                 <div className={styles.notifHeader}>
-                  <span className={styles.notifTitle}>Recent notifications</span>
+                  <span className={styles.notifTitle}>{t.dashboard.recentNotifications}</span>
                   <Link href="/notifications" className={styles.notifViewAll}>
-                    View all
+                    {t.dashboard.viewAll}
                   </Link>
                 </div>
 
                 {data.notifications.length === 0 ? (
-                  <div className={styles.notifEmpty}>No notifications yet.</div>
+                  <div className={styles.notifEmpty}>{t.dashboard.noNotificationsYet}</div>
                 ) : (
                   <div className={styles.notifList}>
                     {data.notifications.map((item) => (
@@ -1039,15 +1081,9 @@ export default function DashboardPage() {
                         className={styles.notifItem}
                         onClick={(e) => handleNotificationClick(e, item)}
                       >
-                        <div className={styles.notifItemTitle}>
-                          {buildNotificationTitle(item)}
-                        </div>
-                        <div className={styles.notifItemMessage}>
-                          {buildNotificationMessage(item)}
-                        </div>
-                        <div className={styles.notifItemTime}>
-                          {formatNotificationTime(item.createdAt)}
-                        </div>
+                        <div className={styles.notifItemTitle}>{buildNotificationTitle(item)}</div>
+                        <div className={styles.notifItemMessage}>{buildNotificationMessage(item)}</div>
+                        <div className={styles.notifItemTime}>{formatNotificationTime(item.createdAt)}</div>
                       </a>
                     ))}
                   </div>
@@ -1058,7 +1094,7 @@ export default function DashboardPage() {
 
           <Link href="/calendar" className={styles.primaryBtn}>
             <Plus size={16} />
-            Add event
+            {t.dashboard.addEvent}
           </Link>
         </div>
       </header>
@@ -1072,16 +1108,13 @@ export default function DashboardPage() {
           </div>
 
           <div className={styles.bannerBody}>
-            <div className={styles.bannerTitle}>Your family has no child profile yet</div>
-            <div className={styles.bannerText}>
-              Create the first child profile so handovers, school details, emergency
-              contacts, and child-related events can appear in the dashboard.
-            </div>
+            <div className={styles.bannerTitle}>{t.dashboard.noChildProfileYet}</div>
+            <div className={styles.bannerText}>{t.dashboard.noChildProfileDescription}</div>
           </div>
 
           <div className={styles.bannerActions}>
             <Link href="/child-info/new" className={styles.primaryBtn}>
-              Create child profile
+              {t.dashboard.createChildProfile}
             </Link>
           </div>
         </section>
@@ -1092,11 +1125,9 @@ export default function DashboardPage() {
           <div>
             <h2 className={styles.cardTitle}>
               <Users size={18} />
-              <span>Join family</span>
+              <span>{t.dashboard.joinFamily}</span>
             </h2>
-            <p className={styles.joinText}>
-              Enter an invite code to join another family workspace.
-            </p>
+            <p className={styles.joinText}>{t.dashboard.joinFamilyDescription}</p>
           </div>
         </div>
 
@@ -1104,7 +1135,7 @@ export default function DashboardPage() {
           <input
             className={styles.joinInput}
             type="text"
-            placeholder="Enter invite code"
+            placeholder={t.dashboard.enterInviteCode}
             value={joinCode}
             onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
             maxLength={20}
@@ -1119,10 +1150,10 @@ export default function DashboardPage() {
             {actionLoading === 'join-preview' ? (
               <>
                 <Loader2 size={16} className={styles.spin} />
-                Checking...
+                {t.dashboard.checking}
               </>
             ) : (
-              'Join family'
+              t.dashboard.joinFamily
             )}
           </button>
         </div>
@@ -1133,12 +1164,12 @@ export default function DashboardPage() {
           <div className={styles.cardHeader}>
             <h2 className={styles.cardTitle}>
               <ArrowRightLeft size={18} />
-              <span>Upcoming handover</span>
+              <span>{t.dashboard.upcomingHandover}</span>
             </h2>
 
             {data.upcomingHandover ? (
               <Link href={`/calendar?event=${data.upcomingHandover.id}`} className={styles.cardLink}>
-                View details
+                {t.dashboard.viewDetails}
               </Link>
             ) : null}
           </div>
@@ -1151,7 +1182,7 @@ export default function DashboardPage() {
                 <div className={styles.handoverMeta}>
                   <span>
                     <UserRound size={14} />
-                    Child: {data.upcomingHandover.childName || 'Not set'}
+                    {t.dashboard.childLabel}: {data.upcomingHandover.childName || t.dashboard.notSet}
                   </span>
                   <span>
                     <Clock3 size={14} />
@@ -1159,64 +1190,60 @@ export default function DashboardPage() {
                   </span>
                   <span>
                     <MapPin size={14} />
-                    {data.upcomingHandover.location || 'No location'}
+                    {data.upcomingHandover.location || t.dashboard.noLocation}
                   </span>
                 </div>
 
                 <div className={styles.handoverFlow}>
                   <div className={styles.flowBox}>
-                    <div className={styles.flowLabel}>From</div>
-                    <div className={styles.flowValue}>
-                      {data.upcomingHandover.handoverFromName || 'Not set'}
-                    </div>
+                    <div className={styles.flowLabel}>{t.dashboard.from}</div>
+                    <div className={styles.flowValue}>{data.upcomingHandover.handoverFromName || t.dashboard.notSet}</div>
                   </div>
 
                   <div className={styles.flowArrow}>→</div>
 
                   <div className={styles.flowBox}>
-                    <div className={styles.flowLabel}>To</div>
-                    <div className={styles.flowValue}>
-                      {data.upcomingHandover.handoverToName || 'Not set'}
-                    </div>
+                    <div className={styles.flowLabel}>{t.dashboard.to}</div>
+                    <div className={styles.flowValue}>{data.upcomingHandover.handoverToName || t.dashboard.notSet}</div>
                   </div>
                 </div>
 
                 <div className={styles.handoverResponsible}>
-                  Responsible: {data.upcomingHandover.responsibleParentName || 'Not assigned'}
+                  {t.dashboard.responsible}: {data.upcomingHandover.responsibleParentName || t.dashboard.notAssigned}
                 </div>
 
                 <div className={styles.handoverResponsible}>
-                  Status:{' '}
+                  {t.dashboard.status}:{' '}
                   <span className={`${styles.statusBadge} ${handoverTone.className}`}>
                     {handoverTone.label}
                   </span>
                   {data.upcomingHandover.confirmationStatus !== 'pending' &&
                   data.upcomingHandover.confirmedByName
-                    ? ` · by ${data.upcomingHandover.confirmedByName}`
+                    ? ` · ${t.dashboard.by} ${data.upcomingHandover.confirmedByName}`
                     : ''}
                 </div>
               </div>
 
               <div className={styles.countdownCard}>
-                <div className={styles.countdownLabel}>Next handover in</div>
+                <div className={styles.countdownLabel}>{t.dashboard.nextHandoverIn}</div>
 
                 {countdown && !countdown.expired ? (
                   <div className={styles.countdownGrid}>
                     <div className={styles.countdownItem}>
                       <strong>{String(countdown.days).padStart(2, '0')}</strong>
-                      <span>Days</span>
+                      <span>{t.dashboard.days}</span>
                     </div>
                     <div className={styles.countdownItem}>
                       <strong>{String(countdown.hours).padStart(2, '0')}</strong>
-                      <span>Hours</span>
+                      <span>{t.dashboard.hours}</span>
                     </div>
                     <div className={styles.countdownItem}>
                       <strong>{String(countdown.minutes).padStart(2, '0')}</strong>
-                      <span>Mins</span>
+                      <span>{t.dashboard.mins}</span>
                     </div>
                   </div>
                 ) : (
-                  <div className={styles.countdownExpired}>Starting soon</div>
+                  <div className={styles.countdownExpired}>{t.dashboard.startingSoon}</div>
                 )}
 
                 <div className={styles.heroActions}>
@@ -1225,24 +1252,18 @@ export default function DashboardPage() {
                       <button
                         type="button"
                         className={styles.approveBtn}
-                        onClick={() =>
-                          handleConfirmation(data.upcomingHandover!.id, 'confirmed')
-                        }
-                        disabled={
-                          actionLoading ===
-                          `confirm-${data.upcomingHandover.id}-confirmed`
-                        }
+                        onClick={() => handleConfirmation(data.upcomingHandover!.id, 'confirmed')}
+                        disabled={actionLoading === `confirm-${data.upcomingHandover.id}-confirmed`}
                       >
-                        {actionLoading ===
-                        `confirm-${data.upcomingHandover.id}-confirmed` ? (
+                        {actionLoading === `confirm-${data.upcomingHandover.id}-confirmed` ? (
                           <>
                             <Loader2 size={16} className={styles.spin} />
-                            Saving...
+                            {t.dashboard.saving}
                           </>
                         ) : (
                           <>
                             <Check size={16} />
-                            Accept
+                            {t.dashboard.accept}
                           </>
                         )}
                       </button>
@@ -1250,68 +1271,62 @@ export default function DashboardPage() {
                       <button
                         type="button"
                         className={styles.declineBtn}
-                        onClick={() =>
-                          handleConfirmation(data.upcomingHandover!.id, 'declined')
-                        }
-                        disabled={
-                          actionLoading ===
-                          `confirm-${data.upcomingHandover.id}-declined`
-                        }
+                        onClick={() => handleConfirmation(data.upcomingHandover!.id, 'declined')}
+                        disabled={actionLoading === `confirm-${data.upcomingHandover.id}-declined`}
                       >
-                        {actionLoading ===
-                        `confirm-${data.upcomingHandover.id}-declined` ? (
+                        {actionLoading === `confirm-${data.upcomingHandover.id}-declined` ? (
                           <>
                             <Loader2 size={16} className={styles.spin} />
-                            Saving...
+                            {t.dashboard.saving}
                           </>
                         ) : (
                           <>
                             <X size={16} />
-                            Decline
+                            {t.dashboard.decline}
                           </>
                         )}
                       </button>
                     </>
                   ) : (
                     <Link href={`/calendar?event=${data.upcomingHandover.id}`} className={styles.secondaryBtn}>
-                      View details
+                      {t.dashboard.viewDetails}
                     </Link>
                   )}
                 </div>
               </div>
             </div>
           ) : (
-            <div className={styles.empty}>No upcoming handover</div>
+            <div className={styles.empty}>{t.dashboard.noUpcomingHandover}</div>
           )}
         </section>
 
         <section className={styles.card}>
           <div className={styles.cardHeader}>
-            <h2 className={styles.cardTitle}>Quick actions</h2>
+            <h2 className={styles.cardTitle}>{t.dashboard.quickActions}</h2>
           </div>
 
           <div className={styles.quickList}>
             <Link href="/calendar" className={styles.quickAction}>
               <CalendarDays size={16} />
-              <span>Add calendar event</span>
+              <span>{t.dashboard.addCalendarEvent}</span>
               <ChevronRight size={16} />
             </Link>
 
             <Link href="/economy" className={styles.quickAction}>
               <span>💰</span>
-              <span>Register expense</span>
+              <span>{t.dashboard.openEconomy}</span>
               <ChevronRight size={16} />
             </Link>
 
             <Link href="/child-info" className={styles.quickAction}>
               <span>👶</span>
-              <span>Open child profiles</span>
+              <span>{t.dashboard.openChildProfiles}</span>
               <ChevronRight size={16} />
             </Link>
 
             <Link href="/profile" className={styles.quickAction}>
               <span>👤</span>
-              <span>Open profile</span>
+              <span>{t.dashboard.openProfile}</span>
               <ChevronRight size={16} />
             </Link>
           </div>
@@ -1319,15 +1334,15 @@ export default function DashboardPage() {
 
         <section className={styles.card}>
           <div className={styles.cardHeader}>
-            <h2 className={styles.cardTitle}>Pending actions</h2>
-            <Link href="/calendar" className={styles.cardLink}>
-              Full calendar
+            <h2 className={styles.cardTitle}>{t.dashboard.needsYourDecision}</h2>
+            <Link href="/economy" className={styles.cardLink}>
+              {t.dashboard.openRelevantPage}
             </Link>
           </div>
 
-          {data.pendingActions.length ? (
+          {data.decisionActions.length ? (
             <div className={styles.pendingList}>
-              {data.pendingActions.map((item) => (
+              {data.decisionActions.map((item) => (
                 <div key={`${item.kind}-${item.id}`} className={styles.pendingItem}>
                   <Link href={item.href} className={styles.pendingBody}>
                     <div className={styles.pendingTitle}>{item.title}</div>
@@ -1366,7 +1381,7 @@ export default function DashboardPage() {
                       </>
                     ) : (
                       <Link href={item.href} className={styles.secondaryBtn}>
-                        Review
+                        {t.dashboard.review}
                       </Link>
                     )}
                   </div>
@@ -1374,15 +1389,97 @@ export default function DashboardPage() {
               ))}
             </div>
           ) : (
-            <div className={styles.empty}>No pending actions</div>
+            <div className={styles.empty}>{t.dashboard.noDecisionsWaiting}</div>
           )}
         </section>
 
         <section className={styles.card}>
           <div className={styles.cardHeader}>
-            <h2 className={styles.cardTitle}>Upcoming events</h2>
+            <h2 className={styles.cardTitle}>
+              <Wallet size={18} />
+              <span>{t.dashboard.familyFinanceOverview}</span>
+            </h2>
+            <Link href="/economy" className={styles.cardLink}>
+              {t.dashboard.openEconomy}
+            </Link>
+          </div>
+
+          <div className={styles.statsGrid}>
+            <div className={styles.statCard}>
+              <div className={styles.statLabel}>{t.dashboard.pendingPayments}</div>
+              <div className={styles.statValue}>{data.financeOverview.pendingPaymentCount}</div>
+              <div className={styles.statSub}>
+                {fmtCurrency(
+                  data.financeOverview.pendingPaymentTotal,
+                  data.financeOverview.familyBankCurrency,
+                )}
+              </div>
+            </div>
+
+            <div className={styles.statCard}>
+              <div className={styles.statLabel}>{t.dashboard.requestsToReview}</div>
+              <div className={styles.statValue}>{data.financeOverview.pendingRequestReviewCount}</div>
+              <div className={styles.statSub}>{t.dashboard.needYourDecision}</div>
+            </div>
+
+            <div className={styles.statCard}>
+              <div className={styles.statLabel}>{t.dashboard.yourWaitingRequests}</div>
+              <div className={styles.statValue}>{data.financeOverview.waitingRequestCount}</div>
+              <div className={styles.statSub}>{t.dashboard.waitingForOtherParent}</div>
+            </div>
+
+            <div className={styles.statCard}>
+              <div className={styles.statLabel}>{t.dashboard.familyBank}</div>
+              <div className={styles.statValue}>
+                {fmtCurrency(
+                  data.financeOverview.familyBankBalance,
+                  data.financeOverview.familyBankCurrency,
+                )}
+              </div>
+              <div className={styles.statSub}>{t.dashboard.currentBalance}</div>
+            </div>
+          </div>
+        </section>
+
+        <section className={styles.card}>
+          <div className={styles.cardHeader}>
+            <h2 className={styles.cardTitle}>
+              <Receipt size={18} />
+              <span>{t.dashboard.openFamilyFinance}</span>
+            </h2>
+            <Link href="/economy" className={styles.cardLink}>
+              {t.dashboard.viewAll}
+            </Link>
+          </div>
+
+          {data.openFinanceItems.length ? (
+            <div className={styles.pendingList}>
+              {data.openFinanceItems.map((item) => (
+                <div key={`${item.kind}-${item.id}`} className={styles.pendingItem}>
+                  <Link href={item.href} className={styles.pendingBody}>
+                    <div className={styles.pendingTitle}>{item.title}</div>
+                    <div className={styles.pendingMeta}>{item.subtitle}</div>
+                    <div className={styles.pendingMeta}>{item.detail}</div>
+                  </Link>
+
+                  <div className={styles.pendingButtons}>
+                    <Link href={item.href} className={styles.secondaryBtn}>
+                      {item.kind === 'payment' ? t.dashboard.pay : t.dashboard.view}
+                    </Link>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className={styles.empty}>{t.dashboard.noOpenFamilyFinanceItems}</div>
+          )}
+        </section>
+
+        <section className={styles.card}>
+          <div className={styles.cardHeader}>
+            <h2 className={styles.cardTitle}>{t.dashboard.upcomingEvents}</h2>
             <Link href="/calendar" className={styles.cardLink}>
-              View all
+              {t.dashboard.viewAll}
             </Link>
           </div>
 
@@ -1393,23 +1490,19 @@ export default function DashboardPage() {
 
                 return (
                   <Link key={String(item.id)} href={`/calendar?event=${item.id}`} className={styles.eventRow}>
-                    <div className={styles.eventTime}>
-                      {format(new Date(item.startAt), 'HH:mm')}
-                    </div>
+                    <div className={styles.eventTime}>{format(new Date(item.startAt), 'HH:mm')}</div>
 
                     <div className={styles.eventBody}>
                       <div className={styles.eventTitle}>{item.title}</div>
                       <div className={styles.eventMeta}>
-                        {item.childName || 'No child'} · {getEventTypeLabel(item.eventType)}
+                        {item.childName || t.dashboard.noChild} · {getEventTypeLabel(item.eventType)}
                       </div>
                       <div className={styles.eventMeta}>
                         {format(new Date(item.startAt), 'dd.MM.yyyy HH:mm')}
                         {item.location ? ` · ${item.location}` : ''}
                       </div>
                       <div className={styles.eventMeta}>
-                        <span className={`${styles.statusBadge} ${tone.className}`}>
-                          {tone.label}
-                        </span>
+                        <span className={`${styles.statusBadge} ${tone.className}`}>{tone.label}</span>
                       </div>
                     </div>
 
@@ -1419,7 +1512,7 @@ export default function DashboardPage() {
               })}
             </div>
           ) : (
-            <div className={styles.empty}>No upcoming events</div>
+            <div className={styles.empty}>{t.dashboard.noUpcomingEvents}</div>
           )}
         </section>
       </div>
@@ -1430,83 +1523,74 @@ export default function DashboardPage() {
             <div className={styles.modalHeader}>
               <div className={styles.modalTitleRow}>
                 <AlertTriangle size={18} />
-                <h3 className={styles.modalTitle}>Join family</h3>
+                <h3 className={styles.modalTitle}>{t.dashboard.joinFamily}</h3>
               </div>
             </div>
 
             <div className={styles.modalBody}>
               <p className={styles.modalText}>
-                You are about to join{' '}
-                <strong>{joinPreview.targetFamily?.name || 'this family'}</strong>.
+                {t.dashboard.youAreAboutToJoin}{' '}
+                <strong>{joinPreview.targetFamily?.name || t.dashboard.thisFamily}</strong>.
               </p>
 
               {joinPreview.isSameFamily ? (
-                <div className={styles.modalInfo}>You are already in this family.</div>
+                <div className={styles.modalInfo}>{t.dashboard.alreadyInThisFamily}</div>
               ) : null}
 
               {joinPreview.willLeaveCurrentFamily ? (
                 <div className={styles.modalWarning}>
-                  <div className={styles.modalWarningTitle}>Warning</div>
+                  <div className={styles.modalWarningTitle}>{t.dashboard.warning}</div>
                   <div className={styles.modalWarningText}>
-                    If you continue, you will leave{' '}
-                    <strong>{joinPreview.currentFamily?.name || 'your current family'}</strong>{' '}
-                    and may lose access to its shared children, calendar events,
-                    notifications, handovers, and economy data.
+                    {t.dashboard.leaveCurrentFamilyWarningPrefix}{' '}
+                    <strong>{joinPreview.currentFamily?.name || t.dashboard.yourCurrentFamily}</strong>{' '}
+                    {t.dashboard.leaveCurrentFamilyWarningSuffix}
                   </div>
                 </div>
               ) : null}
 
               <div className={styles.familyCompare}>
                 <div className={styles.familyCompareCard}>
-                  <div className={styles.familyCompareLabel}>Current family</div>
+                  <div className={styles.familyCompareLabel}>{t.dashboard.currentFamily}</div>
                   <div className={styles.familyCompareValue}>
-                    {joinPreview.currentFamily?.name || 'No current family'}
+                    {joinPreview.currentFamily?.name || t.dashboard.noCurrentFamily}
                   </div>
                   <div className={styles.familyCompareMeta}>
-                    {joinPreview.currentFamily?.memberCount ?? 0} members
+                    {joinPreview.currentFamily?.memberCount ?? 0} {t.dashboard.members}
                   </div>
                 </div>
 
                 <div className={styles.familyCompareArrow}>→</div>
 
                 <div className={styles.familyCompareCard}>
-                  <div className={styles.familyCompareLabel}>Target family</div>
+                  <div className={styles.familyCompareLabel}>{t.dashboard.targetFamily}</div>
                   <div className={styles.familyCompareValue}>
-                    {joinPreview.targetFamily?.name || 'Unknown family'}
+                    {joinPreview.targetFamily?.name || t.dashboard.unknownFamily}
                   </div>
                   <div className={styles.familyCompareMeta}>
-                    {joinPreview.targetFamily?.memberCount ?? 0} members
+                    {joinPreview.targetFamily?.memberCount ?? 0} {t.dashboard.members}
                   </div>
                 </div>
               </div>
             </div>
 
             <div className={styles.modalActions}>
-              <button
-                type="button"
-                className={styles.secondaryBtn}
-                onClick={() => setJoinModalOpen(false)}
-              >
-                Cancel
+              <button type="button" className={styles.secondaryBtn} onClick={() => setJoinModalOpen(false)}>
+                {t.dashboard.cancel}
               </button>
 
               <button
                 type="button"
                 className={styles.primaryBtn}
                 onClick={confirmJoinFamily}
-                disabled={
-                  joinPreview.isSameFamily ||
-                  joinPreview.alreadyMember ||
-                  actionLoading === 'join-confirm'
-                }
+                disabled={joinPreview.isSameFamily || joinPreview.alreadyMember || actionLoading === 'join-confirm'}
               >
                 {actionLoading === 'join-confirm' ? (
                   <>
                     <Loader2 size={16} className={styles.spin} />
-                    Joining...
+                    {t.dashboard.joining}
                   </>
                 ) : (
-                  'Confirm join'
+                  t.dashboard.confirmJoin
                 )}
               </button>
             </div>

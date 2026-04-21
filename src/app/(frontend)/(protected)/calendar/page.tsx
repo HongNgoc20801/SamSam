@@ -11,9 +11,17 @@ import {
   type SlotInfo,
   type Event as RBCBaseEvent,
 } from 'react-big-calendar'
-import { format, parse, startOfWeek, getDay, addDays, startOfDay } from 'date-fns'
-import { nb } from 'date-fns/locale'
+import {
+  format,
+  parse,
+  startOfWeek,
+  getDay,
+  addDays,
+  startOfDay,
+} from 'date-fns'
+import { nb, enGB } from 'date-fns/locale'
 import { useTranslations } from '@/app/lib/i18n/useTranslations'
+import { useSettings } from '@/app/(frontend)/components/providers/SettingsProvider'
 
 type Child = {
   id: string | number
@@ -192,11 +200,16 @@ function isAllDayRange(start: Date, end: Date) {
   )
 }
 
-const locales = { 'no-NO': nb }
+const locales = {
+  'no-NO': nb,
+  'en-GB': enGB,
+}
+
 const localizer = dateFnsLocalizer({
   format,
   parse,
-  startOfWeek: () => startOfWeek(new Date(), { locale: nb }),
+  startOfWeek: (date: Date, options?: any) =>
+    startOfWeek(date, { locale: options?.locale || nb }),
   getDay,
   locales,
 })
@@ -212,75 +225,89 @@ const EVENT_TYPE_COLORS: Record<EventType, string> = {
   other: '#64748B',
 }
 
-const EVENT_TYPE_LABELS: Record<EventType, string> = {
-  handover: 'Handover',
-  pickup: 'Pickup',
-  dropoff: 'Drop-off',
-  school: 'School',
-  activity: 'Activity',
-  medical: 'Medical',
-  payment: 'Payment',
-  other: 'Other',
-}
-
-const PRIORITY_LABELS: Record<EventPriority, string> = {
-  normal: 'Normal',
-  important: 'Important',
-  urgent: 'Urgent',
-}
-
-const CONFIRMATION_LABELS: Record<ConfirmationStatus, string> = {
-  'not-required': 'Not required',
-  pending: 'Pending',
-  confirmed: 'Confirmed',
-  declined: 'Declined',
-}
-
-function getConfirmationMeta(
-  status?: ConfirmationStatus,
-  requiresConfirmation?: boolean,
-) {
-  const safe = toConfirmationStatus(status)
-
-  if (!requiresConfirmation || safe === 'not-required') {
-    return {
-      icon: '—',
-      label: 'Not required',
-      short: 'NR',
-    }
-  }
-
-  if (safe === 'pending') {
-    return {
-      icon: '⏳',
-      label: 'Pending',
-      short: 'P',
-    }
-  }
-
-  if (safe === 'confirmed') {
-    return {
-      icon: '✅',
-      label: 'Confirmed',
-      short: 'OK',
-    }
-  }
-
-  return {
-    icon: '❌',
-    label: 'Declined',
-    short: 'NO',
-  }
-}
-
 function getEventColor(type?: EventType) {
   return EVENT_TYPE_COLORS[toEventType(type)]
 }
 
 export default function CalendarPage() {
   const t = useTranslations()
+  const tc = t.calendar
   const searchParams = useSearchParams()
   const eventIdFromQuery = searchParams.get('event')
+  const { settings } = useSettings()
+
+  const culture = settings?.language === 'en' ? 'en-GB' : 'no-NO'
+  const dateLocale = settings?.language === 'en' ? enGB : nb
+
+  const EVENT_TYPE_LABELS = useMemo<Record<EventType, string>>(
+    () => ({
+      handover: tc.eventTypeHandover,
+      pickup: tc.eventTypePickup,
+      dropoff: tc.eventTypeDropoff,
+      school: tc.eventTypeSchool,
+      activity: tc.eventTypeActivity,
+      medical: tc.eventTypeMedical,
+      payment: tc.eventTypePayment,
+      other: tc.eventTypeOther,
+    }),
+    [tc],
+  )
+
+  const PRIORITY_LABELS = useMemo<Record<EventPriority, string>>(
+    () => ({
+      normal: tc.priorityNormal,
+      important: tc.priorityImportant,
+      urgent: tc.priorityUrgent,
+    }),
+    [tc],
+  )
+
+  const CONFIRMATION_LABELS = useMemo<Record<ConfirmationStatus, string>>(
+    () => ({
+      'not-required': tc.confirmationNotRequired,
+      pending: tc.confirmationPending,
+      confirmed: tc.confirmationConfirmed,
+      declined: tc.confirmationDeclined,
+    }),
+    [tc],
+  )
+
+  function getConfirmationMeta(
+    status?: ConfirmationStatus,
+    requiresConfirmation?: boolean,
+  ) {
+    const safe = toConfirmationStatus(status)
+
+    if (!requiresConfirmation || safe === 'not-required') {
+      return {
+        icon: '—',
+        label: tc.confirmationNotRequired,
+        short: 'NR',
+      }
+    }
+
+    if (safe === 'pending') {
+      return {
+        icon: '⏳',
+        label: tc.confirmationPending,
+        short: 'P',
+      }
+    }
+
+    if (safe === 'confirmed') {
+      return {
+        icon: '✅',
+        label: tc.confirmationConfirmed,
+        short: 'OK',
+      }
+    }
+
+    return {
+      icon: '❌',
+      label: tc.confirmationDeclined,
+      short: 'NO',
+    }
+  }
 
   const [loading, setLoading] = useState(true)
   const [children, setChildren] = useState<Child[]>([])
@@ -420,7 +447,7 @@ export default function CalendarPage() {
       )
       setCurrentUserId(String(meData?.user?.id || meData?.id || ''))
     } catch (err: any) {
-      setError(err?.message || t.calendar.networkError || 'Network error')
+      setError(err?.message || tc.networkError)
       setChildren([])
       setDocs([])
       setParents([])
@@ -613,23 +640,23 @@ export default function CalendarPage() {
   }
 
   function validateForm() {
-    if (!hasChildren) return 'Please add a child before creating an event.'
-    if (!childId) return 'Please select a child.'
-    if (!title.trim()) return 'Title is required.'
-    if (!startAt || !endAt) return 'Start and end time are required.'
+    if (!hasChildren) return tc.validationNeedChildProfile
+    if (!childId) return tc.validationSelectChild
+    if (!title.trim()) return tc.validationTitleRequired
+    if (!startAt || !endAt) return tc.validationStartEndRequired
 
     const { startD, endD } = normalizeTimes(startAt, endAt)
-    if (endD.getTime() <= startD.getTime()) return 'End time must be after start time.'
+    if (endD.getTime() <= startD.getTime()) return tc.validationEndAfterStart
 
     if (requiresConfirmation && confirmationStatus === 'not-required') {
-      return 'Confirmation status cannot be "not required" when confirmation is enabled.'
+      return tc.validationConfirmationInvalid
     }
 
     if (eventType === 'handover') {
-      if (!location.trim()) return 'Handover location is required.'
-      if (!handoverFrom) return 'Please select who is handing over the child.'
-      if (!handoverTo) return 'Please select who is receiving the child.'
-      if (handoverFrom === handoverTo) return 'Handover from and to cannot be the same parent.'
+      if (!location.trim()) return tc.validationHandoverLocationRequired
+      if (!handoverFrom) return tc.validationHandoverFromRequired
+      if (!handoverTo) return tc.validationHandoverToRequired
+      if (handoverFrom === handoverTo) return tc.validationHandoverSameParent
     }
 
     return ''
@@ -682,7 +709,7 @@ export default function CalendarPage() {
       } catch {}
 
       if (!res.ok) {
-        const msg = j?.message || j?.errors?.[0]?.message || raw || 'Failed to create event.'
+        const msg = j?.message || j?.errors?.[0]?.message || raw || tc.createFailed
         throw new Error(msg)
       }
 
@@ -690,7 +717,7 @@ export default function CalendarPage() {
       setOpen(false)
       await loadAll()
     } catch (err: any) {
-      setError(err?.message || 'Something went wrong.')
+      setError(err?.message || tc.genericError)
     } finally {
       setSaving(false)
     }
@@ -722,21 +749,21 @@ export default function CalendarPage() {
       } catch {}
 
       if (!res.ok) {
-        const msg = j?.message || j?.errors?.[0]?.message || raw || 'Failed to update event.'
+        const msg = j?.message || j?.errors?.[0]?.message || raw || tc.updateFailed
         throw new Error(msg)
       }
 
       closeModal()
       await loadAll()
     } catch (err: any) {
-      setError(err?.message || 'Something went wrong.')
+      setError(err?.message || tc.genericError)
     } finally {
       setSaving(false)
     }
   }
 
   async function deleteEvent(id: string) {
-    if (!confirm('Delete this event?')) return
+    if (!confirm(tc.confirmDeleteEvent)) return
     setError('')
 
     try {
@@ -753,14 +780,14 @@ export default function CalendarPage() {
       } catch {}
 
       if (!res.ok) {
-        const msg = j?.message || j?.errors?.[0]?.message || raw || 'Failed to delete event.'
+        const msg = j?.message || j?.errors?.[0]?.message || raw || tc.deleteFailed
         throw new Error(msg)
       }
 
       closeModal()
       await loadAll()
     } catch (err: any) {
-      setError(err?.message || 'Something went wrong.')
+      setError(err?.message || tc.genericError)
     }
   }
 
@@ -789,14 +816,14 @@ export default function CalendarPage() {
 
       if (!res.ok) {
         const msg =
-          j?.message || j?.errors?.[0]?.message || raw || 'Failed to update confirmation.'
+          j?.message || j?.errors?.[0]?.message || raw || tc.updateConfirmationFailed
         throw new Error(msg)
       }
 
       await loadAll()
       closeModal()
     } catch (err: any) {
-      setError(err?.message || 'Something went wrong.')
+      setError(err?.message || tc.genericError)
     } finally {
       setConfirming(false)
     }
@@ -809,7 +836,7 @@ export default function CalendarPage() {
       <div className={styles.toolbar}>
         <div className={styles.toolbarLeft}>
           <button type="button" className={styles.navBtn} onClick={() => onNavigate('TODAY')}>
-            {t.calendar.today || 'Today'}
+            {tc.today}
           </button>
 
           <div className={styles.navArrows}>
@@ -817,7 +844,7 @@ export default function CalendarPage() {
               type="button"
               className={styles.iconNav}
               onClick={() => onNavigate('PREV')}
-              aria-label={t.calendar.prev || 'Previous'}
+              aria-label={tc.prev}
             >
               ‹
             </button>
@@ -825,7 +852,7 @@ export default function CalendarPage() {
               type="button"
               className={styles.iconNav}
               onClick={() => onNavigate('NEXT')}
-              aria-label={t.calendar.next || 'Next'}
+              aria-label={tc.next}
             >
               ›
             </button>
@@ -844,7 +871,7 @@ export default function CalendarPage() {
                 onView(Views.MONTH)
               }}
             >
-              {t.calendar.month || 'Month'}
+              {tc.month}
             </button>
 
             <button
@@ -855,7 +882,7 @@ export default function CalendarPage() {
                 onView(Views.WEEK)
               }}
             >
-              {t.calendar.week || 'Week'}
+              {tc.week}
             </button>
 
             <button
@@ -866,7 +893,7 @@ export default function CalendarPage() {
                 onView(Views.DAY)
               }}
             >
-              {t.calendar.day || 'Day'}
+              {tc.day}
             </button>
 
             <button
@@ -877,7 +904,7 @@ export default function CalendarPage() {
                 onView(Views.AGENDA)
               }}
             >
-              {t.calendar.agenda || 'Agenda'}
+              {tc.agenda}
             </button>
           </div>
         </div>
@@ -994,28 +1021,26 @@ export default function CalendarPage() {
     declined: styles.status_declined,
   }
 
-  if (loading) return <div className={styles.loading}>{t.calendar.loading || 'Loading...'}</div>
+  if (loading) return <div className={styles.loading}>{tc.loading}</div>
 
   return (
     <div className={styles.wrapper}>
       <div className={styles.topBar}>
         <div>
-          <h1 className={styles.title}>{t.calendar.title || 'Calendar'}</h1>
-          <p className={styles.subtitle}>
-            Structured child events, handovers, confirmations and responsibilities.
-          </p>
+          <h1 className={styles.title}>{tc.title}</h1>
+          <p className={styles.subtitle}>{tc.subtitle}</p>
         </div>
 
         <div className={styles.topActions}>
           <label className={styles.filterLabel}>
-            {t.calendar.filterChild || 'Filter child'}
+            {tc.filterChild}
             <select
               className={styles.select}
               value={filterChild}
               onChange={(e) => setFilterChild(e.target.value)}
               disabled={!hasChildren}
             >
-              <option value="all">{t.calendar.allChildren || 'All children'}</option>
+              <option value="all">{tc.allChildren}</option>
               {children.map((c) => (
                 <option key={String(c.id)} value={String(c.id)}>
                   {c.fullName}
@@ -1027,36 +1052,36 @@ export default function CalendarPage() {
           <button
             className={styles.primaryBtn}
             disabled={!hasChildren}
-            title={!hasChildren ? 'Add a child first' : 'Create event'}
+            title={!hasChildren ? tc.addChildFirst : tc.newEvent}
             onClick={() => {
               const now = new Date()
               const end = new Date(now.getTime() + 30 * 60 * 1000)
               openCreateWithRange(now, end)
             }}
           >
-            {t.calendar.newEvent || 'New event'}
+            {tc.newEvent}
           </button>
         </div>
       </div>
 
       {!hasChildren ? (
         <div className={styles.emptyCard}>
-          <p className={styles.emptyText}>You need at least one child profile before creating events.</p>
+          <p className={styles.emptyText}>{tc.emptyNeedsChild}</p>
           <Link className={styles.linkBtn} href="/child-info/new">
-            Add child
+            {tc.addChild}
           </Link>
         </div>
       ) : null}
 
       {error ? (
         <p className={styles.error}>
-          {t.calendar.errorPrefix || 'Error:'} {error}
+          {tc.errorPrefix} {error}
         </p>
       ) : null}
 
       <div className={styles.calendarShell}>
         <BigCalendar<RBCEvent>
-          culture="no-NO"
+          culture={culture}
           localizer={localizer}
           events={events}
           startAccessor="start"
@@ -1122,6 +1147,20 @@ export default function CalendarPage() {
               className: `${styles.evt} ${TYPE_CLASS[type]} ${confirmationClassMap[status]}`,
             }
           }}
+          messages={{
+            today: tc.today,
+            previous: tc.prev,
+            next: tc.next,
+            month: tc.month,
+            week: tc.week,
+            day: tc.day,
+            agenda: tc.agenda,
+            date: tc.detailsDate,
+            time: tc.detailsTime,
+            event: tc.titleLabel,
+            noEventsInRange: tc.noEventsInRange,
+            showMore: (total) => `+${total} ${tc.showMore}`,
+          }}
         />
       </div>
 
@@ -1137,8 +1176,8 @@ export default function CalendarPage() {
                 const childName = activeEvent.resource.childName || ''
                 const initials = getInitials(childName)
 
-                const startDate = format(activeEvent.start, 'dd.MM.yyyy')
-                const endDate = format(activeEvent.end, 'dd.MM.yyyy')
+                const startDate = format(activeEvent.start, 'dd.MM.yyyy', { locale: dateLocale })
+                const endDate = format(activeEvent.end, 'dd.MM.yyyy', { locale: dateLocale })
                 const dateText = startDate === endDate ? startDate : `${startDate} → ${endDate}`
                 const timeText = `${format(activeEvent.start, 'HH:mm')} → ${format(
                   activeEvent.end,
@@ -1167,7 +1206,7 @@ export default function CalendarPage() {
                         type="button"
                         className={styles.detailClose}
                         onClick={closeModal}
-                        aria-label="Close"
+                        aria-label={tc.close}
                       >
                         ✕
                       </button>
@@ -1194,52 +1233,54 @@ export default function CalendarPage() {
                     <div className={styles.infoGrid}>
                       <div className={styles.infoCard}>
                         <div className={styles.infoLabel}>
-                          <span className={styles.infoIcon}>📅</span> Date
+                          <span className={styles.infoIcon}>📅</span> {tc.detailsDate}
                         </div>
                         <div className={styles.infoValue}>{dateText}</div>
                       </div>
 
                       <div className={styles.infoCard}>
                         <div className={styles.infoLabel}>
-                          <span className={styles.infoIcon}>🕒</span> Time
+                          <span className={styles.infoIcon}>🕒</span> {tc.detailsTime}
                         </div>
                         <div className={styles.infoValue}>{timeText}</div>
                       </div>
 
                       <div className={styles.infoCard}>
                         <div className={styles.infoLabel}>
-                          <span className={styles.infoIcon}>📍</span> Location
+                          <span className={styles.infoIcon}>📍</span> {tc.detailsLocation}
                         </div>
-                        <div className={styles.infoValue}>{activeEvent.resource.location || 'Not specified'}</div>
+                        <div className={styles.infoValue}>
+                          {activeEvent.resource.location || tc.detailsNotSpecified}
+                        </div>
                       </div>
 
                       <div className={styles.infoCard}>
                         <div className={styles.infoLabel}>
-                          <span className={styles.infoIcon}>👤</span> Responsible
+                          <span className={styles.infoIcon}>👤</span> {tc.detailsResponsible}
                         </div>
                         <div className={styles.infoValue}>
-                          {activeEvent.resource.responsibleParentName || 'Not assigned'}
+                          {activeEvent.resource.responsibleParentName || tc.detailsNotAssigned}
                         </div>
                       </div>
                     </div>
 
                     {type === 'handover' ? (
                       <div className={styles.handoverPanel}>
-                        <div className={styles.handoverTitle}>Handover details</div>
+                        <div className={styles.handoverTitle}>{tc.detailsHandover}</div>
                         <div className={styles.handoverRow}>
                           <div className={styles.handoverBox}>
-                            <div className={styles.handoverLabel}>From</div>
+                            <div className={styles.handoverLabel}>{tc.detailsFrom}</div>
                             <div className={styles.handoverValue}>
-                              {activeEvent.resource.handoverFromName || 'Not set'}
+                              {activeEvent.resource.handoverFromName || tc.detailsNotSet}
                             </div>
                           </div>
 
                           <div className={styles.handoverArrow}>→</div>
 
                           <div className={styles.handoverBox}>
-                            <div className={styles.handoverLabel}>To</div>
+                            <div className={styles.handoverLabel}>{tc.detailsTo}</div>
                             <div className={styles.handoverValue}>
-                              {activeEvent.resource.handoverToName || 'Not set'}
+                              {activeEvent.resource.handoverToName || tc.detailsNotSet}
                             </div>
                           </div>
                         </div>
@@ -1247,12 +1288,12 @@ export default function CalendarPage() {
                     ) : null}
 
                     <div className={styles.descSection}>
-                      <div className={styles.descLabel}>Notes</div>
+                      <div className={styles.descLabel}>{tc.detailsNotes}</div>
                       <div className={styles.descBox}>
                         {activeEvent.resource.notes ? (
                           activeEvent.resource.notes
                         ) : (
-                          <span className={styles.descMuted}>No notes added yet.</span>
+                          <span className={styles.descMuted}>{tc.detailsNoNotes}</span>
                         )}
                       </div>
                     </div>
@@ -1265,7 +1306,7 @@ export default function CalendarPage() {
                           onClick={() => updateConfirmation('confirmed')}
                           disabled={confirming}
                         >
-                          {confirming ? 'Saving...' : 'Confirm'}
+                          {confirming ? tc.saving : tc.confirmAction}
                         </button>
 
                         <button
@@ -1274,14 +1315,14 @@ export default function CalendarPage() {
                           onClick={() => updateConfirmation('declined')}
                           disabled={confirming}
                         >
-                          {confirming ? 'Saving...' : 'Decline'}
+                          {confirming ? tc.saving : tc.declineAction}
                         </button>
                       </div>
                     ) : null}
 
                     <div className={styles.detailFooter}>
                       <button type="button" className={styles.actionClose} onClick={closeModal}>
-                        Close
+                        {tc.close}
                       </button>
 
                       {!isEconomyGenerated ? (
@@ -1290,7 +1331,7 @@ export default function CalendarPage() {
                           className={styles.actionDelete}
                           onClick={() => deleteEvent(activeEvent.id)}
                         >
-                          Delete
+                          {tc.delete}
                         </button>
                       ) : null}
 
@@ -1303,7 +1344,7 @@ export default function CalendarPage() {
                             setMode('edit')
                           }}
                         >
-                          Edit event
+                          {tc.editEvent}
                         </button>
                       ) : null}
                     </div>
@@ -1313,26 +1354,26 @@ export default function CalendarPage() {
             ) : mode === 'edit' ? (
               <form className={styles.form} onSubmit={updateEvent}>
                 <div className={styles.modalHeader}>
-                  <div className={styles.modalTitle}>Edit event</div>
+                  <div className={styles.modalTitle}>{tc.editTitle}</div>
                   <button
                     type="button"
                     className={styles.iconBtn}
                     onClick={() => setMode('view')}
-                    aria-label="Close"
+                    aria-label={tc.close}
                   >
                     ✕
                   </button>
                 </div>
 
                 <label className={styles.label}>
-                  Child
+                  {tc.child}
                   <select
                     className={styles.select}
                     value={childId}
                     onChange={(ev) => setChildId(ev.target.value)}
                     disabled={saving}
                   >
-                    <option value="">Select child</option>
+                    <option value="">{tc.selectChild}</option>
                     {children.map((c) => (
                       <option key={String(c.id)} value={String(c.id)}>
                         {c.fullName} {c.status ? `(${c.status})` : ''}
@@ -1343,40 +1384,40 @@ export default function CalendarPage() {
 
                 <div className={styles.formRow}>
                   <label className={styles.label}>
-                    Event type
+                    {tc.eventType}
                     <select
                       className={styles.select}
                       value={eventType}
                       onChange={(e) => setEventType(e.target.value as EventType)}
                       disabled={saving}
                     >
-                      <option value="handover">Handover</option>
-                      <option value="pickup">Pickup</option>
-                      <option value="dropoff">Drop-off</option>
-                      <option value="school">School</option>
-                      <option value="activity">Activity</option>
-                      <option value="medical">Medical</option>
-                      <option value="other">Other</option>
+                      <option value="handover">{tc.eventTypeHandover}</option>
+                      <option value="pickup">{tc.eventTypePickup}</option>
+                      <option value="dropoff">{tc.eventTypeDropoff}</option>
+                      <option value="school">{tc.eventTypeSchool}</option>
+                      <option value="activity">{tc.eventTypeActivity}</option>
+                      <option value="medical">{tc.eventTypeMedical}</option>
+                      <option value="other">{tc.eventTypeOther}</option>
                     </select>
                   </label>
 
                   <label className={styles.label}>
-                    Priority
+                    {tc.priority}
                     <select
                       className={styles.select}
                       value={priority}
                       onChange={(e) => setPriority(e.target.value as EventPriority)}
                       disabled={saving}
                     >
-                      <option value="normal">Normal</option>
-                      <option value="important">Important</option>
-                      <option value="urgent">Urgent</option>
+                      <option value="normal">{tc.priorityNormal}</option>
+                      <option value="important">{tc.priorityImportant}</option>
+                      <option value="urgent">{tc.priorityUrgent}</option>
                     </select>
                   </label>
                 </div>
 
                 <label className={styles.label}>
-                  Title
+                  {tc.titleLabel}
                   <input
                     className={styles.input}
                     value={title}
@@ -1386,25 +1427,25 @@ export default function CalendarPage() {
                 </label>
 
                 <label className={styles.label}>
-                  Location
+                  {tc.locationLabel}
                   <input
                     className={styles.input}
                     value={location}
                     onChange={(e) => setLocation(e.target.value)}
                     disabled={saving}
-                    placeholder="School entrance / Parent B house / Clinic"
+                    placeholder={tc.placeholderLocation}
                   />
                 </label>
 
                 <label className={styles.label}>
-                  Responsible parent
+                  {tc.responsibleParent}
                   <select
                     className={styles.select}
                     value={responsibleParent}
                     onChange={(e) => setResponsibleParent(e.target.value)}
                     disabled={saving}
                   >
-                    <option value="">Select parent</option>
+                    <option value="">{tc.selectParent}</option>
                     {parents.map((p) => (
                       <option key={String(p.id)} value={String(p.id)}>
                         {p.fullName}
@@ -1416,14 +1457,14 @@ export default function CalendarPage() {
                 {eventType === 'handover' ? (
                   <div className={styles.formRow}>
                     <label className={styles.label}>
-                      Handover from
+                      {tc.handoverFrom}
                       <select
                         className={styles.select}
                         value={handoverFrom}
                         onChange={(e) => setHandoverFrom(e.target.value)}
                         disabled={saving}
                       >
-                        <option value="">Select parent</option>
+                        <option value="">{tc.selectParent}</option>
                         {parents.map((p) => (
                           <option key={String(p.id)} value={String(p.id)}>
                             {p.fullName}
@@ -1433,14 +1474,14 @@ export default function CalendarPage() {
                     </label>
 
                     <label className={styles.label}>
-                      Handover to
+                      {tc.handoverTo}
                       <select
                         className={styles.select}
                         value={handoverTo}
                         onChange={(e) => setHandoverTo(e.target.value)}
                         disabled={saving}
                       >
-                        <option value="">Select parent</option>
+                        <option value="">{tc.selectParent}</option>
                         {parents.map((p) => (
                           <option key={String(p.id)} value={String(p.id)}>
                             {p.fullName}
@@ -1466,12 +1507,12 @@ export default function CalendarPage() {
                     }}
                     disabled={saving}
                   />
-                  Requires confirmation from the other parent
+                  {tc.requiresConfirmation}
                 </label>
 
                 {requiresConfirmation ? (
                   <label className={styles.label}>
-                    Confirmation status
+                    {tc.confirmationStatus}
                     <select
                       className={styles.select}
                       value={confirmationStatus}
@@ -1480,16 +1521,16 @@ export default function CalendarPage() {
                       }
                       disabled={saving}
                     >
-                      <option value="pending">Pending</option>
-                      <option value="confirmed">Confirmed</option>
-                      <option value="declined">Declined</option>
+                      <option value="pending">{tc.confirmationPending}</option>
+                      <option value="confirmed">{tc.confirmationConfirmed}</option>
+                      <option value="declined">{tc.confirmationDeclined}</option>
                     </select>
                   </label>
                 ) : null}
 
                 <div className={styles.formRow}>
                   <label className={styles.label}>
-                    Start
+                    {tc.start}
                     <input
                       className={styles.input}
                       type="datetime-local"
@@ -1500,7 +1541,7 @@ export default function CalendarPage() {
                   </label>
 
                   <label className={styles.label}>
-                    End
+                    {tc.end}
                     <input
                       className={styles.input}
                       type="datetime-local"
@@ -1512,7 +1553,7 @@ export default function CalendarPage() {
                 </div>
 
                 <label className={styles.label}>
-                  Notes
+                  {tc.notes}
                   <textarea
                     className={styles.textarea}
                     value={notes}
@@ -1528,36 +1569,36 @@ export default function CalendarPage() {
                     onClick={() => setMode('view')}
                     disabled={saving}
                   >
-                    Cancel
+                    {tc.cancel}
                   </button>
                   <button className={styles.primaryBtn} type="submit" disabled={saving}>
-                    {saving ? 'Saving...' : 'Save changes'}
+                    {saving ? tc.saving : tc.saveChanges}
                   </button>
                 </div>
               </form>
             ) : (
               <form className={styles.form} onSubmit={createEvent}>
                 <div className={styles.modalHeader}>
-                  <div className={styles.modalTitle}>Create event</div>
+                  <div className={styles.modalTitle}>{tc.createTitle}</div>
                   <button
                     type="button"
                     className={styles.iconBtn}
                     onClick={closeModal}
-                    aria-label="Close"
+                    aria-label={tc.close}
                   >
                     ✕
                   </button>
                 </div>
 
                 <label className={styles.label}>
-                  Child
+                  {tc.child}
                   <select
                     className={styles.select}
                     value={childId}
                     onChange={(ev) => setChildId(ev.target.value)}
                     disabled={saving}
                   >
-                    <option value="">Select child</option>
+                    <option value="">{tc.selectChild}</option>
                     {children.map((c) => (
                       <option key={String(c.id)} value={String(c.id)}>
                         {c.fullName} {c.status ? `(${c.status})` : ''}
@@ -1568,69 +1609,69 @@ export default function CalendarPage() {
 
                 <div className={styles.formRow}>
                   <label className={styles.label}>
-                    Event type
+                    {tc.eventType}
                     <select
                       className={styles.select}
                       value={eventType}
                       onChange={(e) => setEventType(e.target.value as EventType)}
                       disabled={saving}
                     >
-                      <option value="handover">Handover</option>
-                      <option value="pickup">Pickup</option>
-                      <option value="dropoff">Drop-off</option>
-                      <option value="school">School</option>
-                      <option value="activity">Activity</option>
-                      <option value="medical">Medical</option>
-                      <option value="other">Other</option>
+                      <option value="handover">{tc.eventTypeHandover}</option>
+                      <option value="pickup">{tc.eventTypePickup}</option>
+                      <option value="dropoff">{tc.eventTypeDropoff}</option>
+                      <option value="school">{tc.eventTypeSchool}</option>
+                      <option value="activity">{tc.eventTypeActivity}</option>
+                      <option value="medical">{tc.eventTypeMedical}</option>
+                      <option value="other">{tc.eventTypeOther}</option>
                     </select>
                   </label>
 
                   <label className={styles.label}>
-                    Priority
+                    {tc.priority}
                     <select
                       className={styles.select}
                       value={priority}
                       onChange={(e) => setPriority(e.target.value as EventPriority)}
                       disabled={saving}
                     >
-                      <option value="normal">Normal</option>
-                      <option value="important">Important</option>
-                      <option value="urgent">Urgent</option>
+                      <option value="normal">{tc.priorityNormal}</option>
+                      <option value="important">{tc.priorityImportant}</option>
+                      <option value="urgent">{tc.priorityUrgent}</option>
                     </select>
                   </label>
                 </div>
 
                 <label className={styles.label}>
-                  Title
+                  {tc.titleLabel}
                   <input
                     className={styles.input}
                     value={title}
                     onChange={(ev) => setTitle(ev.target.value)}
                     disabled={saving}
-                    placeholder="Example: Friday handover / School meeting / Football practice"
+                    placeholder={tc.placeholderTitle}
                   />
                 </label>
 
                 <label className={styles.label}>
-                  Location
+                  {tc.locationLabel}
                   <input
                     className={styles.input}
                     value={location}
                     onChange={(e) => setLocation(e.target.value)}
                     disabled={saving}
-                    placeholder="School entrance / Parent B house / Clinic"
+                    placeholder={tc.placeholderLocation}
                   />
                 </label>
 
                 <label className={styles.label}>
-                  Responsible parent
+                  {tc.responsibleParent}
                   <select
                     className={styles.select}
                     value={responsibleParent}
                     onChange={(e) => setResponsibleParent(e.target.value)}
                     disabled={saving}
                   >
-                    <option value="">Select parent</option>
+                    <option value="">{tc.selectParent}</option>
                     {parents.map((p) => (
                       <option key={String(p.id)} value={String(p.id)}>
                         {p.fullName}
@@ -1642,14 +1683,14 @@ export default function CalendarPage() {
                 {eventType === 'handover' ? (
                   <div className={styles.formRow}>
                     <label className={styles.label}>
-                      Handover from
+                      {tc.handoverFrom}
                       <select
                         className={styles.select}
                         value={handoverFrom}
                         onChange={(e) => setHandoverFrom(e.target.value)}
                         disabled={saving}
                       >
-                        <option value="">Select parent</option>
+                        <option value="">{tc.selectParent}</option>
                         {parents.map((p) => (
                           <option key={String(p.id)} value={String(p.id)}>
                             {p.fullName}
@@ -1659,14 +1700,14 @@ export default function CalendarPage() {
                     </label>
 
                     <label className={styles.label}>
-                      Handover to
+                      {tc.handoverTo}
                       <select
                         className={styles.select}
                         value={handoverTo}
                         onChange={(e) => setHandoverTo(e.target.value)}
                         disabled={saving}
                       >
-                        <option value="">Select parent</option>
+                        <option value="">{tc.selectParent}</option>
                         {parents.map((p) => (
                           <option key={String(p.id)} value={String(p.id)}>
                             {p.fullName}
@@ -1692,12 +1733,12 @@ export default function CalendarPage() {
                     }}
                     disabled={saving}
                   />
-                  Requires confirmation from the other parent
+                  {tc.requiresConfirmation}
                 </label>
 
                 {requiresConfirmation ? (
                   <label className={styles.label}>
-                    Confirmation status
+                    {tc.confirmationStatus}
                     <select
                       className={styles.select}
                       value={confirmationStatus}
@@ -1706,16 +1747,16 @@ export default function CalendarPage() {
                       }
                       disabled={saving}
                     >
-                      <option value="pending">Pending</option>
-                      <option value="confirmed">Confirmed</option>
-                      <option value="declined">Declined</option>
+                      <option value="pending">{tc.confirmationPending}</option>
+                      <option value="confirmed">{tc.confirmationConfirmed}</option>
+                      <option value="declined">{tc.confirmationDeclined}</option>
                     </select>
                   </label>
                 ) : null}
 
                 <div className={styles.formRow}>
                   <label className={styles.label}>
-                    Start
+                    {tc.start}
                     <input
                       className={styles.input}
                       type="datetime-local"
@@ -1726,7 +1767,7 @@ export default function CalendarPage() {
                   </label>
 
                   <label className={styles.label}>
-                    End
+                    {tc.end}
                     <input
                       className={styles.input}
                       type="datetime-local"
@@ -1738,13 +1779,13 @@ export default function CalendarPage() {
                 </div>
 
                 <label className={styles.label}>
-                  Notes
+                  {tc.notes}
                   <textarea
                     className={styles.textarea}
                     value={notes}
                     onChange={(ev) => setNotes(ev.target.value)}
                     disabled={saving}
-                    placeholder="Short, structured notes only."
+                    placeholder={tc.placeholderNotes}
                   />
                 </label>
 
@@ -1755,10 +1796,10 @@ export default function CalendarPage() {
                     onClick={closeModal}
                     disabled={saving}
                   >
-                    Cancel
+                    {tc.cancel}
                   </button>
                   <button className={styles.primaryBtn} type="submit" disabled={saving}>
-                    {saving ? 'Saving...' : 'Create'}
+                    {saving ? tc.saving : tc.create}
                   </button>
                 </div>
               </form>

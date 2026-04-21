@@ -3,9 +3,11 @@
 import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import styles from './changePassword.module.css'
+import { useTranslations } from '@/app/lib/i18n/useTranslations'
 
 export default function ChangePasswordPage() {
   const router = useRouter()
+  const t = useTranslations()
 
   const API_BASE = useMemo(() => {
     const base = process.env.NEXT_PUBLIC_PAYLOAD_URL
@@ -29,17 +31,17 @@ export default function ChangePasswordPage() {
     setSuccess('')
 
     if (!currentPassword || !newPassword || !confirmPassword) {
-      setError('Vennligst fyll inn alle feltene.')
+      setError(t.changePassword.fillAllFields)
       return
     }
 
     if (newPassword.length < 6) {
-      setError('Nytt passord må være minst 6 tegn.')
+      setError(t.changePassword.passwordMinLength)
       return
     }
 
     if (newPassword !== confirmPassword) {
-      setError('Nytt passord og bekreftelse matcher ikke.')
+      setError(t.changePassword.passwordMismatch)
       return
     }
 
@@ -62,15 +64,26 @@ export default function ChangePasswordPage() {
       const data = await res.json().catch(() => null)
 
       if (!res.ok) {
-        throw new Error(data?.message || `Request failed with status ${res.status}`)
+        throw new Error(
+          data?.message ||
+            t.changePassword.requestFailed.replace(
+              '{status}',
+              String(res.status)
+            )
+        )
       }
 
-      setSuccess(data?.message || 'Passordet ble oppdatert.')
+      setSuccess(
+        data?.message || t.changePassword.passwordUpdated
+      )
+
       setCurrentPassword('')
       setNewPassword('')
       setConfirmPassword('')
     } catch (err: any) {
-      setError(err?.message || 'Noe gikk galt.')
+      setError(
+        err?.message || t.changePassword.genericError
+      )
     } finally {
       setSaving(false)
     }
@@ -80,56 +93,93 @@ export default function ChangePasswordPage() {
     <main className={styles.page}>
       <div className={styles.container}>
         <section className={styles.card}>
-          <h1 className={styles.title}>Bytt passord</h1>
+          <h1 className={styles.title}>
+            {t.changePassword.title}
+          </h1>
 
-          <form className={styles.form} onSubmit={handleSubmit}>
+          <form
+            className={styles.form}
+            onSubmit={handleSubmit}
+          >
             <label className={styles.field}>
-              <span className={styles.label}>Nåværende passord</span>
+              <span className={styles.label}>
+                {t.changePassword.currentPassword}
+              </span>
+
               <input
                 className={styles.input}
                 type="password"
                 value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
+                onChange={(e) =>
+                  setCurrentPassword(e.target.value)
+                }
                 autoComplete="current-password"
               />
             </label>
 
             <label className={styles.field}>
-              <span className={styles.label}>Nytt passord</span>
+              <span className={styles.label}>
+                {t.changePassword.newPassword}
+              </span>
+
               <input
                 className={styles.input}
                 type="password"
                 value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
+                onChange={(e) =>
+                  setNewPassword(e.target.value)
+                }
                 autoComplete="new-password"
               />
             </label>
 
             <label className={styles.field}>
-              <span className={styles.label}>Bekreft nytt passord</span>
+              <span className={styles.label}>
+                {t.changePassword.confirmPassword}
+              </span>
+
               <input
                 className={styles.input}
                 type="password"
                 value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
+                onChange={(e) =>
+                  setConfirmPassword(e.target.value)
+                }
                 autoComplete="new-password"
               />
             </label>
 
-            {success ? <p className={styles.success}>{success}</p> : null}
-            {error ? <p className={styles.error}>{error}</p> : null}
+            {success ? (
+              <p className={styles.success}>
+                {success}
+              </p>
+            ) : null}
+
+            {error ? (
+              <p className={styles.error}>
+                {error}
+              </p>
+            ) : null}
 
             <div className={styles.actions}>
               <button
                 className={styles.secondaryBtn}
                 type="button"
-                onClick={() => router.push('/profile')}
+                onClick={() =>
+                  router.push('/profile')
+                }
               >
-                Tilbake
+                {t.changePassword.back}
               </button>
 
-              <button className={styles.primaryBtn} type="submit" disabled={saving}>
-                {saving ? 'Lagrer…' : 'Oppdater passord'}
+              <button
+                className={styles.primaryBtn}
+                type="submit"
+                disabled={saving}
+              >
+                {saving
+                  ? t.changePassword.saving
+                  : t.changePassword.updatePassword}
               </button>
             </div>
           </form>

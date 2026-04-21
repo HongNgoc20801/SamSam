@@ -1,4 +1,6 @@
 import type { CollectionConfig, Where } from 'payload'
+import { logAudit } from '@/app/lib/logAudit'
+import { notifyFamily } from '@/app/lib/notifications/notifyFamily'
 
 function getCollectionSlug(req: any) {
   return req?.user?.collection ?? req?.user?._collection
@@ -11,11 +13,9 @@ function isAdmin(req: any) {
 function isCustomer(req: any) {
   const slug = getCollectionSlug(req)
   if (slug === 'customers') return true
-
   const u: any = req?.user
   if (u?.role === 'customer') return true
   if (u?.type === 'customer') return true
-
   return false
 }
 
@@ -287,7 +287,7 @@ export const EconomyRequests: CollectionConfig = {
             collection: 'economy-transactions',
             data: {
               title: String(requestDoc.title || 'Approved request').trim(),
-              description: 
+              description:
                 String(requestDoc.notes || '').trim() || 'Paid from approved request.',
               amount: amountToApprove,
               type: 'expense',
@@ -297,16 +297,49 @@ export const EconomyRequests: CollectionConfig = {
               transactionDate: now,
               paidBy: userId,
               child: childId ?? undefined,
-
               sourceType: 'request',
               requestRef: requestDoc.id,
               requestCreatedByName: String(requestDoc.createdByName || 'Unknown'),
               approvedByName: getUserDisplayName(req),
               paidFromScope: connectionScope,
-              
             } as any,
             overrideAccess: true,
             req,
+          })
+
+          await logAudit(req, {
+            familyId,
+            childId,
+            action: 'economy.request.approve',
+            entityType: 'economy',
+            scope: 'economy',
+            entityId: String(requestDoc.id),
+            summary: 'Approved money request',
+            meta: {
+              title: requestDoc.title,
+              amount: amountToApprove,
+              category: requestDoc.category,
+              connectionScope,
+              bankConnectionId: String(bankDoc.id),
+            },
+          })
+
+          await notifyFamily(req, {
+            familyId,
+            actorUserId: userId,
+            childId,
+            type: 'request',
+            event: 'approved',
+            title: requestDoc.title || 'Money request approved',
+            message: `${getUserDisplayName(req)} approved a money request.`,
+            link: '/economy?tab=requests',
+            meta: {
+              actorName: getUserDisplayName(req),
+              amount: amountToApprove,
+              currency: String(bankDoc.currency || 'NOK'),
+              category: requestDoc.category,
+              connectionScope,
+            },
           })
 
           return Response.json(
@@ -412,6 +445,40 @@ export const EconomyRequests: CollectionConfig = {
             req,
           })
 
+          await logAudit(req, {
+            familyId,
+            childId: normalizeRelId(requestDoc.child),
+            action: 'economy.request.reject',
+            entityType: 'economy',
+            scope: 'economy',
+            entityId: String(requestDoc.id),
+            summary: 'Rejected money request',
+            meta: {
+              title: requestDoc.title,
+              amount: requestDoc.amount,
+              category: requestDoc.category,
+              decisionNote,
+            },
+          })
+
+          await notifyFamily(req, {
+            familyId,
+            actorUserId: userId,
+            childId: normalizeRelId(requestDoc.child),
+            type: 'request',
+            event: 'rejected',
+            title: requestDoc.title || 'Money request rejected',
+            message: `${getUserDisplayName(req)} rejected a money request.`,
+            link: '/economy?tab=requests',
+            meta: {
+              actorName: getUserDisplayName(req),
+              amount: requestDoc.amount,
+              currency: 'NOK',
+              category: requestDoc.category,
+              decisionNote,
+            },
+          })
+
           return Response.json({ ok: true, request: updated }, { status: 200 })
         } catch (error: any) {
           return Response.json(
@@ -466,6 +533,52 @@ export const EconomyRequests: CollectionConfig = {
           child: validChildId ?? null,
           status: 'pending',
         }
+      },
+    ],
+
+    afterChange: [
+      async ({ doc, operation, req }: any) => {
+        if (!req?.user || !doc || operation !== 'create') return
+
+        const familyId = normalizeRelId(doc.family)
+        const childId = normalizeRelId(doc.child)
+        const actorUserId = getUserId(req)
+        const actorName = getUserDisplayName(req)
+
+        if (!familyId) return
+
+        await logAudit(req, {
+          familyId,
+          childId,
+          action: 'economy.request.create',
+          entityType: 'economy',
+          scope: 'economy',
+          entityId: String(doc.id),
+          summary: 'Created money request',
+          meta: {
+            title: doc.title,
+            amount: doc.amount,
+            category: doc.category,
+            status: doc.status,
+          },
+        })
+
+        await notifyFamily(req, {
+          familyId,
+          actorUserId,
+          childId,
+          type: 'request',
+          event: 'created',
+          title: doc.title || 'Money request created',
+          message: `${actorName} created a money request.`,
+          link: '/economy?tab=requests',
+          meta: {
+            actorName,
+            amount: doc.amount,
+            currency: 'NOK',
+            category: doc.category,
+          },
+        })
       },
     ],
   },

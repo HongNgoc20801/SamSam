@@ -1,6 +1,6 @@
-
 import type { CollectionConfig, Where } from 'payload'
 import { logAudit } from '@/app/lib/logAudit'
+import { notifyFamily } from '@/app/lib/notifications/notifyFamily'
 
 function getCollectionSlug(req: any) {
   return req?.user?.collection ?? req?.user?._collection
@@ -59,26 +59,10 @@ function getUserDisplayName(req: any) {
 function buildFamilyBankWhere(familyId: string | number): Where {
   return {
     and: [
-      {
-        family: {
-          equals: familyId,
-        },
-      },
-      {
-        connectionScope: {
-          equals: 'family',
-        },
-      },
-      {
-        isActive: {
-          equals: true,
-        },
-      },
-      {
-        status: {
-          equals: 'connected',
-        },
-      },
+      { family: { equals: familyId } },
+      { connectionScope: { equals: 'family' } },
+      { isActive: { equals: true } },
+      { status: { equals: 'connected' } },
     ],
   }
 }
@@ -89,31 +73,11 @@ function buildPersonalBankWhere(
 ): Where {
   return {
     and: [
-      {
-        family: {
-          equals: familyId,
-        },
-      },
-      {
-        connectionScope: {
-          equals: 'personal',
-        },
-      },
-      {
-        ownerCustomer: {
-          equals: userId,
-        },
-      },
-      {
-        isActive: {
-          equals: true,
-        },
-      },
-      {
-        status: {
-          equals: 'connected',
-        },
-      },
+      { family: { equals: familyId } },
+      { connectionScope: { equals: 'personal' } },
+      { ownerCustomer: { equals: userId } },
+      { isActive: { equals: true } },
+      { status: { equals: 'connected' } },
     ],
   }
 }
@@ -324,7 +288,8 @@ export const BankTransfers: CollectionConfig = {
             familyId,
             childId: null,
             action: 'bank.transfer',
-            entityType: 'other',
+            entityType: 'economy',
+            scope: 'economy',
             entityId: String(created?.id),
             summary: 'Transferred money between family and personal bank',
             meta: {
@@ -337,6 +302,27 @@ export const BankTransfers: CollectionConfig = {
               note:
                 note ||
                 `Transfer from ${getScopeLabel(fromScope)} to ${getScopeLabel(toScope)}`,
+            },
+          })
+
+          await notifyFamily(req, {
+            familyId,
+            actorUserId: userId,
+            type: 'bank',
+            event: 'transferred',
+            title: 'Bank transfer completed',
+            message: `${getUserDisplayName(req)} transferred money between banks.`,
+            link: '/economy?tab=bank',
+            meta: {
+              actorName: getUserDisplayName(req),
+              amount,
+              currency,
+              fromScope,
+              toScope,
+              note:
+                note ||
+                `Transfer from ${getScopeLabel(fromScope)} to ${getScopeLabel(toScope)}`,
+              status: 'completed',
             },
           })
 

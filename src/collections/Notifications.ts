@@ -275,6 +275,8 @@ export const Notifications: CollectionConfig = {
       options: [
         { label: 'Calendar', value: 'calendar' },
         { label: 'Expense', value: 'expense' },
+        { label: 'Request', value: 'request' },
+        { label: 'Bank', value: 'bank' },
         { label: 'Status', value: 'status' },
         { label: 'Documents', value: 'documents' },
         { label: 'Post', value: 'post' },
@@ -295,6 +297,9 @@ export const Notifications: CollectionConfig = {
         { label: 'Liked', value: 'liked' },
         { label: 'Uploaded', value: 'uploaded' },
         { label: 'Replaced', value: 'replaced' },
+        { label: 'Approved', value: 'approved' },
+        { label: 'Rejected', value: 'rejected' },
+        { label: 'Paid', value: 'paid' },
       ],
     },
     {

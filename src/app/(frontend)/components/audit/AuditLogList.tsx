@@ -99,9 +99,14 @@ function matchesSearch(a: AuditLog, q: string) {
     a.meta?.documentCategory,
     a.meta?.childName,
     a.childNameSnapshot,
+    a.meta?.bankName,
+    a.meta?.category,
+    a.meta?.connectionScope,
+    a.meta?.note,
   ]
     .map((v) => String(v || '').toLowerCase())
     .join(' ')
+
   return haystack.includes(query)
 }
 
@@ -119,9 +124,10 @@ export default function AuditLogList({
   const { settings } = useSettings()
 
   const locale = settings?.language === 'en' ? 'en-GB' : 'nb-NO'
+  const timeZone = 'Europe/Oslo'
 
   const [entityFilter, setEntityFilter] = useState<
-    'all' | 'document' | 'event' | 'post' | 'other'
+    'all' | 'document' | 'event' | 'post' | 'economy' | 'confirmation' | 'other'
   >('all')
 
   const [childFilter, setChildFilter] = useState<'all' | string>('all')
@@ -180,10 +186,19 @@ export default function AuditLogList({
       next = next.filter((a) => matchesSearch(a, search))
     }
 
+    next.sort((a, b) => {
+      const at = new Date(a.createdAt || 0).getTime()
+      const bt = new Date(b.createdAt || 0).getTime()
+      return bt - at
+    })
+
     return next
   }, [audits, entityFilter, childFilter, importantOnly, search, selectedChildName])
 
-  const groups = useMemo(() => groupAuditLogsByDay(filtered), [filtered])
+  const groups = useMemo(
+    () => groupAuditLogsByDay(filtered, timeZone),
+    [filtered],
+  )
 
   function toggleExpanded(id: string) {
     setExpandedIds((prev) => ({
@@ -234,7 +249,14 @@ export default function AuditLogList({
                 value={entityFilter}
                 onChange={(e) =>
                   setEntityFilter(
-                    e.target.value as 'all' | 'document' | 'event' | 'post' | 'other',
+                    e.target.value as
+                      | 'all'
+                      | 'document'
+                      | 'event'
+                      | 'post'
+                      | 'economy'
+                      | 'confirmation'
+                      | 'other',
                   )
                 }
               >
@@ -242,6 +264,8 @@ export default function AuditLogList({
                 <option value="document">{td.document}</option>
                 <option value="event">{td.event}</option>
                 <option value="post">{td.post}</option>
+                <option value="economy">{td.economy}</option>
+                <option value="confirmation">{td.confirmation}</option>
                 <option value="other">{td.other}</option>
               </select>
             </label>
@@ -292,7 +316,7 @@ export default function AuditLogList({
               {!compact && (
                 <div className={styles.groupTitleWrap}>
                   <div className={styles.groupTitle}>
-                    {formatDayLabel(group.date, td)}
+                    {formatDayLabel(group.date, td, locale, timeZone)}
                   </div>
                 </div>
               )}
@@ -301,7 +325,7 @@ export default function AuditLogList({
                 {group.items.map((a) => {
                   const Icon = getActionIcon(a.action)
                   const who = actorDisplayName(a, td)
-                  const pretty = auditPretty(a, td, locale)
+                  const pretty = auditPretty(a, td, locale, timeZone)
                   const changes = Array.isArray(a.changes) ? a.changes : []
 
                   const expanded = !!expandedIds[String(a.id)]
@@ -341,7 +365,7 @@ export default function AuditLogList({
 
                         <div className={styles.auditMeta}>
                           <span>
-                            {fmtDateTime(a.createdAt, locale, 'Europe/Oslo', td.noValue)}
+                            {fmtDateTime(a.createdAt, locale, timeZone, td.noValue)}
                           </span>
 
                           <span className={styles.dot}>•</span>
@@ -378,13 +402,13 @@ export default function AuditLogList({
 
                                 <div className={styles.auditChangeValues}>
                                   <span className={styles.auditChangeFrom}>
-                                    {renderChangeValue(c.from, td.noValue, td, locale)}
+                                    {renderChangeValue(c.from, td.noValue, td, locale, timeZone)}
                                   </span>
 
                                   <span className={styles.auditChangeArrow}>→</span>
 
                                   <span className={styles.auditChangeTo}>
-                                    {renderChangeValue(c.to, td.noValue, td, locale)}
+                                    {renderChangeValue(c.to, td.noValue, td, locale, timeZone)}
                                   </span>
                                 </div>
                               </div>

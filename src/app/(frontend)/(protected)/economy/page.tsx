@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import styles from './economy.module.css'
+import { useTranslations } from '@/app/lib/i18n/useTranslations'
+import { useSettings } from '@/app/(frontend)/components/providers/SettingsProvider'
 
 type SelectableBankAccount = {
   externalAccountId: string
@@ -116,97 +118,6 @@ function needsAccountSelection(connection: BankConnection | null) {
   )
 }
 
-function getBankStatusLabel(status: BankConnectionStatus) {
-  if (status === 'connected') return 'Connected'
-  if (status === 'pending') return 'Pending'
-  if (status === 'failed') return 'Failed'
-  if (status === 'expired') return 'Expired'
-  return 'Not connected'
-}
-
-const MONTH_LABELS = [
-  'January',
-  'February',
-  'March',
-  'April',
-  'May',
-  'June',
-  'July',
-  'August',
-  'September',
-  'October',
-  'November',
-  'December',
-]
-
-const CATEGORY_LABELS: Record<string, string> = {
-  food: 'Food',
-  housing: 'Housing',
-  transport: 'Transport',
-  health: 'Health',
-  school: 'School',
-  activities: 'Activities',
-  clothes: 'Clothes',
-  bills: 'Bills',
-  other: 'Other',
-}
-
-function getCategoryLabel(category?: string) {
-  const key = String(category || 'other').trim().toLowerCase()
-  return CATEGORY_LABELS[key] || key.charAt(0).toUpperCase() + key.slice(1)
-}
-
-function fmtCurrency(amount?: number, currency = 'NOK') {
-  const value = Number(amount || 0)
-
-  try {
-    return new Intl.NumberFormat('nb-NO', {
-      style: 'currency',
-      currency,
-      maximumFractionDigits: 2,
-    }).format(value)
-  } catch {
-    return `${value.toFixed(2)} ${currency}`
-  }
-}
-
-function fmtDateTime(v?: string) {
-  if (!v) return '—'
-
-  const d = new Date(v)
-  if (Number.isNaN(d.getTime())) return '—'
-
-  return d.toLocaleString('nb-NO')
-}
-
-function fmtDateOnly(v?: string) {
-  if (!v) return '—'
-
-  const d = new Date(v)
-  if (Number.isNaN(d.getTime())) return '—'
-
-  return d.toLocaleDateString('nb-NO')
-}
-
-function getFullName(me: MeUser | null) {
-  if (!me) return 'My'
-  const full = `${String(me.firstName || '').trim()} ${String(me.lastName || '').trim()}`.trim()
-  return full || 'My'
-}
-
-function getSelectableAccounts(connection: BankConnection | null) {
-  return Array.isArray(connection?.meta?.availableAccounts)
-    ? connection.meta.availableAccounts
-    : []
-}
-
-function toDateInputValue(d = new Date()) {
-  const year = d.getFullYear()
-  const month = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
-}
-
 function getDateParts(value?: string) {
   if (!value) return null
   const d = new Date(value)
@@ -229,7 +140,7 @@ function matchesMonthYear(value: string | undefined, month: string, year: string
   return monthOk && yearOk
 }
 
-function buildMonthOptions(values: Array<string | undefined>) {
+function buildMonthOptions(values: Array<string | undefined>, monthLabels: string[]) {
   const set = new Set<string>()
 
   values.forEach((value) => {
@@ -241,7 +152,7 @@ function buildMonthOptions(values: Array<string | undefined>) {
     .sort((a, b) => Number(a) - Number(b))
     .map((value) => ({
       value,
-      label: MONTH_LABELS[Number(value) - 1] || value,
+      label: monthLabels[Number(value) - 1] || value,
     }))
 }
 
@@ -256,8 +167,108 @@ function buildYearOptions(values: Array<string | undefined>) {
   return Array.from(set).sort((a, b) => Number(b) - Number(a))
 }
 
+function getSelectableAccounts(connection: BankConnection | null) {
+  return Array.isArray(connection?.meta?.availableAccounts)
+    ? connection.meta.availableAccounts
+    : []
+}
+
+function toDateInputValue(d = new Date()) {
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
 export default function EconomyPage() {
+  const t = useTranslations()
+  const te = t.economy
+  const { settings } = useSettings()
   const searchParams = useSearchParams()
+
+  const locale = settings?.language === 'en' ? 'en-GB' : 'nb-NO'
+
+  const monthLabels = [
+    te.monthJanuary,
+    te.monthFebruary,
+    te.monthMarch,
+    te.monthApril,
+    te.monthMay,
+    te.monthJune,
+    te.monthJuly,
+    te.monthAugust,
+    te.monthSeptember,
+    te.monthOctober,
+    te.monthNovember,
+    te.monthDecember,
+  ]
+
+  const categoryLabels: Record<string, string> = {
+    food: te.categoryFood,
+    housing: te.categoryHousing,
+    transport: te.categoryTransport,
+    health: te.categoryHealth,
+    school: te.categorySchool,
+    activities: te.categoryActivities,
+    clothes: te.categoryClothes,
+    bills: te.categoryBills,
+    other: te.categoryOther,
+  }
+
+  function fmtCurrency(amount?: number, currency = 'NOK') {
+    const value = Number(amount || 0)
+
+    try {
+      return new Intl.NumberFormat(locale, {
+        style: 'currency',
+        currency,
+        maximumFractionDigits: 2,
+      }).format(value)
+    } catch {
+      return `${value.toFixed(2)} ${currency}`
+    }
+  }
+
+  function fmtDateTime(v?: string) {
+    if (!v) return '—'
+
+    const d = new Date(v)
+    if (Number.isNaN(d.getTime())) return '—'
+
+    return d.toLocaleString(locale, {
+      timeZone: 'Europe/Oslo',
+    })
+  }
+
+  function fmtDateOnly(v?: string) {
+    if (!v) return '—'
+
+    const d = new Date(v)
+    if (Number.isNaN(d.getTime())) return '—'
+
+    return d.toLocaleDateString(locale, {
+      timeZone: 'Europe/Oslo',
+    })
+  }
+
+  function getBankStatusLabel(status: BankConnectionStatus) {
+    if (status === 'connected') return te.bankStatusConnected
+    if (status === 'pending') return te.bankStatusPending
+    if (status === 'failed') return te.bankStatusFailed
+    if (status === 'expired') return te.bankStatusExpired
+    return te.bankStatusNotConnected
+  }
+
+  function getCategoryLabel(category?: string) {
+    const key = String(category || 'other').trim().toLowerCase()
+    return categoryLabels[key] || key.charAt(0).toUpperCase() + key.slice(1)
+  }
+
+  function getFullName(me: MeUser | null) {
+    if (!me) return te.my
+    const full = `${String(me.firstName || '').trim()} ${String(me.lastName || '').trim()}`.trim()
+    return full || te.my
+  }
 
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState('')
@@ -301,7 +312,7 @@ export default function EconomyPage() {
 
   const [showRequestPanel, setShowRequestPanel] = useState(false)
   const [showRequestModal, setShowRequestModal] = useState(false)
-  
+
   const [requestTitle, setRequestTitle] = useState('')
   const [requestAmount, setRequestAmount] = useState('')
   const [requestCategory, setRequestCategory] = useState('other')
@@ -320,20 +331,19 @@ export default function EconomyPage() {
   const personalStatus = getBankStatus(personalBank)
 
   const dashboardMonth = useMemo(() => {
-    return new Date().toLocaleDateString('en-US', { month: 'long' })
-  }, [])
+    return new Date().toLocaleDateString(locale, { month: 'long' })
+  }, [locale])
 
   const dashboardYear = useMemo(() => {
     return String(new Date().getFullYear())
   }, [])
 
   const todayLabel = useMemo(() => {
-    return new Date().toLocaleDateString('nb-NO', {
+    return new Date().toLocaleDateString(locale, {
       day: 'numeric',
       month: 'short',
     })
-  }, [])
-
+  }, [locale])
 
   const childNameById = useMemo(() => {
     const map = new Map<string, string>()
@@ -364,8 +374,11 @@ export default function EconomyPage() {
   }, [economyTransactions])
 
   const paidMonthOptions = useMemo(() => {
-    return buildMonthOptions(allPaidPayments.map((item) => item.updatedAt || item.transactionDate))
-  }, [allPaidPayments])
+    return buildMonthOptions(
+      allPaidPayments.map((item) => item.updatedAt || item.transactionDate),
+      monthLabels,
+    )
+  }, [allPaidPayments, monthLabels])
 
   const paidYearOptions = useMemo(() => {
     return buildYearOptions(allPaidPayments.map((item) => item.updatedAt || item.transactionDate))
@@ -390,8 +403,8 @@ export default function EconomyPage() {
   }, [transfers])
 
   const transferMonthOptions = useMemo(() => {
-    return buildMonthOptions(sortedTransfers.map((item) => item.createdAt))
-  }, [sortedTransfers])
+    return buildMonthOptions(sortedTransfers.map((item) => item.createdAt), monthLabels)
+  }, [sortedTransfers, monthLabels])
 
   const transferYearOptions = useMemo(() => {
     return buildYearOptions(sortedTransfers.map((item) => item.createdAt))
@@ -416,9 +429,8 @@ export default function EconomyPage() {
         return db - da
       })
   }, [requests])
-  const pendingRequestCount = pendingRequests.length
 
-  
+  const pendingRequestCount = pendingRequests.length
   const dashboardCurrency = familyBank?.currency || personalBank?.currency || 'NOK'
 
   const expenseTransactions = useMemo(() => {
@@ -433,7 +445,6 @@ export default function EconomyPage() {
     return allPaidPayments.reduce((sum, item) => sum + Number(item.amount || 0), 0)
   }, [allPaidPayments])
 
-  
   const cashflowByCategory = useMemo(() => {
     const map = new Map<
       string,
@@ -486,12 +497,8 @@ export default function EconomyPage() {
   const shouldScrollCashflowBars = cashflowByCategory.length >= 4
 
   const maxCashflowCategoryTotal = useMemo(() => {
-    return Math.max(
-      1,
-      ...cashflowByCategory.map((item) => item.pendingAmount + item.paidAmount),
-    )
+    return Math.max(1, ...cashflowByCategory.map((item) => item.pendingAmount + item.paidAmount))
   }, [cashflowByCategory])
-
 
   const availablePayBanks = useMemo(() => {
     const items: Array<{
@@ -504,7 +511,7 @@ export default function EconomyPage() {
     if (isConnectedBank(familyBank)) {
       items.push({
         scope: 'family',
-        label: `Family bank • ${familyBank.bankName || 'Family bank'}`,
+        label: `${te.familyBank} • ${familyBank.bankName || te.familyBank}`,
         balance: Number(familyBank.currentBalance || 0),
         currency: familyBank.currency || 'NOK',
       })
@@ -513,14 +520,14 @@ export default function EconomyPage() {
     if (isConnectedBank(personalBank)) {
       items.push({
         scope: 'personal',
-        label: `Personal bank • ${personalBank.bankName || 'My bank'}`,
+        label: `${te.personalBank} • ${personalBank.bankName || te.myBank}`,
         balance: Number(personalBank.currentBalance || 0),
         currency: personalBank.currency || 'NOK',
       })
     }
 
     return items
-  }, [familyBank, personalBank])
+  }, [familyBank, personalBank, te.familyBank, te.personalBank, te.myBank])
 
   const selectedPayBank = useMemo(() => {
     return availablePayBanks.find((b) => b.scope === payBankScope) || null
@@ -541,7 +548,7 @@ export default function EconomyPage() {
     if (isConnectedBank(familyBank)) {
       items.push({
         scope: 'family',
-        label: `Family bank • ${familyBank.bankName || 'Family bank'}`,
+        label: `${te.familyBank} • ${familyBank.bankName || te.familyBank}`,
         balance: Number(familyBank.currentBalance || 0),
         currency: familyBank.currency || 'NOK',
       })
@@ -550,31 +557,27 @@ export default function EconomyPage() {
     if (isConnectedBank(personalBank)) {
       items.push({
         scope: 'personal',
-        label: `Personal bank • ${personalBank.bankName || 'My bank'}`,
+        label: `${te.personalBank} • ${personalBank.bankName || te.myBank}`,
         balance: Number(personalBank.currentBalance || 0),
         currency: personalBank.currency || 'NOK',
       })
     }
 
     return items
-  }, [familyBank, personalBank])
+  }, [familyBank, personalBank, te.familyBank, te.personalBank, te.myBank])
 
   useEffect(() => {
     const bankState = searchParams.get('bank')
     const reason = searchParams.get('reason')
 
     if (bankState === 'connected') {
-      setSuccess('Bank connection completed successfully.')
+      setSuccess(te.bankConnectedSuccess)
     } else if (bankState === 'failed') {
-      setError(
-        reason
-          ? `Bank connection failed: ${reason}`
-          : 'Bank connection failed. Please try again.',
-      )
+      setError(reason ? `${te.bankConnectionFailed}: ${reason}` : te.bankConnectionFailedTryAgain)
     } else if (bankState === 'select') {
-      setSuccess('Choose which bank account you want to use for this connection.')
+      setSuccess(te.chooseBankAccount)
     }
-  }, [searchParams])
+  }, [searchParams, te])
 
   useEffect(() => {
     setShowAllPaid(false)
@@ -611,7 +614,6 @@ export default function EconomyPage() {
 
   function openTransferForm(fromScope: 'family' | 'personal') {
     const otherScope = fromScope === 'family' ? 'personal' : 'family'
-
     setTransferFromScope(fromScope)
     setTransferToScope(otherScope)
     setShowTransferModal(true)
@@ -703,32 +705,32 @@ export default function EconomyPage() {
       const requestsJson = await requestsRes.json().catch(() => null)
 
       if (!meRes.ok) {
-        throw new Error(meJson?.message || `Could not load current user (${meRes.status})`)
+        throw new Error(meJson?.message || te.loadCurrentUserFailed.replace('{status}', String(meRes.status)))
       }
 
       if (!statusRes.ok) {
-        throw new Error(statusJson?.message || `Could not load bank status (${statusRes.status})`)
+        throw new Error(statusJson?.message || te.loadBankStatusFailed.replace('{status}', String(statusRes.status)))
       }
 
       if (!transfersRes.ok) {
         throw new Error(
-          transfersJson?.message || `Could not load transfer history (${transfersRes.status})`,
+          transfersJson?.message || te.loadTransferHistoryFailed.replace('{status}', String(transfersRes.status)),
         )
       }
 
       if (!economyTransactionsRes.ok) {
         throw new Error(
           economyTransactionsJson?.message ||
-            `Could not load economy transactions (${economyTransactionsRes.status})`,
+            te.loadEconomyTransactionsFailed.replace('{status}', String(economyTransactionsRes.status)),
         )
       }
 
       if (!childrenRes.ok) {
-        throw new Error(childrenJson?.message || `Could not load children (${childrenRes.status})`)
+        throw new Error(childrenJson?.message || te.loadChildrenFailed.replace('{status}', String(childrenRes.status)))
       }
 
       if (!requestsRes.ok) {
-        throw new Error(requestsJson?.message || `Could not load requests (${requestsRes.status})`)
+        throw new Error(requestsJson?.message || te.loadRequestsFailed.replace('{status}', String(requestsRes.status)))
       }
 
       setMe(meJson?.user ?? meJson ?? null)
@@ -739,7 +741,7 @@ export default function EconomyPage() {
       setChildren(childrenJson?.docs ?? [])
       setRequests(requestsJson?.docs ?? [])
     } catch (err: any) {
-      setError(err?.message || 'Could not load economy page.')
+      setError(err?.message || te.loadEconomyPageError)
       setMe(null)
       setFamilyBank(null)
       setPersonalBank(null)
@@ -777,16 +779,16 @@ export default function EconomyPage() {
       const json = await res.json().catch(() => null)
 
       if (!res.ok) {
-        throw new Error(json?.message || 'Could not start bank connection.')
+        throw new Error(json?.message || te.couldNotStartBankConnection)
       }
 
       if (!json?.redirectUrl) {
-        throw new Error('Missing redirect URL.')
+        throw new Error(te.missingRedirectUrl)
       }
 
       window.location.href = json.redirectUrl
     } catch (err: any) {
-      setError(err?.message || 'Could not start bank connection.')
+      setError(err?.message || te.couldNotStartBankConnection)
       setActionLoading('')
     }
   }
@@ -815,15 +817,17 @@ export default function EconomyPage() {
       const json = await res.json().catch(() => null)
 
       if (!res.ok) {
-        throw new Error(json?.message || 'Could not select bank account.')
+        throw new Error(json?.message || te.couldNotSelectBankAccount)
       }
 
       setSuccess(
-        `${connectionScope === 'family' ? 'Family' : 'Personal'} bank account selected successfully.`,
+        connectionScope === 'family'
+          ? te.familyBankSelectedSuccess
+          : te.personalBankSelectedSuccess,
       )
       await loadAll()
     } catch (err: any) {
-      setError(err?.message || 'Could not select bank account.')
+      setError(err?.message || te.couldNotSelectBankAccount)
     } finally {
       setActionLoading('')
     }
@@ -847,13 +851,17 @@ export default function EconomyPage() {
       const json = await res.json().catch(() => null)
 
       if (!res.ok) {
-        throw new Error(json?.message || 'Could not disconnect bank.')
+        throw new Error(json?.message || te.couldNotDisconnectBank)
       }
 
-      setSuccess(`${connectionScope === 'family' ? 'Family' : 'Personal'} bank disconnected.`)
+      setSuccess(
+        connectionScope === 'family'
+          ? te.familyBankDisconnected
+          : te.personalBankDisconnected,
+      )
       await loadAll()
     } catch (err: any) {
-      setError(err?.message || 'Could not disconnect bank.')
+      setError(err?.message || te.couldNotDisconnectBank)
     } finally {
       setActionLoading('')
     }
@@ -867,11 +875,11 @@ export default function EconomyPage() {
     const parsed = Number(amount)
 
     if (!Number.isFinite(parsed) || parsed <= 0) {
-      return setError('Please enter a valid amount greater than 0.')
+      return setError(te.enterValidAmount)
     }
 
     if (transferFromScope === transferToScope) {
-      return setError('From and To bank must be different.')
+      return setError(te.fromToBankMustBeDifferent)
     }
 
     setActionLoading('transfer')
@@ -901,16 +909,16 @@ export default function EconomyPage() {
       }
 
       if (!res.ok) {
-        throw new Error(json?.message || raw || 'Could not transfer money.')
+        throw new Error(json?.message || raw || te.couldNotTransferMoney)
       }
 
       setAmount('')
       setNote('')
       setShowTransferModal(false)
-      setSuccess('Money transferred successfully.')
+      setSuccess(te.moneyTransferredSuccessfully)
       await loadAll()
     } catch (err: any) {
-      setError(err?.message || 'Could not transfer money.')
+      setError(err?.message || te.couldNotTransferMoney)
     } finally {
       setActionLoading('')
     }
@@ -924,23 +932,23 @@ export default function EconomyPage() {
     const parsed = Number(paymentAmount)
 
     if (!paymentTitle.trim()) {
-      return setError('Please enter a payment title.')
+      return setError(te.enterPaymentTitle)
     }
 
     if (!Number.isFinite(parsed) || parsed <= 0) {
-      return setError('Please enter a valid payment amount greater than 0.')
+      return setError(te.enterValidPaymentAmount)
     }
 
     if (!paymentDueDate) {
-      return setError('Please choose a due date.')
+      return setError(te.chooseDueDate)
     }
 
     if (!paymentCategory) {
-      return setError('Please choose a category.')
+      return setError(te.chooseCategory)
     }
 
     if (!me?.id) {
-      return setError('Missing current user.')
+      return setError(te.missingCurrentUser)
     }
 
     setActionLoading('payment-create')
@@ -979,7 +987,7 @@ export default function EconomyPage() {
 
       if (!res.ok) {
         throw new Error(
-          json?.message || json?.errors?.[0]?.message || raw || 'Could not create payment item.',
+          json?.message || json?.errors?.[0]?.message || raw || te.couldNotCreatePaymentItem,
         )
       }
 
@@ -989,10 +997,10 @@ export default function EconomyPage() {
       setPaymentDescription('')
       setPaymentCategory('bills')
       setPaymentChildId('')
-      setSuccess('Payment item created and added to calendar.')
+      setSuccess(te.paymentItemCreated)
       await loadAll()
     } catch (err: any) {
-      setError(err?.message || 'Could not create payment item.')
+      setError(err?.message || te.couldNotCreatePaymentItem)
     } finally {
       setActionLoading('')
     }
@@ -1011,13 +1019,13 @@ export default function EconomyPage() {
 
       if (!res.ok) {
         const json = await res.json().catch(() => null)
-        throw new Error(json?.message || 'Could not delete payment item.')
+        throw new Error(json?.message || te.couldNotDeletePaymentItem)
       }
 
-      setSuccess('Payment item deleted.')
+      setSuccess(te.paymentItemDeleted)
       await loadAll()
     } catch (err: any) {
-      setError(err?.message || 'Could not delete payment item.')
+      setError(err?.message || te.couldNotDeletePaymentItem)
     } finally {
       setActionLoading('')
     }
@@ -1052,15 +1060,15 @@ export default function EconomyPage() {
     const parsed = Number(requestAmount)
 
     if (!requestTitle.trim()) {
-      return setError('Please enter a request title.')
+      return setError(te.enterRequestTitle)
     }
 
     if (!Number.isFinite(parsed) || parsed <= 0) {
-      return setError('Please enter a valid request amount greater than 0.')
+      return setError(te.enterValidRequestAmount)
     }
 
     if (!requestCategory) {
-      return setError('Please choose a category.')
+      return setError(te.chooseCategory)
     }
 
     setActionLoading('request-create')
@@ -1091,14 +1099,14 @@ export default function EconomyPage() {
       }
 
       if (!res.ok) {
-        throw new Error(json?.message || raw || 'Could not create request.')
+        throw new Error(json?.message || raw || te.couldNotCreateRequest)
       }
 
       closeRequestModal()
-      setSuccess('Request created successfully.')
+      setSuccess(te.requestCreatedSuccessfully)
       await loadAll()
     } catch (err: any) {
-      setError(err?.message || 'Could not create request.')
+      setError(err?.message || te.couldNotCreateRequest)
     } finally {
       setActionLoading('')
     }
@@ -1138,11 +1146,11 @@ export default function EconomyPage() {
       const amountToApprove = Number(approveTarget.amount || 0)
 
       if (!selectedBank) {
-        throw new Error('Selected bank is not available.')
+        throw new Error(te.selectedBankNotAvailable)
       }
 
       if (selectedBank.balance < amountToApprove) {
-        setApproveError('This bank account does not have enough balance for this request.')
+        setApproveError(te.bankNotEnoughBalanceForRequest)
         setActionLoading('')
         return
       }
@@ -1169,21 +1177,21 @@ export default function EconomyPage() {
       }
 
       if (!res.ok) {
-        throw new Error(json?.message || raw || 'Could not approve request.')
+        throw new Error(json?.message || raw || te.couldNotApproveRequest)
       }
 
       closeApproveFlow()
-      setSuccess('Request approved successfully.')
+      setSuccess(te.requestApprovedSuccessfully)
       await loadAll()
     } catch (err: any) {
-      setApproveError(err?.message || 'Could not approve request.')
+      setApproveError(err?.message || te.couldNotApproveRequest)
     } finally {
       setActionLoading('')
     }
   }
 
   async function rejectRequest(id: string | number) {
-    const decisionNote = window.prompt('Reason for rejection (optional):', '') || ''
+    const decisionNote = window.prompt(te.rejectionReasonPrompt, '') || ''
 
     setError('')
     setSuccess('')
@@ -1212,13 +1220,13 @@ export default function EconomyPage() {
       }
 
       if (!res.ok) {
-        throw new Error(json?.message || raw || 'Could not reject request.')
+        throw new Error(json?.message || raw || te.couldNotRejectRequest)
       }
 
-      setSuccess('Request rejected.')
+      setSuccess(te.requestRejected)
       await loadAll()
     } catch (err: any) {
-      setError(err?.message || 'Could not reject request.')
+      setError(err?.message || te.couldNotRejectRequest)
     } finally {
       setActionLoading('')
     }
@@ -1237,11 +1245,11 @@ export default function EconomyPage() {
       const amountToPay = Number(payTarget.amount || 0)
 
       if (!selectedBank) {
-        throw new Error('Selected bank is not available.')
+        throw new Error(te.selectedBankNotAvailable)
       }
 
       if (selectedBank.balance < amountToPay) {
-        setPayError('This bank account does not have enough balance to pay this bill.')
+        setPayError(te.bankNotEnoughBalanceForPayment)
         setActionLoading('')
         return
       }
@@ -1269,23 +1277,23 @@ export default function EconomyPage() {
 
       if (!res.ok) {
         const message =
-          json?.message || json?.errors?.[0]?.message || raw || 'Could not pay this payment item.'
+          json?.message || json?.errors?.[0]?.message || raw || te.couldNotPayPaymentItem
         setPayError(message)
         throw new Error(message)
       }
 
       closePayFlow()
-      setSuccess('Payment completed successfully.')
+      setSuccess(te.paymentCompletedSuccessfully)
       await loadAll()
     } catch (err: any) {
-      setPayError(err?.message || 'Could not pay this item.')
+      setPayError(err?.message || te.couldNotPayThisItem)
     } finally {
       setActionLoading('')
     }
   }
 
   if (loading) {
-    return <div className={styles.loading}>Laster økonomi…</div>
+    return <div className={styles.loading}>{te.loading}</div>
   }
 
   const familyChoices = getSelectableAccounts(familyBank)
@@ -1297,18 +1305,16 @@ export default function EconomyPage() {
         <div className={styles.heroMain}>
           <div className={styles.heroIntro}>
             <div>
-              <div className={styles.heroKicker}>Budget planner dashboard</div>
-              <h1 className={styles.heroHeading}>Økonomi</h1>
-              <p className={styles.heroDescription}>
-                Manage payments, requests and transfers in one clear dashboard.
-              </p>
+              <div className={styles.heroKicker}>{te.heroKicker}</div>
+              <h1 className={styles.heroHeading}>{te.title}</h1>
+              <p className={styles.heroDescription}>{te.heroDescription}</p>
             </div>
 
             <div className={styles.heroDateCard}>
               <div className={styles.heroDateMonth}>{dashboardMonth}</div>
               <div className={styles.heroDateMeta}>
                 <span>{dashboardYear}</span>
-                <span>Today: {todayLabel}</span>
+                <span>{te.todayLabelPrefix} {todayLabel}</span>
               </div>
             </div>
           </div>
@@ -1316,10 +1322,8 @@ export default function EconomyPage() {
 
         <aside className={styles.heroAside}>
           <div className={styles.heroActionCard}>
-            <div className={styles.heroActionTitle}>Quick actions</div>
-            <p className={styles.heroActionText}>
-              Open your bank tools or create a request for family support.
-            </p>
+            <div className={styles.heroActionTitle}>{te.quickActionsTitle}</div>
+            <p className={styles.heroActionText}>{te.quickActionsText}</p>
 
             <div className={styles.heroActionButtons}>
               <button
@@ -1327,8 +1331,8 @@ export default function EconomyPage() {
                 className={styles.iconBankBtnLarge}
                 onClick={openBankPanel}
                 disabled={actionLoading !== ''}
-                aria-label="Open bank panel"
-                title="Open bank panel"
+                aria-label={te.openBankPanel}
+                title={te.openBankPanel}
               >
                 <svg
                   className={styles.bankIconSvg}
@@ -1350,7 +1354,7 @@ export default function EconomyPage() {
                 onClick={openRequestFlow}
                 disabled={actionLoading !== ''}
               >
-                <span>Request</span>
+                <span>{te.request}</span>
                 {pendingRequestCount > 0 ? (
                   <span className={styles.heroRequestBadge}>{pendingRequestCount}</span>
                 ) : null}
@@ -1364,27 +1368,25 @@ export default function EconomyPage() {
         <section className={styles.cashflowCard}>
           <div className={styles.cashflowHeader}>
             <div>
-              <div className={styles.cashflowEyebrow}>Cash flow summary</div>
-              <div className={styles.cashflowTitle}>Things to pay by category</div>
-              <div className={styles.cashflowSub}>
-                This table is built directly from your payment items and grouped by category.
-              </div>
+              <div className={styles.cashflowEyebrow}>{te.cashflowSummaryEyebrow}</div>
+              <div className={styles.cashflowTitle}>{te.thingsToPayByCategory}</div>
+              <div className={styles.cashflowSub}>{te.thingsToPayByCategoryDescription}</div>
             </div>
 
             <div className={styles.cashflowStats}>
               <div className={styles.cashflowStat}>
-                <span>Upcoming</span>
+                <span>{te.upcoming}</span>
                 <strong>{fmtCurrency(totalPendingAmount, dashboardCurrency)}</strong>
               </div>
               <div className={styles.cashflowStat}>
-                <span>Paid</span>
+                <span>{te.paid}</span>
                 <strong>{fmtCurrency(totalPaidAmount, dashboardCurrency)}</strong>
               </div>
             </div>
           </div>
 
           {cashflowByCategory.length === 0 ? (
-            <div className={styles.emptyBox}>No payment categories yet.</div>
+            <div className={styles.emptyBox}>{te.noPaymentCategoriesYet}</div>
           ) : (
             <div
               className={`${styles.tableWrap} ${
@@ -1394,10 +1396,10 @@ export default function EconomyPage() {
               <table className={styles.cashflowTable}>
                 <thead>
                   <tr>
-                    <th>Category</th>
-                    <th>Upcoming</th>
-                    <th>Paid</th>
-                    <th>Items</th>
+                    <th>{te.category}</th>
+                    <th>{te.upcoming}</th>
+                    <th>{te.paid}</th>
+                    <th>{te.items}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1418,16 +1420,14 @@ export default function EconomyPage() {
         <section className={styles.cashflowCard}>
           <div className={styles.cashflowHeader}>
             <div>
-              <div className={styles.cashflowEyebrow}>Visual breakdown</div>
-              <div className={styles.cashflowTitle}>Category usage</div>
-              <div className={styles.cashflowSub}>
-                Each bar shows total spending volume from Things to pay.
-              </div>
+              <div className={styles.cashflowEyebrow}>{te.visualBreakdownEyebrow}</div>
+              <div className={styles.cashflowTitle}>{te.categoryUsage}</div>
+              <div className={styles.cashflowSub}>{te.categoryUsageDescription}</div>
             </div>
           </div>
 
           {cashflowByCategory.length === 0 ? (
-            <div className={styles.emptyBox}>No data to visualize yet.</div>
+            <div className={styles.emptyBox}>{te.noDataToVisualizeYet}</div>
           ) : (
             <div
               className={`${styles.categoryBars} ${
@@ -1458,8 +1458,8 @@ export default function EconomyPage() {
                     </div>
 
                     <div className={styles.categoryBarMeta}>
-                      <span>Paid: {fmtCurrency(item.paidAmount, dashboardCurrency)}</span>
-                      <span>Upcoming: {fmtCurrency(item.pendingAmount, dashboardCurrency)}</span>
+                      <span>{te.paidLabel}: {fmtCurrency(item.paidAmount, dashboardCurrency)}</span>
+                      <span>{te.upcomingLabel}: {fmtCurrency(item.pendingAmount, dashboardCurrency)}</span>
                     </div>
                   </div>
                 )
@@ -1472,22 +1472,19 @@ export default function EconomyPage() {
       <section className={styles.card}>
         <div className={styles.cardHeader}>
           <div>
-            <div className={styles.cardTitle}>Things to pay</div>
-            <div className={styles.cardSub}>
-              Create upcoming payments. Pending items will also appear automatically in the
-              calendar.
-            </div>
+            <div className={styles.cardTitle}>{te.thingsToPay}</div>
+            <div className={styles.cardSub}>{te.thingsToPayDescription}</div>
           </div>
         </div>
 
         <form className={styles.paymentForm} onSubmit={createPaymentItem}>
           <div className={styles.transferRow}>
             <label className={styles.label}>
-              Title
+              {te.titleField}
               <input
                 className={styles.input}
                 type="text"
-                placeholder="Example: Kindergarten fee"
+                placeholder={te.paymentTitlePlaceholder}
                 value={paymentTitle}
                 onChange={(e) => setPaymentTitle(e.target.value)}
                 maxLength={120}
@@ -1495,14 +1492,14 @@ export default function EconomyPage() {
             </label>
 
             <label className={styles.label}>
-              Amount
+              {te.amountField}
               <input
                 className={styles.input}
                 type="number"
                 inputMode="decimal"
                 min="1"
                 step="0.01"
-                placeholder="Enter amount"
+                placeholder={te.enterAmount}
                 value={paymentAmount}
                 onChange={(e) => setPaymentAmount(e.target.value)}
               />
@@ -1511,7 +1508,7 @@ export default function EconomyPage() {
 
           <div className={styles.transferRow}>
             <label className={styles.label}>
-              Due Date
+              {te.dueDate}
               <input
                 className={styles.input}
                 type="date"
@@ -1521,33 +1518,33 @@ export default function EconomyPage() {
             </label>
 
             <label className={styles.label}>
-              Category
+              {te.category}
               <select
                 className={styles.select}
                 value={paymentCategory}
                 onChange={(e) => setPaymentCategory(e.target.value)}
               >
-                <option value="food">Foods</option>
-                <option value="transport">Transport</option>
-                <option value="health">Health</option>
-                <option value="school">School</option>
-                <option value="activities">Activities</option>
-                <option value="clothes">Clothes</option>
-                <option value="bills">Bills</option>
-                <option value="other">Other</option>
+                <option value="food">{te.categoryFood}</option>
+                <option value="transport">{te.categoryTransport}</option>
+                <option value="health">{te.categoryHealth}</option>
+                <option value="school">{te.categorySchool}</option>
+                <option value="activities">{te.categoryActivities}</option>
+                <option value="clothes">{te.categoryClothes}</option>
+                <option value="bills">{te.categoryBills}</option>
+                <option value="other">{te.categoryOther}</option>
               </select>
             </label>
           </div>
 
           <div className={styles.transferRow}>
             <label className={styles.label}>
-              Link to child
+              {te.linkToChild}
               <select
                 className={styles.select}
                 value={paymentChildId}
                 onChange={(e) => setPaymentChildId(e.target.value)}
               >
-                <option value="">No child linked</option>
+                <option value="">{te.noChildLinked}</option>
                 {children.map((child) => (
                   <option key={String(child.id)} value={String(child.id)}>
                     {child.fullName}
@@ -1557,11 +1554,11 @@ export default function EconomyPage() {
             </label>
 
             <label className={styles.label}>
-              Description (optional)
+              {te.descriptionOptional}
               <input
                 className={styles.input}
                 type="text"
-                placeholder="Optional short note"
+                placeholder={te.optionalShortNote}
                 value={paymentDescription}
                 onChange={(e) => setPaymentDescription(e.target.value)}
                 maxLength={200}
@@ -1571,13 +1568,13 @@ export default function EconomyPage() {
 
           <div className={styles.actions}>
             <button type="submit" className={styles.primaryBtn} disabled={actionLoading !== ''}>
-              {actionLoading === 'payment-create' ? 'Creating…' : 'Add payment item'}
+              {actionLoading === 'payment-create' ? te.creating : te.addPaymentItem}
             </button>
           </div>
         </form>
 
         {pendingPayments.length === 0 ? (
-          <div className={styles.emptyBox}>No upcoming payments yet.</div>
+          <div className={styles.emptyBox}>{te.noUpcomingPaymentsYet}</div>
         ) : (
           <div className={styles.list}>
             {pendingPayments.map((item) => (
@@ -1585,12 +1582,12 @@ export default function EconomyPage() {
                 <div>
                   <div className={styles.rowTitle}>{item.title}</div>
                   <div className={styles.rowMeta}>
-                    Due: {fmtDateOnly(item.transactionDate)}
-                    {item.category ? ` • ${item.category}` : ''}
+                    {te.due}: {fmtDateOnly(item.transactionDate)}
+                    {item.category ? ` • ${getCategoryLabel(item.category)}` : ''}
                     {(() => {
                       const childId = getRelationId(item.child)
                       const childName = childId ? childNameById.get(childId) : ''
-                      return childName ? ` • Child: ${childName}` : ''
+                      return childName ? ` • ${te.child}: ${childName}` : ''
                     })()}
                     {item.description ? ` • ${item.description}` : ''}
                   </div>
@@ -1607,7 +1604,7 @@ export default function EconomyPage() {
                     onClick={() => openPayFlow(item)}
                     disabled={actionLoading !== ''}
                   >
-                    Pay
+                    {te.pay}
                   </button>
 
                   <button
@@ -1616,7 +1613,7 @@ export default function EconomyPage() {
                     onClick={() => deletePaymentItem(item.id)}
                     disabled={actionLoading !== ''}
                   >
-                    {actionLoading === `payment-delete-${item.id}` ? 'Deleting…' : 'Delete'}
+                    {actionLoading === `payment-delete-${item.id}` ? te.deleting : te.delete}
                   </button>
                 </div>
               </div>
@@ -1628,19 +1625,19 @@ export default function EconomyPage() {
       <section className={styles.card}>
         <div className={styles.cardHeader}>
           <div>
-            <div className={styles.cardTitle}>Recent paid</div>
-            <div className={styles.cardSub}>Recently completed payments.</div>
+            <div className={styles.cardTitle}>{te.recentPaid}</div>
+            <div className={styles.cardSub}>{te.recentPaidDescription}</div>
           </div>
 
           <div className={styles.filterBar}>
             <label className={styles.filterField}>
-              Month
+              {te.month}
               <select
                 className={styles.select}
                 value={paidMonthFilter}
                 onChange={(e) => setPaidMonthFilter(e.target.value)}
               >
-                <option value="all">All</option>
+                <option value="all">{te.all}</option>
                 {paidMonthOptions.map((item) => (
                   <option key={item.value} value={item.value}>
                     {item.label}
@@ -1650,13 +1647,13 @@ export default function EconomyPage() {
             </label>
 
             <label className={styles.filterField}>
-              Year
+              {te.year}
               <select
                 className={styles.select}
                 value={paidYearFilter}
                 onChange={(e) => setPaidYearFilter(e.target.value)}
               >
-                <option value="all">All</option>
+                <option value="all">{te.all}</option>
                 {paidYearOptions.map((item) => (
                   <option key={item} value={item}>
                     {item}
@@ -1668,7 +1665,7 @@ export default function EconomyPage() {
         </div>
 
         {filteredPaidPayments.length === 0 ? (
-          <div className={styles.emptyBox}>No paid items found for this filter.</div>
+          <div className={styles.emptyBox}>{te.noPaidItemsFoundForFilter}</div>
         ) : (
           <>
             <div className={styles.feedFrame}>
@@ -1682,25 +1679,25 @@ export default function EconomyPage() {
                       <div className={styles.rowTitle}>
                         {item.title}
                         {item.sourceType === 'request' ? (
-                          <span className={styles.requestBadge}>Request</span>
+                          <span className={styles.requestBadge}>{te.request}</span>
                         ) : null}
                       </div>
                       <div className={styles.rowMeta}>
-                        Paid: {fmtDateTime(item.updatedAt || item.transactionDate)}
-                        {item.category ? ` • ${item.category}` : ''}
+                        {te.paid}: {fmtDateTime(item.updatedAt || item.transactionDate)}
+                        {item.category ? ` • ${getCategoryLabel(item.category)}` : ''}
                         {(() => {
                           const childId = getRelationId(item.child)
                           const childName = childId ? childNameById.get(childId) : ''
-                          return childName ? ` • Child: ${childName}` : ''
+                          return childName ? ` • ${te.child}: ${childName}` : ''
                         })()}
-                        {item.sourceType === 'request' ? ' • From request' : ''}
+                        {item.sourceType === 'request' ? ` • ${te.fromRequest}` : ''}
                         {item.requestCreatedByName
-                          ? ` • Requested by: ${item.requestCreatedByName}`
+                          ? ` • ${te.requestedBy}: ${item.requestCreatedByName}`
                           : ''}
-                        {item.approvedByName ? ` • Approved by: ${item.approvedByName}` : ''}
+                        {item.approvedByName ? ` • ${te.approvedBy}: ${item.approvedByName}` : ''}
                         {item.paidFromScope
-                          ? ` • Paid from: ${
-                              item.paidFromScope === 'family' ? 'Family bank' : 'Personal bank'
+                          ? ` • ${te.paidFrom}: ${
+                              item.paidFromScope === 'family' ? te.familyBank : te.personalBank
                             }`
                           : ''}
                         {item.description ? ` • ${item.description}` : ''}
@@ -1722,7 +1719,7 @@ export default function EconomyPage() {
                   className={styles.viewMoreBtn}
                   onClick={() => setShowAllPaid((prev) => !prev)}
                 >
-                  {showAllPaid ? 'see less' : 'see more'}
+                  {showAllPaid ? te.seeLess : te.seeMore}
                 </button>
               ) : (
                 <span />
@@ -1754,21 +1751,19 @@ export default function EconomyPage() {
       <section className={styles.card}>
         <div className={styles.cardHeader}>
           <div>
-            <div className={styles.cardTitle}>Recent transfers</div>
-            <div className={styles.cardSub}>
-              Recent transfers between family and personal accounts.
-            </div>
+            <div className={styles.cardTitle}>{te.recentTransfers}</div>
+            <div className={styles.cardSub}>{te.recentTransfersDescription}</div>
           </div>
 
           <div className={styles.filterBar}>
             <label className={styles.filterField}>
-              Month
+              {te.month}
               <select
                 className={styles.select}
                 value={transferMonthFilter}
                 onChange={(e) => setTransferMonthFilter(e.target.value)}
               >
-                <option value="all">All</option>
+                <option value="all">{te.all}</option>
                 {transferMonthOptions.map((item) => (
                   <option key={item.value} value={item.value}>
                     {item.label}
@@ -1778,13 +1773,13 @@ export default function EconomyPage() {
             </label>
 
             <label className={styles.filterField}>
-              Year
+              {te.year}
               <select
                 className={styles.select}
                 value={transferYearFilter}
                 onChange={(e) => setTransferYearFilter(e.target.value)}
               >
-                <option value="all">All</option>
+                <option value="all">{te.all}</option>
                 {transferYearOptions.map((item) => (
                   <option key={item} value={item}>
                     {item}
@@ -1796,7 +1791,7 @@ export default function EconomyPage() {
         </div>
 
         {filteredTransfers.length === 0 ? (
-          <div className={styles.emptyBox}>No transfers found for this filter.</div>
+          <div className={styles.emptyBox}>{te.noTransfersFoundForFilter}</div>
         ) : (
           <>
             <div className={styles.feedFrame}>
@@ -1808,10 +1803,10 @@ export default function EconomyPage() {
                   <div key={String(item.id)} className={styles.listRow}>
                     <div>
                       <div className={styles.rowTitle}>
-                        {item.note || 'Transfer between accounts'}
+                        {item.note || te.transferBetweenAccounts}
                       </div>
                       <div className={styles.rowMeta}>
-                        {item.initiatedByName || 'Unknown user'} • {fmtDateTime(item.createdAt)}
+                        {item.initiatedByName || te.unknownUser} • {fmtDateTime(item.createdAt)}
                       </div>
                     </div>
 
@@ -1830,7 +1825,7 @@ export default function EconomyPage() {
                   className={styles.viewMoreBtn}
                   onClick={() => setShowAllTransfers((prev) => !prev)}
                 >
-                  {showAllTransfers ? 'see less' : 'see more'}
+                  {showAllTransfers ? te.seeLess : te.seeMore}
                 </button>
               ) : (
                 <span />
@@ -1865,17 +1860,15 @@ export default function EconomyPage() {
             className={`${styles.modalCard} ${styles.bankModalCard}`}
             onMouseDown={(e) => e.stopPropagation()}
           >
-            <div className={styles.modalTitle}>Bank connections</div>
-            <p className={styles.modalText}>
-              Connect your family bank and your personal bank, or manage existing bank connections.
-            </p>
+            <div className={styles.modalTitle}>{te.bankConnections}</div>
+            <p className={styles.modalText}>{te.bankConnectionsDescription}</p>
 
             <div className={styles.bankGrid}>
               <section className={styles.card}>
                 <div className={styles.cardHeader}>
                   <div>
-                    <div className={styles.cardTitle}>Family bank</div>
-                    <div className={styles.cardSub}>Shared fund for the whole family.</div>
+                    <div className={styles.cardTitle}>{te.familyBank}</div>
+                    <div className={styles.cardSub}>{te.familyBankDescription}</div>
                   </div>
 
                   <span
@@ -1893,25 +1886,25 @@ export default function EconomyPage() {
 
                 {familyBank ? (
                   <div className={styles.bankMeta}>
-                    <div className={styles.bankName}>{familyBank.bankName || 'Family bank'}</div>
+                    <div className={styles.bankName}>{familyBank.bankName || te.familyBank}</div>
                     <div className={styles.bankInfo}>
-                      {familyBank.accountName || 'Shared account'}
+                      {familyBank.accountName || te.sharedAccount}
                       {familyBank.maskedAccount ? ` • ${familyBank.maskedAccount}` : ''}
                     </div>
                     <div className={styles.balance}>
                       {fmtCurrency(familyBank.currentBalance, familyBank.currency || 'NOK')}
                     </div>
                     <div className={styles.muted}>
-                      Last synced: {fmtDateTime(familyBank.lastSyncedAt)}
+                      {te.lastSynced}: {fmtDateTime(familyBank.lastSyncedAt)}
                     </div>
                   </div>
                 ) : (
-                  <div className={styles.emptyBox}>No family bank connected yet.</div>
+                  <div className={styles.emptyBox}>{te.noFamilyBankConnectedYet}</div>
                 )}
 
                 {needsAccountSelection(familyBank) && familyChoices.length > 0 ? (
                   <div className={styles.selectionWrap}>
-                    <div className={styles.selectionTitle}>Choose the bank account for Family bank</div>
+                    <div className={styles.selectionTitle}>{te.chooseAccountForFamilyBank}</div>
                     <div className={styles.selectionList}>
                       {familyChoices.map((item) => (
                         <div key={item.externalAccountId} className={styles.selectionItem}>
@@ -1929,8 +1922,8 @@ export default function EconomyPage() {
                             disabled={actionLoading !== ''}
                           >
                             {actionLoading === `select-family-${item.externalAccountId}`
-                              ? 'Saving…'
-                              : 'Use this account'}
+                              ? te.saving
+                              : te.useThisAccount}
                           </button>
                         </div>
                       ))}
@@ -1947,7 +1940,7 @@ export default function EconomyPage() {
                         onClick={() => startConnect('family')}
                         disabled={actionLoading !== ''}
                       >
-                        {actionLoading === 'connect-family' ? 'Connecting…' : 'Connect family bank'}
+                        {actionLoading === 'connect-family' ? te.connecting : te.connectFamilyBank}
                       </button>
                     ) : familyStatus === 'pending' ? (
                       <button
@@ -1956,7 +1949,7 @@ export default function EconomyPage() {
                         onClick={() => startConnect('family')}
                         disabled={actionLoading !== ''}
                       >
-                        {actionLoading === 'connect-family' ? 'Opening…' : 'Continue connect'}
+                        {actionLoading === 'connect-family' ? te.opening : te.continueConnect}
                       </button>
                     ) : (
                       <div className={styles.actions}>
@@ -1966,7 +1959,7 @@ export default function EconomyPage() {
                           onClick={() => openTransferForm('family')}
                           disabled={actionLoading !== ''}
                         >
-                          Transfer
+                          {te.transfer}
                         </button>
 
                         <button
@@ -1975,7 +1968,7 @@ export default function EconomyPage() {
                           onClick={() => disconnectBank('family')}
                           disabled={actionLoading !== ''}
                         >
-                          {actionLoading === 'disconnect-family' ? 'Disconnecting…' : 'Disconnect'}
+                          {actionLoading === 'disconnect-family' ? te.disconnecting : te.disconnect}
                         </button>
                       </div>
                     )}
@@ -1986,8 +1979,10 @@ export default function EconomyPage() {
               <section className={styles.card}>
                 <div className={styles.cardHeader}>
                   <div>
-                    <div className={styles.cardTitle}>My personal bank</div>
-                    <div className={styles.cardSub}>Private bank owned by {fullName}.</div>
+                    <div className={styles.cardTitle}>{te.personalBank}</div>
+                    <div className={styles.cardSub}>
+                      {te.personalBankDescription.replace('{name}', fullName)}
+                    </div>
                   </div>
 
                   <span
@@ -2005,25 +2000,27 @@ export default function EconomyPage() {
 
                 {personalBank ? (
                   <div className={styles.bankMeta}>
-                    <div className={styles.bankName}>{personalBank.bankName || `${fullName} bank`}</div>
+                    <div className={styles.bankName}>
+                      {personalBank.bankName || `${fullName} ${te.bank}`}
+                    </div>
                     <div className={styles.bankInfo}>
-                      {personalBank.accountName || 'Personal account'}
+                      {personalBank.accountName || te.personalAccount}
                       {personalBank.maskedAccount ? ` • ${personalBank.maskedAccount}` : ''}
                     </div>
                     <div className={styles.balance}>
                       {fmtCurrency(personalBank.currentBalance, personalBank.currency || 'NOK')}
                     </div>
                     <div className={styles.muted}>
-                      Last synced: {fmtDateTime(personalBank.lastSyncedAt)}
+                      {te.lastSynced}: {fmtDateTime(personalBank.lastSyncedAt)}
                     </div>
                   </div>
                 ) : (
-                  <div className={styles.emptyBox}>No personal bank connected yet.</div>
+                  <div className={styles.emptyBox}>{te.noPersonalBankConnectedYet}</div>
                 )}
 
                 {needsAccountSelection(personalBank) && personalChoices.length > 0 ? (
                   <div className={styles.selectionWrap}>
-                    <div className={styles.selectionTitle}>Choose the bank account for Personal bank</div>
+                    <div className={styles.selectionTitle}>{te.chooseAccountForPersonalBank}</div>
                     <div className={styles.selectionList}>
                       {personalChoices.map((item) => (
                         <div key={item.externalAccountId} className={styles.selectionItem}>
@@ -2041,8 +2038,8 @@ export default function EconomyPage() {
                             disabled={actionLoading !== ''}
                           >
                             {actionLoading === `select-personal-${item.externalAccountId}`
-                              ? 'Saving…'
-                              : 'Use this account'}
+                              ? te.saving
+                              : te.useThisAccount}
                           </button>
                         </div>
                       ))}
@@ -2059,7 +2056,7 @@ export default function EconomyPage() {
                         onClick={() => startConnect('personal')}
                         disabled={actionLoading !== ''}
                       >
-                        {actionLoading === 'connect-personal' ? 'Connecting…' : 'Connect my bank'}
+                        {actionLoading === 'connect-personal' ? te.connecting : te.connectMyBank}
                       </button>
                     ) : personalStatus === 'pending' ? (
                       <button
@@ -2068,7 +2065,7 @@ export default function EconomyPage() {
                         onClick={() => startConnect('personal')}
                         disabled={actionLoading !== ''}
                       >
-                        {actionLoading === 'connect-personal' ? 'Opening…' : 'Continue connect'}
+                        {actionLoading === 'connect-personal' ? te.opening : te.continueConnect}
                       </button>
                     ) : (
                       <div className={styles.actions}>
@@ -2078,7 +2075,7 @@ export default function EconomyPage() {
                           onClick={() => openTransferForm('personal')}
                           disabled={actionLoading !== ''}
                         >
-                          Transfer
+                          {te.transfer}
                         </button>
 
                         <button
@@ -2088,8 +2085,8 @@ export default function EconomyPage() {
                           disabled={actionLoading !== ''}
                         >
                           {actionLoading === 'disconnect-personal'
-                            ? 'Disconnecting…'
-                            : 'Disconnect'}
+                            ? te.disconnecting
+                            : te.disconnect}
                         </button>
                       </div>
                     )}
@@ -2099,24 +2096,19 @@ export default function EconomyPage() {
             </div>
 
             <div className={styles.modalActions}>
-              <button
-                type="button"
-                className={styles.secondaryBtn}
-                onClick={closeBankPanel}
-              >
-                Close
+              <button type="button" className={styles.secondaryBtn} onClick={closeBankPanel}>
+                {te.close}
               </button>
             </div>
           </div>
         </div>
       ) : null}
+
       {showRequestPanel ? (
         <div className={styles.modalBackdrop} onMouseDown={closeRequestPanel}>
           <div className={styles.modalCard} onMouseDown={(e) => e.stopPropagation()}>
-            <div className={styles.modalTitle}>Pending requests</div>
-            <p className={styles.modalText}>
-              These requests are still waiting for review.
-            </p>
+            <div className={styles.modalTitle}>{te.pendingRequests}</div>
+            <p className={styles.modalText}>{te.pendingRequestsDescription}</p>
 
             <div className={styles.list}>
               {pendingRequests.map((item) => {
@@ -2129,9 +2121,9 @@ export default function EconomyPage() {
                     <div>
                       <div className={styles.rowTitle}>{item.title}</div>
                       <div className={styles.rowMeta}>
-                        Requested by: {item.createdByName || 'Unknown'}
-                        {item.category ? ` • ${item.category}` : ''}
-                        {childName ? ` • Child: ${childName}` : ''}
+                        {te.requestedBy}: {item.createdByName || te.unknown}
+                        {item.category ? ` • ${getCategoryLabel(item.category)}` : ''}
+                        {childName ? ` • ${te.child}: ${childName}` : ''}
                         {item.createdAt ? ` • ${fmtDateTime(item.createdAt)}` : ''}
                         {item.notes ? ` • ${item.notes}` : ''}
                       </div>
@@ -2152,8 +2144,8 @@ export default function EconomyPage() {
                             disabled={actionLoading !== ''}
                           >
                             {actionLoading === `request-approve-${item.id}`
-                              ? 'Approving…'
-                              : 'Approve'}
+                              ? te.approving
+                              : te.approve}
                           </button>
 
                           <button
@@ -2163,12 +2155,12 @@ export default function EconomyPage() {
                             disabled={actionLoading !== ''}
                           >
                             {actionLoading === `request-reject-${item.id}`
-                              ? 'Rejecting…'
-                              : 'Reject'}
+                              ? te.rejecting
+                              : te.reject}
                           </button>
                         </>
                       ) : (
-                        <div className={styles.muted}>Waiting for review</div>
+                        <div className={styles.muted}>{te.waitingForReview}</div>
                       )}
                     </div>
                   </div>
@@ -2177,12 +2169,8 @@ export default function EconomyPage() {
             </div>
 
             <div className={styles.modalActions}>
-              <button
-                type="button"
-                className={styles.secondaryBtn}
-                onClick={closeRequestPanel}
-              >
-                Close
+              <button type="button" className={styles.secondaryBtn} onClick={closeRequestPanel}>
+                {te.close}
               </button>
 
               <button
@@ -2194,7 +2182,7 @@ export default function EconomyPage() {
                 }}
                 disabled={actionLoading !== ''}
               >
-                New request
+                {te.newRequest}
               </button>
             </div>
           </div>
@@ -2204,17 +2192,17 @@ export default function EconomyPage() {
       {showRequestModal ? (
         <div className={styles.modalBackdrop} onMouseDown={closeRequestModal}>
           <div className={styles.modalCard} onMouseDown={(e) => e.stopPropagation()}>
-            <div className={styles.modalTitle}>Create request</div>
-            <p className={styles.modalText}>Ask for money support from your family.</p>
+            <div className={styles.modalTitle}>{te.createRequest}</div>
+            <p className={styles.modalText}>{te.createRequestDescription}</p>
 
             <form className={styles.transferForm} onSubmit={createRequest}>
               <div className={styles.transferRow}>
                 <label className={styles.label}>
-                  Title
+                  {te.titleField}
                   <input
                     className={styles.input}
                     type="text"
-                    placeholder="Example: School trip fee"
+                    placeholder={te.requestTitlePlaceholder}
                     value={requestTitle}
                     onChange={(e) => setRequestTitle(e.target.value)}
                     maxLength={120}
@@ -2222,14 +2210,14 @@ export default function EconomyPage() {
                 </label>
 
                 <label className={styles.label}>
-                  Amount
+                  {te.amountField}
                   <input
                     className={styles.input}
                     type="number"
                     inputMode="decimal"
                     min="1"
                     step="0.01"
-                    placeholder="Enter amount"
+                    placeholder={te.enterAmount}
                     value={requestAmount}
                     onChange={(e) => setRequestAmount(e.target.value)}
                   />
@@ -2238,32 +2226,32 @@ export default function EconomyPage() {
 
               <div className={styles.transferRow}>
                 <label className={styles.label}>
-                  Category
+                  {te.category}
                   <select
                     className={styles.select}
                     value={requestCategory}
                     onChange={(e) => setRequestCategory(e.target.value)}
                   >
-                    <option value="food">Food</option>
-                    <option value="housing">Housing</option>
-                    <option value="transport">Transport</option>
-                    <option value="health">Health</option>
-                    <option value="school">School</option>
-                    <option value="activities">Activities</option>
-                    <option value="clothes">Clothes</option>
-                    <option value="bills">Bills</option>
-                    <option value="other">Other</option>
+                    <option value="food">{te.categoryFood}</option>
+                    <option value="housing">{te.categoryHousing}</option>
+                    <option value="transport">{te.categoryTransport}</option>
+                    <option value="health">{te.categoryHealth}</option>
+                    <option value="school">{te.categorySchool}</option>
+                    <option value="activities">{te.categoryActivities}</option>
+                    <option value="clothes">{te.categoryClothes}</option>
+                    <option value="bills">{te.categoryBills}</option>
+                    <option value="other">{te.categoryOther}</option>
                   </select>
                 </label>
 
                 <label className={styles.label}>
-                  Link to child
+                  {te.linkToChild}
                   <select
                     className={styles.select}
                     value={requestChildId}
                     onChange={(e) => setRequestChildId(e.target.value)}
                   >
-                    <option value="">No child linked</option>
+                    <option value="">{te.noChildLinked}</option>
                     {children.map((child) => (
                       <option key={String(child.id)} value={String(child.id)}>
                         {child.fullName}
@@ -2274,11 +2262,11 @@ export default function EconomyPage() {
               </div>
 
               <label className={styles.label}>
-                Note / reason
+                {te.noteReason}
                 <input
                   className={styles.input}
                   type="text"
-                  placeholder="Explain why you need this request"
+                  placeholder={te.requestReasonPlaceholder}
                   value={requestNotes}
                   onChange={(e) => setRequestNotes(e.target.value)}
                   maxLength={300}
@@ -2287,7 +2275,7 @@ export default function EconomyPage() {
 
               <div className={styles.modalActions}>
                 <button type="button" className={styles.secondaryBtn} onClick={closeRequestModal}>
-                  Cancel
+                  {te.cancel}
                 </button>
 
                 <button
@@ -2295,7 +2283,7 @@ export default function EconomyPage() {
                   className={styles.primaryBtn}
                   disabled={actionLoading !== ''}
                 >
-                  {actionLoading === 'request-create' ? 'Creating…' : 'Submit request'}
+                  {actionLoading === 'request-create' ? te.creating : te.submitRequest}
                 </button>
               </div>
             </form>
@@ -2306,20 +2294,16 @@ export default function EconomyPage() {
       {showTransferModal ? (
         <div className={styles.modalBackdrop} onMouseDown={closeTransferModal}>
           <div className={styles.modalCard} onMouseDown={(e) => e.stopPropagation()}>
-            <div className={styles.modalTitle}>Transfer between accounts</div>
-            <p className={styles.modalText}>
-              Move money between your personal bank and the shared family account.
-            </p>
+            <div className={styles.modalTitle}>{te.transferBetweenAccounts}</div>
+            <p className={styles.modalText}>{te.transferBetweenAccountsDescription}</p>
 
             {availableTransferBanks.length < 2 ? (
-              <div className={styles.emptyBox}>
-                Connect both family bank and personal bank first.
-              </div>
+              <div className={styles.emptyBox}>{te.connectBothBanksFirst}</div>
             ) : (
               <form className={styles.transferForm} onSubmit={submitTransfer}>
                 <div className={styles.transferRow}>
                   <label className={styles.label}>
-                    From
+                    {te.from}
                     <select
                       className={styles.select}
                       value={transferFromScope}
@@ -2342,7 +2326,7 @@ export default function EconomyPage() {
                   </label>
 
                   <label className={styles.label}>
-                    To
+                    {te.to}
                     <select
                       className={styles.select}
                       value={transferToScope}
@@ -2367,25 +2351,25 @@ export default function EconomyPage() {
 
                 <div className={styles.transferRow}>
                   <label className={styles.label}>
-                    Amount
+                    {te.amountField}
                     <input
                       className={styles.input}
                       type="number"
                       inputMode="decimal"
                       min="1"
                       step="0.01"
-                      placeholder="Enter amount"
+                      placeholder={te.enterAmount}
                       value={amount}
                       onChange={(e) => setAmount(e.target.value)}
                     />
                   </label>
 
                   <label className={styles.label}>
-                    Note
+                    {te.note}
                     <input
                       className={styles.input}
                       type="text"
-                      placeholder="Example: Return mistaken transfer"
+                      placeholder={te.transferNotePlaceholder}
                       value={note}
                       onChange={(e) => setNote(e.target.value)}
                       maxLength={160}
@@ -2408,7 +2392,7 @@ export default function EconomyPage() {
 
                 <div className={styles.modalActions}>
                   <button type="button" className={styles.secondaryBtn} onClick={closeTransferModal}>
-                    Cancel
+                    {te.cancel}
                   </button>
 
                   <button
@@ -2416,7 +2400,7 @@ export default function EconomyPage() {
                     className={styles.primaryBtn}
                     disabled={actionLoading !== ''}
                   >
-                    {actionLoading === 'transfer' ? 'Transferring…' : 'Transfer money'}
+                    {actionLoading === 'transfer' ? te.transferring : te.transferMoney}
                   </button>
                 </div>
               </form>
@@ -2430,15 +2414,16 @@ export default function EconomyPage() {
           <div className={styles.modalCard} onMouseDown={(e) => e.stopPropagation()}>
             {payStep === 'confirm' ? (
               <>
-                <div className={styles.modalTitle}>Pay this item?</div>
+                <div className={styles.modalTitle}>{te.payThisItem}</div>
                 <p className={styles.modalText}>
-                  You are about to pay <strong>{payTarget.title}</strong> for{' '}
+                  {te.payThisItemDescriptionBefore}{' '}
+                  <strong>{payTarget.title}</strong> {te.payThisItemDescriptionMiddle}{' '}
                   <strong>{fmtCurrency(payTarget.amount, payTarget.currency || 'NOK')}</strong>.
                 </p>
 
                 <div className={styles.modalActions}>
                   <button type="button" className={styles.secondaryBtn} onClick={closePayFlow}>
-                    Cancel
+                    {te.cancel}
                   </button>
 
                   <button
@@ -2446,19 +2431,19 @@ export default function EconomyPage() {
                     className={styles.primaryBtn}
                     onClick={() => setPayStep('select')}
                   >
-                    Yes, continue
+                    {te.yesContinue}
                   </button>
                 </div>
               </>
             ) : (
               <>
-                <div className={styles.modalTitle}>Choose bank to pay from</div>
+                <div className={styles.modalTitle}>{te.chooseBankToPayFrom}</div>
 
                 {availablePayBanks.length === 0 ? (
-                  <div className={styles.emptyBox}>No connected bank available for payment.</div>
+                  <div className={styles.emptyBox}>{te.noConnectedBankForPayment}</div>
                 ) : (
                   <label className={styles.label}>
-                    Bank
+                    {te.bank}
                     <select
                       className={styles.select}
                       value={payBankScope}
@@ -2478,19 +2463,15 @@ export default function EconomyPage() {
 
                 {selectedPayBank ? (
                   <div className={styles.muted}>
-                    Available balance: {fmtCurrency(
-                      selectedPayBank.balance,
-                      selectedPayBank.currency,
-                    )}
+                    {te.availableBalance}:{' '}
+                    {fmtCurrency(selectedPayBank.balance, selectedPayBank.currency)}
                   </div>
                 ) : null}
 
                 {selectedPayBank &&
                 payTarget &&
                 selectedPayBank.balance < Number(payTarget.amount || 0) ? (
-                  <div className={styles.error}>
-                    This bank account does not have enough balance to pay this item.
-                  </div>
+                  <div className={styles.error}>{te.bankNotEnoughBalanceForPayment}</div>
                 ) : null}
 
                 {payError ? <div className={styles.error}>{payError}</div> : null}
@@ -2501,7 +2482,7 @@ export default function EconomyPage() {
                     className={styles.secondaryBtn}
                     onClick={() => setPayStep('confirm')}
                   >
-                    Back
+                    {te.back}
                   </button>
 
                   <button
@@ -2516,7 +2497,7 @@ export default function EconomyPage() {
                         : true)
                     }
                   >
-                    {actionLoading === `payment-pay-${payTarget.id}` ? 'Paying…' : 'Pay now'}
+                    {actionLoading === `payment-pay-${payTarget.id}` ? te.paying : te.payNow}
                   </button>
                 </div>
               </>
@@ -2528,24 +2509,24 @@ export default function EconomyPage() {
       {approveTarget ? (
         <div className={styles.modalBackdrop} onMouseDown={closeApproveFlow}>
           <div className={styles.modalCard} onMouseDown={(e) => e.stopPropagation()}>
-            <div className={styles.modalTitle}>Approve request</div>
+            <div className={styles.modalTitle}>{te.approveRequest}</div>
 
             <p className={styles.modalText}>
-              You are about to approve <strong>{approveTarget.title}</strong> for{' '}
+              {te.approveRequestDescriptionBefore}{' '}
+              <strong>{approveTarget.title}</strong> {te.approveRequestDescriptionMiddle}{' '}
               <strong>
                 {fmtCurrency(
                   approveTarget.amount,
                   familyBank?.currency || personalBank?.currency || 'NOK',
                 )}
-              </strong>
-              .
+              </strong>.
             </p>
 
             {availablePayBanks.length === 0 ? (
-              <div className={styles.emptyBox}>No connected bank available for approval.</div>
+              <div className={styles.emptyBox}>{te.noConnectedBankForApproval}</div>
             ) : (
               <label className={styles.label}>
-                Choose bank
+                {te.chooseBank}
                 <select
                   className={styles.select}
                   value={approveBankScope}
@@ -2565,25 +2546,21 @@ export default function EconomyPage() {
 
             {selectedApproveBank ? (
               <div className={styles.muted}>
-                Available balance: {fmtCurrency(
-                  selectedApproveBank.balance,
-                  selectedApproveBank.currency,
-                )}
+                {te.availableBalance}:{' '}
+                {fmtCurrency(selectedApproveBank.balance, selectedApproveBank.currency)}
               </div>
             ) : null}
 
             {selectedApproveBank &&
             selectedApproveBank.balance < Number(approveTarget.amount || 0) ? (
-              <div className={styles.error}>
-                This bank account does not have enough balance for this request.
-              </div>
+              <div className={styles.error}>{te.bankNotEnoughBalanceForRequest}</div>
             ) : null}
 
             {approveError ? <div className={styles.error}>{approveError}</div> : null}
 
             <div className={styles.modalActions}>
               <button type="button" className={styles.secondaryBtn} onClick={closeApproveFlow}>
-                Cancel
+                {te.cancel}
               </button>
 
               <button
@@ -2599,13 +2576,16 @@ export default function EconomyPage() {
                 }
               >
                 {actionLoading === `request-approve-${approveTarget.id}`
-                  ? 'Approving…'
-                  : 'Approve request'}
+                  ? te.approving
+                  : te.approveRequest}
               </button>
             </div>
           </div>
         </div>
       ) : null}
+
+      {error ? <div className={styles.error}>{error}</div> : null}
+      {success ? <div className={styles.success}>{success}</div> : null}
     </div>
   )
 }

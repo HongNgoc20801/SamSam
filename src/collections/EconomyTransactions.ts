@@ -1,6 +1,6 @@
-
 import type { CollectionConfig, Where } from 'payload'
 import { logAudit } from '@/app/lib/logAudit'
+import { notifyFamily } from '@/app/lib/notifications/notifyFamily'
 
 function getCollectionSlug(req: any) {
   return req?.user?.collection ?? req?.user?._collection
@@ -55,7 +55,10 @@ function cleanText(v: any, max = 5000) {
 
 function asText(v: any) {
   if (v === null || v === undefined) return ''
-  if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') return String(v)
+  if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') {
+    return String(v)
+  }
+
   try {
     return JSON.stringify(v)
   } catch {
@@ -77,6 +80,14 @@ function pushChange(
 function getReqContext(req: any) {
   if (!req.context) req.context = {}
   return req.context
+}
+
+function getUserDisplayName(req: any) {
+  const u: any = req?.user
+  if (!u) return 'A parent'
+
+  const full = `${String(u?.firstName ?? '').trim()} ${String(u?.lastName ?? '').trim()}`.trim()
+  return full || u?.fullName || u?.name || u?.email || String(u?.id)
 }
 
 function buildFamilyBankWhere(familyId: string | number): Where {
@@ -169,7 +180,10 @@ function buildPaymentCalendarNotes(doc: any) {
   return parts.join('\n')
 }
 
-async function findLinkedPaymentCalendarEvent(req: any, economyTransactionId: string | number) {
+async function findLinkedPaymentCalendarEvent(
+  req: any,
+  economyTransactionId: string | number,
+) {
   const found = await req.payload.find({
     collection: 'calendar-events',
     where: {
@@ -193,6 +207,7 @@ async function removeLinkedPaymentCalendarEventByTransactionId(
   if (!existing?.id) return
 
   const ctx = getReqContext(req)
+  ctx.__skipCalendarAuditNotify = true
   ctx.__skipCalendarToEconomyCascade = true
 
   await req.payload.delete({
@@ -223,11 +238,19 @@ async function upsertPaymentCalendarEvent(req: any, doc: any) {
     linkedEconomyTransaction: doc.id,
     title: doc.title,
     notes: buildPaymentCalendarNotes(doc),
-    status: 'payment',
+
+    // đánh dấu đây là event sinh tự động từ economy
+    eventType: 'payment',
+    source: 'economy-transaction',
+    silentSync: true,
+
     startAt: startAt.toISOString(),
     endAt: endAt.toISOString(),
     allDay: true,
   } as any
+
+  const ctx = getReqContext(req)
+  ctx.__skipCalendarAuditNotify = true
 
   if (existing?.id) {
     await req.payload.update({
@@ -367,11 +390,17 @@ export const EconomyTransactions: CollectionConfig = {
 
           const txFamilyId = normalizeRelId(tx.family)
           if (!txFamilyId || String(txFamilyId) !== String(familyId)) {
-            return Response.json({ message: 'This payment does not belong to your family.' }, { status: 403 })
+            return Response.json(
+              { message: 'This payment does not belong to your family.' },
+              { status: 403 },
+            )
           }
 
           if (String(tx.type) !== 'expense' || String(tx.status) !== 'pending') {
-            return Response.json({ message: 'Only pending expense items can be paid.' }, { status: 400 })
+            return Response.json(
+              { message: 'Only pending expense items can be paid.' },
+              { status: 400 },
+            )
           }
 
           const bankFound =
@@ -447,7 +476,8 @@ export const EconomyTransactions: CollectionConfig = {
             familyId,
             childId: normalizeRelId(tx.child),
             action: 'economy.transaction.pay',
-            entityType: 'other',
+            entityType: 'economy',
+            scope: 'economy',
             entityId: String(tx.id),
             summary: 'Paid finance item from selected bank',
             meta: {
@@ -457,6 +487,26 @@ export const EconomyTransactions: CollectionConfig = {
               connectionScope,
               bankConnectionId: String(bank.id),
               resultingBalance: nextBalance,
+            },
+          })
+
+          await notifyFamily(req, {
+            familyId,
+            actorUserId: userId,
+            childId: normalizeRelId(tx.child),
+            type: 'expense',
+            event: 'paid',
+            title: tx.title || 'Payment item paid',
+            message: `${getUserDisplayName(req)} paid a payment item.`,
+            link: '/economy',
+            meta: {
+              actorName: getUserDisplayName(req),
+              amount,
+              currency: tx.currency || bank.currency || 'NOK',
+              category: tx.category,
+              transactionDate: tx.transactionDate,
+              connectionScope,
+              bankName: bank.bankName || '',
             },
           })
 
@@ -608,19 +658,40 @@ export const EconomyTransactions: CollectionConfig = {
 
         const familyId = getFamilyIdFromDoc(doc)
         const childId = normalizeRelId(doc?.child)
+        const actorUserId = normalizeRelId((req.user as any)?.id)
+        const actorName = getUserDisplayName(req)
 
         if (operation === 'create') {
           await logAudit(req, {
             familyId,
             childId,
             action: 'economy.transaction.create',
-            entityType: 'other',
+            entityType: 'economy',
+            scope: 'economy',
             entityId: String(doc?.id),
             summary: 'Created finance entry',
             meta: {
               title: doc?.title,
               type: doc?.type,
               amount: doc?.amount,
+              category: doc?.category,
+              transactionDate: doc?.transactionDate,
+            },
+          })
+
+          await notifyFamily(req, {
+            familyId: familyId as string | number,
+            actorUserId,
+            childId,
+            type: 'expense',
+            event: 'created',
+            title: doc?.title || 'Payment item created',
+            message: `${actorName} created a payment item.`,
+            link: '/economy',
+            meta: {
+              actorName,
+              amount: doc?.amount,
+              currency: doc?.currency || 'NOK',
               category: doc?.category,
               transactionDate: doc?.transactionDate,
             },
@@ -659,7 +730,8 @@ export const EconomyTransactions: CollectionConfig = {
               familyId,
               childId,
               action: 'economy.transaction.update',
-              entityType: 'other',
+              entityType: 'economy',
+              scope: 'economy',
               entityId: String(doc?.id),
               summary: 'Updated finance entry',
               changes,
@@ -668,6 +740,25 @@ export const EconomyTransactions: CollectionConfig = {
                 type: doc?.type,
                 amount: doc?.amount,
                 category: doc?.category,
+              },
+            })
+
+            await notifyFamily(req, {
+              familyId: familyId as string | number,
+              actorUserId,
+              childId,
+              type: 'expense',
+              event: 'updated',
+              title: doc?.title || 'Payment item updated',
+              message: `${actorName} updated a payment item.`,
+              link: '/economy',
+              meta: {
+                actorName,
+                amount: doc?.amount,
+                currency: doc?.currency || 'NOK',
+                category: doc?.category,
+                transactionDate: doc?.transactionDate,
+                changedFields: changes.map((c) => c.field),
               },
             })
           }
@@ -687,8 +778,11 @@ export const EconomyTransactions: CollectionConfig = {
 
         const ctx = getReqContext(req)
         const linkedCalendarEventId = ctx.__linkedCalendarEventId
+        const actorUserId = normalizeRelId((req.user as any)?.id)
+        const actorName = getUserDisplayName(req)
 
         if (linkedCalendarEventId) {
+          ctx.__skipCalendarAuditNotify = true
           ctx.__skipCalendarToEconomyCascade = true
 
           await req.payload
@@ -701,11 +795,15 @@ export const EconomyTransactions: CollectionConfig = {
             .catch(() => null)
         }
 
+        const familyId = getFamilyIdFromDoc(doc)
+        const childId = normalizeRelId(doc?.child)
+
         await logAudit(req, {
-          familyId: getFamilyIdFromDoc(doc),
-          childId: normalizeRelId(doc?.child),
+          familyId,
+          childId,
           action: 'economy.transaction.delete',
-          entityType: 'other',
+          entityType: 'economy',
+          scope: 'economy',
           entityId: String(doc?.id),
           summary: 'Deleted finance entry',
           meta: {
@@ -715,6 +813,25 @@ export const EconomyTransactions: CollectionConfig = {
             category: doc?.category,
           },
         })
+
+        if (familyId) {
+          await notifyFamily(req, {
+            familyId,
+            actorUserId,
+            childId,
+            type: 'expense',
+            event: 'deleted',
+            title: doc?.title || 'Payment item deleted',
+            message: `${actorName} deleted a payment item.`,
+            link: '/economy',
+            meta: {
+              actorName,
+              amount: doc?.amount,
+              currency: doc?.currency || 'NOK',
+              category: doc?.category,
+            },
+          })
+        }
       },
     ],
   },
@@ -825,7 +942,6 @@ export const EconomyTransactions: CollectionConfig = {
       required: true,
       index: true,
     },
-
     {
       name: 'sourceType',
       type: 'select',
@@ -864,6 +980,3 @@ export const EconomyTransactions: CollectionConfig = {
     },
   ],
 }
-
-
-

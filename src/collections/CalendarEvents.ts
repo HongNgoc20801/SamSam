@@ -33,21 +33,21 @@ function getFamilyIdFromUser(req: any) {
   return getRelId(u.family)
 }
 
+function getActorName(req: any) {
+  const u: any = req?.user
+  if (!u) return 'A parent'
+
+  const full = `${String(u?.firstName || '').trim()} ${String(u?.lastName || '').trim()}`.trim()
+  return full || u?.fullName || u?.name || u?.email || 'A parent'
+}
+
 function getPersonName(value: any) {
   if (!value || typeof value !== 'object') return ''
 
   const full =
     `${String(value?.firstName || '').trim()} ${String(value?.lastName || '').trim()}`.trim()
 
-  return value?.fullName || value?.name || full || ''
-}
-
-function getActorName(req: any) {
-  const u: any = req?.user
-  if (!u) return 'A parent'
-
-  const full = `${String(u?.firstName || '').trim()} ${String(u?.lastName || '').trim()}`.trim()
-  return full || u?.fullName || u?.name || 'A parent'
+  return value?.fullName || value?.name || full || value?.email || ''
 }
 
 function asText(v: any) {
@@ -81,6 +81,24 @@ function setDeleteSnapshot(req: any, snapshot: any) {
 
 function getDeleteSnapshot(req: any) {
   return req?.context?.calendarDeleteSnapshot || null
+}
+
+function isSilentCalendarDoc(doc: any, req?: any) {
+  if (req?.context?.__skipCalendarAuditNotify) return true
+  if (req?.context?.__skipCalendarToEconomyCascade) return true
+
+  if (doc?.silentSync === true) return true
+  if (doc?.linkedEconomyTransaction) return true
+
+  const source = String(doc?.source || '').trim()
+  if (source === 'economy-transaction') return true
+  if (source === 'economy-request') return true
+  if (source === 'system') return true
+
+  const eventType = String(doc?.eventType || '').trim()
+  if (eventType === 'payment') return true
+
+  return false
 }
 
 async function canMutateByFamily(req: any, id: string | number) {
@@ -198,6 +216,8 @@ export const CalendarEvents: CollectionConfig = {
       'eventType',
       'priority',
       'confirmationStatus',
+      'source',
+      'silentSync',
       'startAt',
       'endAt',
     ],
@@ -276,6 +296,8 @@ export const CalendarEvents: CollectionConfig = {
 
         nextData.eventType = effectiveEventType
         nextData.priority = effectivePriority
+        nextData.source = mergedData?.source || originalDoc?.source || 'manual'
+        nextData.silentSync = Boolean(mergedData?.silentSync ?? originalDoc?.silentSync ?? false)
 
         if (effectiveEventType !== 'handover') {
           nextData.handoverFrom = null
@@ -305,10 +327,7 @@ export const CalendarEvents: CollectionConfig = {
           nextData.confirmedAt = null
           nextData.confirmedBy = null
         } else {
-          if (
-            !effectiveConfirmationStatus ||
-            effectiveConfirmationStatus === 'not-required'
-          ) {
+          if (!effectiveConfirmationStatus || effectiveConfirmationStatus === 'not-required') {
             nextData.confirmationStatus = 'pending'
             nextData.confirmedAt = null
             nextData.confirmedBy = null
@@ -358,6 +377,7 @@ export const CalendarEvents: CollectionConfig = {
     afterChange: [
       async ({ doc, previousDoc, operation, req }: any) => {
         if (!req?.user || !doc) return
+        if (isSilentCalendarDoc(doc, req)) return
 
         const familyId = getRelId(doc?.family)
         const actorUserId = getRelId(req?.user?.id)
@@ -383,6 +403,8 @@ export const CalendarEvents: CollectionConfig = {
             summary: 'Created calendar event',
             targetLabel: doc?.title,
             meta: {
+              title: doc?.title,
+              eventType: doc?.eventType,
               confirmationStatus: doc?.confirmationStatus,
               requiresConfirmation: !!doc?.requiresConfirmation,
               startAt: doc?.startAt,
@@ -406,6 +428,7 @@ export const CalendarEvents: CollectionConfig = {
             meta: {
               actorName,
               eventId: doc?.id,
+              title: doc?.title,
               childName: currentChild.childName,
               eventType: doc?.eventType,
               confirmationStatus: doc?.confirmationStatus,
@@ -488,8 +511,13 @@ export const CalendarEvents: CollectionConfig = {
             targetLabel: doc?.title,
             changes,
             meta: {
+              title: doc?.title,
+              eventType: doc?.eventType,
               confirmationStatus: doc?.confirmationStatus,
               requiresConfirmation: !!doc?.requiresConfirmation,
+              startAt: doc?.startAt,
+              endAt: doc?.endAt,
+              location: doc?.location || '',
             },
           })
 
@@ -511,6 +539,7 @@ export const CalendarEvents: CollectionConfig = {
               summary: 'Confirmed calendar event',
               targetLabel: doc?.title,
               meta: {
+                title: doc?.title,
                 confirmedBy: getRelId(doc?.confirmedBy),
                 confirmedByName,
                 confirmedAt: doc?.confirmedAt,
@@ -529,6 +558,7 @@ export const CalendarEvents: CollectionConfig = {
               meta: {
                 actorName,
                 eventId: doc?.id,
+                title: doc?.title,
                 childName: currentChild.childName,
                 eventType: doc?.eventType,
                 confirmationStatus: doc?.confirmationStatus,
@@ -562,6 +592,7 @@ export const CalendarEvents: CollectionConfig = {
               summary: 'Declined calendar event',
               targetLabel: doc?.title,
               meta: {
+                title: doc?.title,
                 confirmedBy: getRelId(doc?.confirmedBy),
                 confirmedByName,
                 confirmedAt: doc?.confirmedAt,
@@ -580,6 +611,7 @@ export const CalendarEvents: CollectionConfig = {
               meta: {
                 actorName,
                 eventId: doc?.id,
+                title: doc?.title,
                 childName: currentChild.childName,
                 eventType: doc?.eventType,
                 confirmationStatus: doc?.confirmationStatus,
@@ -611,6 +643,7 @@ export const CalendarEvents: CollectionConfig = {
             meta: {
               actorName,
               eventId: doc?.id,
+              title: doc?.title,
               childName: currentChild.childName,
               eventType: doc?.eventType,
               confirmationStatus: doc?.confirmationStatus,
@@ -633,6 +666,7 @@ export const CalendarEvents: CollectionConfig = {
 
         const deletedDoc = getDeleteSnapshot(req)
         if (!deletedDoc) return
+        if (isSilentCalendarDoc(deletedDoc, req)) return
 
         const familyId = getRelId(deletedDoc?.family)
         const actorUserId = getRelId(req?.user?.id)
@@ -641,7 +675,10 @@ export const CalendarEvents: CollectionConfig = {
 
         const handoverFromName = await getCustomerDisplayName(req, deletedDoc?.handoverFrom)
         const handoverToName = await getCustomerDisplayName(req, deletedDoc?.handoverTo)
-        const responsibleParentName = await getCustomerDisplayName(req, deletedDoc?.responsibleParent)
+        const responsibleParentName = await getCustomerDisplayName(
+          req,
+          deletedDoc?.responsibleParent,
+        )
 
         await logAudit(req, {
           familyId,
@@ -656,6 +693,7 @@ export const CalendarEvents: CollectionConfig = {
           summary: 'Deleted calendar event',
           targetLabel: deletedDoc?.title,
           meta: {
+            title: deletedDoc?.title,
             eventType: deletedDoc?.eventType,
             confirmationStatus: deletedDoc?.confirmationStatus,
             requiresConfirmation: !!deletedDoc?.requiresConfirmation,
@@ -676,10 +714,11 @@ export const CalendarEvents: CollectionConfig = {
           event: 'deleted',
           title: 'Calendar event deleted',
           message: `${deletedDoc?.title || 'An event'} was deleted`,
-          link: `/calendar?event=${id}`,
+          link: '/calendar',
           meta: {
             actorName,
             eventId: id,
+            title: deletedDoc?.title,
             childName: currentChild.childName,
             eventType: deletedDoc?.eventType,
             confirmationStatus: deletedDoc?.confirmationStatus,
@@ -795,6 +834,25 @@ export const CalendarEvents: CollectionConfig = {
       type: 'relationship',
       relationTo: 'economy-transactions',
       required: false,
+      index: true,
+    },
+    {
+      name: 'source',
+      type: 'select',
+      required: true,
+      defaultValue: 'manual',
+      options: [
+        { label: 'Manual', value: 'manual' },
+        { label: 'Economy transaction', value: 'economy-transaction' },
+        { label: 'Economy request', value: 'economy-request' },
+        { label: 'System', value: 'system' },
+      ],
+      index: true,
+    },
+    {
+      name: 'silentSync',
+      type: 'checkbox',
+      defaultValue: false,
       index: true,
     },
     {

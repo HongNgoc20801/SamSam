@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Trash2 } from 'lucide-react'
+import { useTranslations } from '@/app/lib/i18n/useTranslations'
 
 type Props = {
   docId: string
@@ -16,12 +17,11 @@ export default function DeleteDocumentButton({
   className,
 }: Props) {
   const router = useRouter()
+  const t = useTranslations()
   const [loading, setLoading] = useState(false)
 
   async function handleDelete() {
-    const ok = window.confirm(
-      'Are you sure you want to delete this document? This action cannot be undone.'
-    )
+    const ok = window.confirm(t.documents.deleteConfirm)
     if (!ok) return
 
     try {
@@ -32,14 +32,14 @@ export default function DeleteDocumentButton({
       })
 
       if (!res.ok) {
-        throw new Error('Failed to delete document')
+        throw new Error(t.documents.deleteFailed)
       }
 
       router.push(`/child-info/${childId}/documents`)
       router.refresh()
     } catch (error) {
       console.error(error)
-      alert('Delete failed. Please try again.')
+      alert(t.documents.deleteError)
     } finally {
       setLoading(false)
     }
@@ -53,7 +53,7 @@ export default function DeleteDocumentButton({
       disabled={loading}
     >
       <Trash2 size={16} />
-      {loading ? 'Deleting...' : 'Delete document'}
+      {loading ? t.documents.deleting : t.documents.deleteDocument}
     </button>
   )
 }

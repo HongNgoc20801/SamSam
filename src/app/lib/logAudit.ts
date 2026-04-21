@@ -22,10 +22,24 @@ function getCollectionSlug(req: any) {
   return req?.user?.collection ?? req?.user?._collection
 }
 
+function normalizeRelId(v: any): string | number | null {
+  if (v === null || v === undefined || v === '') return null
+  if (typeof v === 'number') return v
+  if (typeof v === 'string') {
+    const trimmed = v.trim()
+    if (!trimmed) return null
+    return /^\d+$/.test(trimmed) ? Number(trimmed) : trimmed
+  }
+  if (typeof v === 'object' && v?.id !== undefined && v?.id !== null) {
+    return normalizeRelId(v.id)
+  }
+  return null
+}
+
 function getFamilyIdFromUser(req: any) {
   const u: any = req?.user
   if (!u) return null
-  return typeof u.family === 'string' ? u.family : u.family?.id ?? null
+  return normalizeRelId(u.family)
 }
 
 function getActorType(req: any): 'customer' | 'admin' | 'system' {
@@ -39,22 +53,19 @@ function getActorDisplayName(req: any) {
   const u: any = req?.user
   if (!u) return 'System'
 
-  const firstName = String(u.firstName || u.fornavn || '').trim()
-  if (firstName) return firstName
-
-  const combined =
-    `${String(u.firstName || u.fornavn || '').trim()} ${String(
-      u.lastName || u.etternavn || '',
+  const full =
+    `${String(u?.firstName ?? u?.fornavn ?? '').trim()} ${String(
+      u?.lastName ?? u?.etternavn ?? '',
     ).trim()}`.trim()
-  if (combined) return combined
 
-  const fullName = String(u.fullName || u.name || '').trim()
-  if (fullName) return fullName
+  if (full) return full
 
-  const email = String(u.email || '').trim()
-  if (email) return email
+  const fallback =
+    String(u?.fullName ?? u?.name ?? '').trim() ||
+    String(u?.email ?? '').trim() ||
+    String(u?.id ?? 'System')
 
-  return String(u.id || 'System')
+  return fallback
 }
 
 function getActorRole(req: any): AuditActorRole {
@@ -62,7 +73,7 @@ function getActorRole(req: any): AuditActorRole {
   if (!u) return 'system'
   if (getCollectionSlug(req) === 'users') return 'admin'
 
-  const role = String(u.parentRole || u.role || '').toLowerCase()
+  const role = String(u?.parentRole ?? u?.role ?? '').toLowerCase()
   if (role === 'mother') return 'mother'
   if (role === 'father') return 'father'
   return 'parent'

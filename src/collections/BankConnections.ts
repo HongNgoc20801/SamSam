@@ -1,4 +1,3 @@
-
 import type { CollectionConfig, Where } from 'payload'
 import crypto from 'crypto'
 
@@ -9,6 +8,8 @@ import {
   finalizeOpenBankingAccountSelection,
   startOpenBankingConsent,
 } from '@/app/lib/openBanking'
+import { logAudit } from '@/app/lib/logAudit'
+import { notifyFamily } from '@/app/lib/notifications/notifyFamily'
 
 function getCollectionSlug(req: any) {
   return req?.user?.collection ?? req?.user?._collection
@@ -54,6 +55,14 @@ function getFamilyIdFromUser(req: any) {
 
 function getUserId(req: any) {
   return normalizeRelId(req?.user?.id)
+}
+
+function getUserDisplayName(req: any) {
+  const u: any = req?.user
+  if (!u) return 'A parent'
+
+  const full = `${String(u?.firstName ?? '').trim()} ${String(u?.lastName ?? '').trim()}`.trim()
+  return full || u?.fullName || u?.name || u?.email || String(u?.id)
 }
 
 function buildFamilyConnectionWhere(familyId: string | number): Where {
@@ -454,8 +463,6 @@ export const BankConnections: CollectionConfig = {
             callbackUrl: buildBankingCallbackUrl(req),
           })
 
-          console.log('BANK CALLBACK RAW RESULT', rawResult)
-
           const providerResult = rawResult?.result ?? rawResult
 
           const rawAccounts = Array.isArray(providerResult?.availableAccounts)
@@ -479,7 +486,6 @@ export const BankConnections: CollectionConfig = {
             const parsed = Number(raw)
             return Number.isFinite(parsed) ? parsed : 0
           }
-          console.log('BANK CALLBACK ACCOUNTS', JSON.stringify(rawAccounts, null, 2) ) 
 
           const availableAccounts = sanitizeAvailableAccounts(
             rawAccounts.map((item: any) => ({
@@ -550,7 +556,10 @@ export const BankConnections: CollectionConfig = {
           const finalized = await finalizeOpenBankingAccountSelection({
             provider: connection.provider,
             externalSessionId: String(
-              providerResult?.externalSessionId || rawResult?.externalSessionId || connection?.externalSessionId || '',
+              providerResult?.externalSessionId ||
+                rawResult?.externalSessionId ||
+                connection?.externalSessionId ||
+                '',
             ),
             externalAccountId: selected.externalAccountId,
             bankName: selected.bankName,
@@ -582,7 +591,48 @@ export const BankConnections: CollectionConfig = {
             overrideAccess: true,
             req,
           })
-          
+
+          await logAudit(req, {
+            familyId: normalizeRelId(connection.family),
+            childId: null,
+            action: 'bank.connect',
+            entityType: 'economy',
+            scope: 'economy',
+            entityId: String(connection.id),
+            summary: 'Connected bank account',
+            meta: {
+              provider: connection.provider,
+              connectionScope: connection.connectionScope,
+              bankName: finalized.bankName,
+              accountName: finalized.accountName,
+              maskedAccount: finalized.maskedAccount,
+            },
+          })
+
+          const notifyActorId =
+            connection.connectionScope === 'personal'
+              ? normalizeRelId(connection.ownerCustomer)
+              : getUserId(req)
+
+          const familyId = normalizeRelId(connection.family)
+          if (familyId) {
+            await notifyFamily(req, {
+              familyId,
+              actorUserId: notifyActorId,
+              type: 'bank',
+              event: 'connected',
+              title: 'Bank connected',
+              message: `${getUserDisplayName(req)} connected a bank account.`,
+              link: '/economy?tab=bank',
+              meta: {
+                actorName: getUserDisplayName(req),
+                bankName: finalized.bankName,
+                connectionScope: connection.connectionScope,
+                status: 'connected',
+                maskedAccount: finalized.maskedAccount,
+              },
+            })
+          }
 
           return Response.redirect(new URL('/economy?bank=connected', origin), 302)
         } catch (error: any) {
@@ -725,7 +775,8 @@ export const BankConnections: CollectionConfig = {
             id: connection.id,
             data: {
               status: 'connected',
-              externalSessionId: finalized.externalSessionId || String(connection.externalSessionId || ''),
+              externalSessionId:
+                finalized.externalSessionId || String(connection.externalSessionId || ''),
               externalAccountId: finalized.externalAccountId,
               bankName: finalized.bankName,
               accountName: finalized.accountName,
@@ -799,6 +850,38 @@ export const BankConnections: CollectionConfig = {
             } as any,
             overrideAccess: true,
             req,
+          })
+
+          await logAudit(req, {
+            familyId,
+            childId: null,
+            action: 'bank.disconnect',
+            entityType: 'economy',
+            scope: 'economy',
+            entityId: String(connection.id),
+            summary: 'Disconnected bank account',
+            meta: {
+              provider: connection.provider,
+              connectionScope,
+              bankName: connection.bankName,
+              maskedAccount: connection.maskedAccount,
+            },
+          })
+
+          await notifyFamily(req, {
+            familyId,
+            actorUserId: userId,
+            type: 'bank',
+            event: 'disconnected',
+            title: 'Bank disconnected',
+            message: `${connection.bankName || 'Bank'} was disconnected.`,
+            link: '/economy?tab=bank',
+            meta: {
+              actorName: getUserDisplayName(req),
+              bankName: connection.bankName,
+              connectionScope,
+              status: 'expired',
+            },
           })
 
           return Response.json({ ok: true }, { status: 200 })

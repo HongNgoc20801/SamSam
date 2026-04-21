@@ -12,6 +12,9 @@ export type NotificationEventType =
   | 'liked'
   | 'uploaded'
   | 'replaced'
+  | 'approved'
+  | 'rejected'
+  | 'paid'
 
 export type NotificationItem = {
   id: string | number
@@ -20,7 +23,7 @@ export type NotificationItem = {
   link?: string
   isRead: boolean
   readAt?: string | null
-  type: 'calendar' | 'expense' | 'status' | 'documents' | 'post'
+  type: 'calendar' | 'expense' | 'request' | 'bank' | 'status' | 'documents' | 'post'
   event: NotificationEventType
   createdAt?: string
   meta?: Record<string, any>
@@ -51,12 +54,30 @@ function fmtTime(value?: string) {
   })
 }
 
+function fmtMoney(amount?: number, currency = 'NOK') {
+  const value = Number(amount || 0)
+
+  try {
+    return new Intl.NumberFormat('nb-NO', {
+      style: 'currency',
+      currency,
+      maximumFractionDigits: 2,
+    }).format(value)
+  } catch {
+    return `${value} ${currency}`
+  }
+}
+
 function getTypeLabel(type: NotificationItem['type']) {
   switch (type) {
     case 'calendar':
       return 'Calendar'
     case 'expense':
-      return 'Expenses'
+      return 'Payments'
+    case 'request':
+      return 'Requests'
+    case 'bank':
+      return 'Bank'
     case 'status':
       return 'Status'
     case 'documents':
@@ -102,57 +123,43 @@ function buildNotificationTitle(item: NotificationItem) {
   const rawTitle = String(item.title || 'Notification').trim()
   const isChildUpdate = !!meta.isChildUpdate
   const documentName = String(meta.documentName || item.title || '').trim()
+  const actorName = String(meta.actorName || 'A parent').trim()
 
   if (item.type === 'calendar') {
-    if (item.event === 'created') {
-      return `${eventType} created${childName ? ` for ${childName}` : ''}`
-    }
+    if (item.event === 'created') return `${eventType} created${childName ? ` for ${childName}` : ''}`
+    if (item.event === 'updated') return `${eventType} updated${childName ? ` for ${childName}` : ''}`
+    if (item.event === 'deleted') return `${eventType} deleted${childName ? ` for ${childName}` : ''}`
+    if (item.event === 'confirmed') return `${eventType} accepted${childName ? ` for ${childName}` : ''}`
+    if (item.event === 'declined') return `${eventType} declined${childName ? ` for ${childName}` : ''}`
+  }
 
-    if (
-      item.event === 'updated' &&
-      meta.requiresConfirmation &&
-      meta.confirmationStatus === 'pending'
-    ) {
-      return `${eventType} needs confirmation${childName ? ` for ${childName}` : ''}`
-    }
+  if (item.type === 'expense') {
+    if (item.event === 'created') return `${actorName} created a payment item`
+    if (item.event === 'updated') return `${actorName} updated a payment item`
+    if (item.event === 'deleted') return `${actorName} deleted a payment item`
+    if (item.event === 'paid') return `${actorName} paid a payment item`
+  }
 
-    if (item.event === 'updated') {
-      return `${eventType} updated${childName ? ` for ${childName}` : ''}`
-    }
+  if (item.type === 'request') {
+    if (item.event === 'created') return `${actorName} created a money request`
+    if (item.event === 'approved') return `${actorName} approved a money request`
+    if (item.event === 'rejected') return `${actorName} rejected a money request`
+    if (item.event === 'updated') return `${actorName} updated a money request`
+    if (item.event === 'deleted') return `${actorName} deleted a money request`
+  }
 
-    if (item.event === 'deleted') {
-      return `${eventType} deleted${childName ? ` for ${childName}` : ''}`
-    }
-
-    if (item.event === 'confirmed') {
-      return `${eventType} accepted${childName ? ` for ${childName}` : ''}`
-    }
-
-    if (item.event === 'declined') {
-      return `${eventType} declined${childName ? ` for ${childName}` : ''}`
-    }
+  if (item.type === 'bank') {
+    if (item.event === 'created') return 'Bank connected'
+    if (item.event === 'updated') return 'Bank status updated'
+    if (item.event === 'declined') return 'Bank connection expired'
   }
 
   if (item.type === 'status') {
-    if (item.event === 'created' && childName) {
-      return `New child profile: ${childName}`
-    }
-
-    if (item.event === 'updated' && childName && meta.needsConfirmation) {
-      return `${childName} needs confirmation`
-    }
-
-    if (item.event === 'updated' && childName) {
-      return `${childName} profile updated`
-    }
-
-    if (item.event === 'confirmed' && childName) {
-      return `${childName} was confirmed`
-    }
-
-    if (item.event === 'declined' && childName) {
-      return `${childName} was declined`
-    }
+    if (item.event === 'created' && childName) return `New child profile: ${childName}`
+    if (item.event === 'updated' && childName && meta.needsConfirmation) return `${childName} needs confirmation`
+    if (item.event === 'updated' && childName) return `${childName} profile updated`
+    if (item.event === 'confirmed' && childName) return `${childName} was confirmed`
+    if (item.event === 'declined' && childName) return `${childName} was declined`
   }
 
   if (item.type === 'documents') {
@@ -237,26 +244,39 @@ function buildNotificationMessage(item: NotificationItem) {
       return `${actorName} declined this event${confirmedAt ? ` at ${confirmedAt}` : ''}.`
     }
 
-    if (
-      item.event === 'updated' &&
-      meta.requiresConfirmation &&
-      meta.confirmationStatus === 'pending'
-    ) {
-      return `${actorName} updated this event. Waiting for second parent confirmation.`
-    }
-
     const parts = [
       meta.startAt ? fmtTime(meta.startAt) : '',
-      meta.handoverFromName && meta.handoverToName
-        ? `${meta.handoverFromName} → ${meta.handoverToName}`
-        : '',
       meta.location || '',
-      meta.requiresConfirmation && meta.confirmationStatus === 'pending'
-        ? 'Waiting for confirmation'
-        : '',
+      childName ? `Child: ${childName}` : '',
     ].filter(Boolean)
 
     if (parts.length) return parts.join(' · ')
+  }
+
+  if (item.type === 'expense') {
+    return [
+      meta.amount ? fmtMoney(meta.amount, meta.currency || 'NOK') : '',
+      meta.transactionDate ? `Due ${fmtTime(meta.transactionDate)}` : '',
+      childName ? `Child: ${childName}` : '',
+    ]
+      .filter(Boolean)
+      .join(' · ')
+  }
+
+  if (item.type === 'request') {
+    return [
+      meta.amount ? fmtMoney(meta.amount, meta.currency || 'NOK') : '',
+      childName ? `Child: ${childName}` : '',
+      meta.category || '',
+    ]
+      .filter(Boolean)
+      .join(' · ')
+  }
+
+  if (item.type === 'bank') {
+    return [meta.bankName || '', meta.connectionScope || '', meta.status || '']
+      .filter(Boolean)
+      .join(' · ')
   }
 
   if (item.type === 'status') {
@@ -330,11 +350,7 @@ function buildNotificationMessage(item: NotificationItem) {
   return item.message || 'Open to view details.'
 }
 
-function NotificationTypeIcon({
-  type,
-}: {
-  type: NotificationItem['type']
-}) {
+function NotificationTypeIcon({ type }: { type: NotificationItem['type'] }) {
   const common = {
     className: styles.typeIcon,
     viewBox: '0 0 24 24',
@@ -361,6 +377,28 @@ function NotificationTypeIcon({
             d="M12 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"
             stroke="currentColor"
             strokeWidth="1.8"
+          />
+        </svg>
+      )
+    case 'request':
+      return (
+        <svg {...common}>
+          <path
+            d="M12 3v18M3 12h18"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+          />
+        </svg>
+      )
+    case 'bank':
+      return (
+        <svg {...common}>
+          <path
+            d="M4 10h16M6 10V7h12v3M6 10v7M10 10v7M14 10v7M18 10v7M4 17h16"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
           />
         </svg>
       )

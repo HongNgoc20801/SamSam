@@ -587,8 +587,20 @@ export interface Notification {
   recipient: number | Customer;
   family?: (number | null) | Family;
   child?: (number | null) | Child;
-  type: 'calendar' | 'expense' | 'status' | 'documents' | 'post';
-  event: 'created' | 'updated' | 'deleted' | 'confirmed' | 'declined' | 'commented' | 'liked' | 'uploaded' | 'replaced';
+  type: 'calendar' | 'expense' | 'request' | 'bank' | 'status' | 'documents' | 'post';
+  event:
+    | 'created'
+    | 'updated'
+    | 'deleted'
+    | 'confirmed'
+    | 'declined'
+    | 'commented'
+    | 'liked'
+    | 'uploaded'
+    | 'replaced'
+    | 'approved'
+    | 'rejected'
+    | 'paid';
   title: string;
   message?: string | null;
   link?: string | null;
@@ -765,6 +777,8 @@ export interface CalendarEvent {
   handoverTo?: (number | null) | Customer;
   responsibleParent?: (number | null) | Customer;
   linkedEconomyTransaction?: (number | null) | EconomyTransaction;
+  source: 'manual' | 'economy-transaction' | 'economy-request' | 'system';
+  silentSync?: boolean | null;
   startAt: string;
   endAt: string;
   allDay?: boolean | null;
@@ -1470,6 +1484,8 @@ export interface CalendarEventsSelect<T extends boolean = true> {
   handoverTo?: T;
   responsibleParent?: T;
   linkedEconomyTransaction?: T;
+  source?: T;
+  silentSync?: T;
   startAt?: T;
   endAt?: T;
   allDay?: T;

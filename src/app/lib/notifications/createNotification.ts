@@ -19,6 +19,8 @@ function normalizeRelId(v: any): string | number | null {
 export type NotificationType =
   | 'calendar'
   | 'expense'
+  | 'request'
+  | 'bank'
   | 'status'
   | 'documents'
   | 'post'
@@ -33,6 +35,12 @@ export type NotificationEventType =
   | 'liked'
   | 'uploaded'
   | 'replaced'
+  | 'approved'
+  | 'rejected'
+  | 'paid'
+  | 'connected'
+  | 'disconnected'
+  | 'transferred'
 
 export async function createNotification(
   req: any,

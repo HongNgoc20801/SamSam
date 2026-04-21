@@ -59,9 +59,24 @@ export type AuditMeta = {
   endAt?: string
   notes?: string
   allDay?: boolean
+  location?: string
 
   amount?: number | string
   currency?: string
+  category?: string
+  transactionDate?: string
+  paidAt?: string
+  paidBy?: string
+  paidByName?: string
+  paidFromScope?: string
+  reviewedAt?: string
+  reviewedByName?: string
+  bankName?: string
+  connectionScope?: string
+  fromScope?: string
+  toScope?: string
+  note?: string
+  decisionNote?: string
 
   [key: string]: any
 }

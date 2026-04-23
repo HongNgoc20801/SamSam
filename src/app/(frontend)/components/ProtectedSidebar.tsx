@@ -4,14 +4,21 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import styles from '../(protected)/protectedLayout.module.css'
 import Brand from './Brand/Brand'
-import CopyButton from '../../(frontend)/components/CopyButton'
 import LogoutButton from '../../(frontend)/components/LogoutButton'
 import { useTranslations } from '@/app/lib/i18n/useTranslations'
 
 function Icon({
   type,
 }: {
-  type: 'dash' | 'cal' | 'posts' | 'money' | 'child' | 'profile' | 'settings'
+  type:
+    | 'dash'
+    | 'cal'
+    | 'posts'
+    | 'money'
+    | 'child'
+    | 'profile'
+    | 'settings'
+    | 'history'
 }) {
   const common = { className: styles.icon, viewBox: '0 0 24 24', fill: 'none' as const }
 
@@ -26,6 +33,7 @@ function Icon({
           />
         </svg>
       )
+
     case 'cal':
       return (
         <svg {...common}>
@@ -37,6 +45,7 @@ function Icon({
           />
         </svg>
       )
+
     case 'posts':
       return (
         <svg {...common}>
@@ -54,6 +63,7 @@ function Icon({
           />
         </svg>
       )
+
     case 'money':
       return (
         <svg {...common}>
@@ -71,6 +81,7 @@ function Icon({
           />
         </svg>
       )
+
     case 'child':
       return (
         <svg {...common}>
@@ -87,6 +98,7 @@ function Icon({
           />
         </svg>
       )
+
     case 'profile':
       return (
         <svg {...common}>
@@ -103,6 +115,7 @@ function Icon({
           />
         </svg>
       )
+
     case 'settings':
       return (
         <svg {...common}>
@@ -119,16 +132,36 @@ function Icon({
           />
         </svg>
       )
+
+    case 'history':
+      return (
+        <svg {...common}>
+          <path
+            d="M12 8v5l3 2"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <path
+            d="M20 12a8 8 0 1 1-2.35-5.65"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+          />
+          <path
+            d="M20 4v4h-4"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      )
   }
 }
 
-export default function ProtectedSidebar({
-  user,
-  inviteCode,
-}: {
-  user: any
-  inviteCode: string | null
-}) {
+export default function ProtectedSidebar({ user }: { user: any }) {
   const pathname = usePathname()
   const t = useTranslations()
 
@@ -136,6 +169,7 @@ export default function ProtectedSidebar({
   const lastName = user?.lastName ?? ''
   const role = user?.familyRole ?? '-'
   const email = user?.email ?? '-'
+  const initials = `${firstName?.[0] ?? 'U'}${lastName?.[0] ?? ''}`.toUpperCase()
 
   const links = [
     { href: '/dashboard', label: t.sidebar.dashboard, icon: 'dash' as const },
@@ -143,7 +177,7 @@ export default function ProtectedSidebar({
     { href: '/oppdateringer', label: t.sidebar.updates, icon: 'posts' as const },
     { href: '/economy', label: t.sidebar.economy, icon: 'money' as const },
     { href: '/child-info', label: t.sidebar.childInfo, icon: 'child' as const },
-    { href: '/audit-logs', label: t.sidebar.history, icon: 'posts' as const },
+    { href: '/audit-logs', label: t.sidebar.history, icon: 'history' as const },
     { href: '/profile', label: t.sidebar.profile, icon: 'profile' as const },
     { href: '/settings', label: t.sidebar.settings, icon: 'settings' as const },
   ]
@@ -154,55 +188,54 @@ export default function ProtectedSidebar({
 
   return (
     <aside className={styles.sidebar} aria-label="Sidebar">
-      <div className={styles.brandWrap}>
-        <Brand />
-      </div>
+      <div className={styles.sidebarInner}>
+        <div className={styles.brandWrap}>
+          <Brand />
+        </div>
 
-      <nav className={styles.nav} aria-label={t.sidebar.navAria}>
-        {links.map((l) => (
-          <Link
-            key={l.href}
-            href={l.href}
-            className={`${styles.navItem} ${isActive(l.href) ? styles.navItemActive : ''}`}
-          >
-            <Icon type={l.icon} />
-            <span>{l.label}</span>
-          </Link>
-        ))}
-      </nav>
+        <nav className={styles.nav} aria-label={t.sidebar.navAria}>
+          {links.map((l) => (
+            <Link
+              key={l.href}
+              href={l.href}
+              className={`${styles.navItem} ${isActive(l.href) ? styles.navItemActive : ''}`}
+            >
+              <Icon type={l.icon} />
+              <span className={styles.navLabel}>{l.label}</span>
+            </Link>
+          ))}
+        </nav>
 
-      <section className={styles.sidebarCard} aria-label={t.sidebar.inviteCodeTitle}>
-        <div className={styles.sectionTitle}>{t.sidebar.inviteCodeTitle}</div>
-        {inviteCode ? (
-          <div className={styles.inviteRow}>
-            <span className={styles.codePill}>{inviteCode}</span>
-            <CopyButton value={inviteCode} />
-          </div>
-        ) : (
-          <div className={styles.miniText}>{t.sidebar.noInviteCode}</div>
-        )}
-      </section>
+        <div className={styles.sidebarFooter}>
+          <section className={styles.accountCard} aria-label={t.sidebar.signedInAs}>
+            <div className={styles.accountLeft}>
+              <div className={styles.accountAvatar}>
+                {user?.avatar?.url ? (
+                  <img
+                    src={user.avatar.url}
+                    alt={`${firstName} ${lastName}`}
+                    className={styles.accountAvatarImage}
+                  />
+                ) : (
+                  <span className={styles.accountInitials}>{initials}</span>
+                )}
+              </div>
 
-      <section className={styles.sidebarCard} aria-label={t.sidebar.signedInAs}>
-        <div className={styles.sectionTitle}>{t.sidebar.signedInAs}</div>
-        <div className={styles.userRow}>
-          <div className={styles.avatar} aria-hidden="true">
-            {(firstName?.[0] ?? 'U').toUpperCase()}
-            {(lastName?.[0] ?? '').toUpperCase()}
-          </div>
-          <div>
-            <div className={styles.userName}>
-              {firstName} {lastName}
+              <div className={styles.accountMeta}>
+                <div className={styles.accountName}>
+                  {firstName} {lastName}
+                </div>
+                <div className={styles.accountRole}>{String(role).toUpperCase()}</div>
+                <div className={styles.accountEmail}>{email}</div>
+              </div>
             </div>
-            <div className={styles.miniText}>{role}</div>
-            <div className={styles.miniText}>{email}</div>
-          </div>
-        </div>
 
-        <div className={styles.logoutRow}>
-          <LogoutButton />
+            <div className={styles.accountAction}>
+              <LogoutButton />
+            </div>
+          </section>
         </div>
-      </section>
+      </div>
     </aside>
   )
 }

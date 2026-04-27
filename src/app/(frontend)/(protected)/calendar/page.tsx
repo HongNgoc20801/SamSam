@@ -1164,6 +1164,34 @@ export default function CalendarPage() {
         />
       </div>
 
+      <div className={styles.statsGrid}>
+        <div className={styles.statCard}>
+          <span className={styles.statIcon}>✓</span>
+          <div>
+            <div className={styles.statLabel}>Hendelser</div>
+            <div className={styles.statValue}>{events.length} totalt</div>
+          </div>
+        </div>
+
+        <div className={styles.statCard}>
+          <span className={styles.statIcon}>👥</span>
+          <div>
+            <div className={styles.statLabel}>Barn</div>
+            <div className={styles.statValue}>{children.length} registrert</div>
+          </div>
+        </div>
+
+        <div className={styles.statCard}>
+          <span className={styles.statIcon}>!</span>
+          <div>
+            <div className={styles.statLabel}>Bekreftelser</div>
+            <div className={styles.statValue}>
+              {events.filter((e) => e.resource.confirmationStatus === 'pending').length} venter
+            </div>
+          </div>
+        </div>
+      </div>
+
       {open ? (
         <div className={styles.modalBackdrop} onMouseDown={closeModal}>
           <div className={styles.modal} onMouseDown={(e) => e.stopPropagation()}>

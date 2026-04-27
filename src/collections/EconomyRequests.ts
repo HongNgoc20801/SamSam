@@ -118,6 +118,32 @@ async function findBankConnectionForApproval(
   return result?.docs?.[0] ?? null
 }
 
+async function findRequesterPersonalBank(
+  req: any,
+  familyId: string | number,
+  requesterId: string | number,
+) {
+  const result = await req.payload.find({
+    collection: 'bank-connections',
+    where: {
+      and: [
+        { family: { equals: familyId } },
+        { connectionScope: { equals: 'personal' } },
+        { ownerCustomer: { equals: requesterId } },
+        { isActive: { equals: true } },
+        { status: { equals: 'connected' } },
+      ],
+    },
+    limit: 1,
+    sort: '-updatedAt',
+    overrideAccess: true,
+    depth: 0,
+    req,
+  })
+
+  return result?.docs?.[0] ?? null
+}
+
 export const EconomyRequests: CollectionConfig = {
   slug: 'economy-requests',
 
@@ -205,6 +231,7 @@ export const EconomyRequests: CollectionConfig = {
           }
 
           const requestFamilyId = normalizeRelId(requestDoc.family)
+
           if (!requestFamilyId || String(requestFamilyId) !== String(familyId)) {
             return Response.json(
               { message: 'This request does not belong to your family.' },
@@ -212,7 +239,13 @@ export const EconomyRequests: CollectionConfig = {
             )
           }
 
-          if (String(normalizeRelId(requestDoc.createdBy)) === String(userId)) {
+          const requesterId = normalizeRelId(requestDoc.createdBy)
+
+          if (!requesterId) {
+            return Response.json({ message: 'Missing request owner.' }, { status: 400 })
+          }
+
+          if (String(requesterId) === String(userId)) {
             return Response.json(
               { message: 'You cannot approve your own request.' },
               { status: 400 },
@@ -242,8 +275,18 @@ export const EconomyRequests: CollectionConfig = {
             )
           }
 
+          const receiverBank = await findRequesterPersonalBank(req, familyId, requesterId)
+
+          if (!receiverBank?.id) {
+            return Response.json(
+              { message: 'The requester does not have a connected personal bank.' },
+              { status: 404 },
+            )
+          }
+
           const amountToApprove = Number(requestDoc.amount || 0)
           const currentBalance = Number(bankDoc.currentBalance || 0)
+          const receiverCurrentBalance = Number(receiverBank.currentBalance || 0)
 
           if (!Number.isFinite(amountToApprove) || amountToApprove <= 0) {
             return Response.json({ message: 'Invalid request amount.' }, { status: 400 })
@@ -256,20 +299,49 @@ export const EconomyRequests: CollectionConfig = {
             )
           }
 
-          const newBalance = currentBalance - amountToApprove
+          const senderCurrency = String(bankDoc.currency || 'NOK')
+          const receiverCurrency = String(receiverBank.currency || 'NOK')
+
+          if (senderCurrency !== receiverCurrency) {
+            return Response.json(
+              { message: 'Both bank accounts must use the same currency.' },
+              { status: 400 },
+            )
+          }
+
+          const newSenderBalance = Number((currentBalance - amountToApprove).toFixed(2))
+          const newReceiverBalance = Number(
+            (receiverCurrentBalance + amountToApprove).toFixed(2),
+          )
+
           const now = new Date().toISOString()
           const childId = normalizeRelId(requestDoc.child)
 
-          const updatedBank = await req.payload.update({
-            collection: 'bank-connections',
-            id: bankDoc.id,
-            data: {
-              currentBalance: newBalance,
-              lastSyncedAt: now,
-            } as any,
-            overrideAccess: true,
-            req,
-          })
+          const [updatedBank, updatedReceiverBank] = await Promise.all([
+            req.payload.update({
+              collection: 'bank-connections',
+              id: bankDoc.id,
+              data: {
+                currentBalance: newSenderBalance,
+                lastSyncedAt: now,
+                lastError: '',
+              } as any,
+              overrideAccess: true,
+              req,
+            }),
+
+            req.payload.update({
+              collection: 'bank-connections',
+              id: receiverBank.id,
+              data: {
+                currentBalance: newReceiverBalance,
+                lastSyncedAt: now,
+                lastError: '',
+              } as any,
+              overrideAccess: true,
+              req,
+            }),
+          ])
 
           const updatedRequest = await req.payload.update({
             collection: 'economy-requests',
@@ -293,7 +365,7 @@ export const EconomyRequests: CollectionConfig = {
               type: 'expense',
               status: 'paid',
               category: String(requestDoc.category || 'other'),
-              currency: String(bankDoc.currency || 'NOK'),
+              currency: senderCurrency,
               transactionDate: now,
               paidBy: userId,
               child: childId ?? undefined,
@@ -320,7 +392,10 @@ export const EconomyRequests: CollectionConfig = {
               amount: amountToApprove,
               category: requestDoc.category,
               connectionScope,
-              bankConnectionId: String(bankDoc.id),
+              senderBankConnectionId: String(bankDoc.id),
+              receiverBankConnectionId: String(receiverBank.id),
+              senderBalanceAfter: newSenderBalance,
+              receiverBalanceAfter: newReceiverBalance,
             },
           })
 
@@ -336,9 +411,10 @@ export const EconomyRequests: CollectionConfig = {
             meta: {
               actorName: getUserDisplayName(req),
               amount: amountToApprove,
-              currency: String(bankDoc.currency || 'NOK'),
+              currency: senderCurrency,
               category: requestDoc.category,
               connectionScope,
+              receiverCustomerId: requesterId,
             },
           })
 
@@ -347,6 +423,7 @@ export const EconomyRequests: CollectionConfig = {
               ok: true,
               request: updatedRequest,
               bank: updatedBank,
+              receiverBank: updatedReceiverBank,
               transaction: paidTransaction,
             },
             { status: 200 },
@@ -409,6 +486,7 @@ export const EconomyRequests: CollectionConfig = {
           }
 
           const requestFamilyId = normalizeRelId(requestDoc.family)
+
           if (!requestFamilyId || String(requestFamilyId) !== String(familyId)) {
             return Response.json(
               { message: 'This request does not belong to your family.' },
@@ -515,6 +593,7 @@ export const EconomyRequests: CollectionConfig = {
         const childId = normalizeRelId(next.child)
 
         if (!title) throw new Error('Title is required.')
+
         if (!Number.isFinite(amount) || amount <= 0) {
           throw new Error('Amount must be greater than 0.')
         }

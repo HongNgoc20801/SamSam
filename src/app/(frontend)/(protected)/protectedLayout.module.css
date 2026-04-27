@@ -1,143 +1,250 @@
 .shell {
-  display: flex;
-  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 272px minmax(0, 1fr);
+  height: 100dvh;
   background: #f6f7fb;
+  overflow: hidden;
 }
 
 .sidebar {
-  width: 280px;
-  padding: 22px 18px;
-  background: linear-gradient(180deg, #0f1027 0%, #0b0c1c 50%, #090a17 100%);
-  color: #fff;
+  height: 100dvh;
   position: sticky;
   top: 0;
-  height: 100vh;
-  overflow: auto;
+  overflow: hidden;
+  color: #ffffff;
+  background: #27357b;
   border-right: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.04);
+}
+
+.sidebarInner {
+  height: 100%;
   display: flex;
   flex-direction: column;
+  padding: 18px 16px 16px;
 }
 
 .brandWrap {
-  margin-bottom: 18px;
+  margin-bottom: 14px;
+  flex: 0 0 auto;
 }
 
-.sidebarTopTools {
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: 14px;
-  position: relative;
-}
 .nav {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  margin-top: 8px;
-  flex: 1;
+  gap: 6px;
+  flex: 0 0 auto;
 }
 
 .navItem {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 12px;
-  border-radius: 14px;
-  color: rgba(255, 255, 255, 0.88);
+  min-height: 48px;
+  padding: 0 14px;
+  border-radius: 16px;
   text-decoration: none;
-  font-weight: 700;
-  letter-spacing: 0.2px;
+  color: rgba(255, 255, 255, 0.88);
+  transition: all 0.2s ease;
 }
 
 .navItem:hover {
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(55, 71, 154, 0.14);
+  color: #ffffff;
+  transform: translateX(1px);
 }
 
 .navItemActive {
-  background: rgba(255, 255, 255, 0.12);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+  background: linear-gradient(180deg, rgba(55, 71, 154, 0.3), rgba(55, 71, 154, 0.18));
+  border: 1px solid rgba(142, 167, 236, 0.2);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 8px 18px rgba(17, 24, 39, 0.18);
+  color: #ffffff;
+}
+
+.navLabel {
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0.01em;
 }
 
 .icon {
   width: 18px;
   height: 18px;
-  opacity: 0.92;
+  flex: 0 0 18px;
+  opacity: 0.95;
 }
 
-.sidebarCard {
-  margin-top: 16px;
-  padding: 16px;
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.sectionTitle {
-  font-size: 12px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.7);
-  margin-bottom: 10px;
-  font-weight: 900;
-}
-
-.inviteRow {
+.sidebarFooter {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
   display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.codePill {
-  padding: 10px 12px;
-  border-radius: 999px;
-  background: rgba(217, 180, 74, 0.16);
-  border: 1px solid rgba(217, 180, 74, 0.35);
-  color: #fff;
-  font-weight: 900;
-  font-size: 13px;
-  letter-spacing: 0.05em;
-}
-
-.miniText {
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.7);
-}
-
-.userRow {
-  display: flex;
+  flex-direction: column;
   gap: 12px;
-  align-items: center;
 }
 
-.avatar {
-  width: 42px;
-  height: 42px;
+.accountCard {
+  padding: 14px;
+  border-radius: 20px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.05));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 12px 24px rgba(0, 0, 0, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.accountLeft {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+}
+
+.accountAvatar {
+  position: relative;
+  width: 50px;
+  height: 50px;
+  flex: 0 0 50px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.14);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: 900;
+  background: radial-gradient(circle at 30% 30%, #4060c8 0%, #2d428f 55%, #22316a 100%);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 6px 14px rgba(0, 0, 0, 0.18);
 }
 
-.userName {
-  font-weight: 900;
+.accountInitials {
   color: #ffffff;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
 }
 
-.logoutRow {
-  margin-top: 12px;
+.accountMeta {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.accountName {
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.accountAvatar {
+  position: relative;
+  width: 50px;
+  height: 50px;
+  flex: 0 0 50px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: radial-gradient(circle at 30% 30%, #4060c8 0%, #2d428f 55%, #22316a 100%);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 6px 14px rgba(0, 0, 0, 0.18);
+}
+
+.accountAvatarImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.accountRole {
+  color: rgba(255, 255, 255, 0.64);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  line-height: 1.2;
+}
+
+.accountEmail {
+  color: rgba(255, 255, 255, 0.76);
+  font-size: 11px;
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.accountAction {
+  flex: 0 0 auto;
+}
+
+.accountAction :global(button) {
+  width: 42px;
+  height: 42px;
+  min-height: 42px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  padding: 0;
+  font-size: 0;
+  position: relative;
+}
+
+.accountAction :global(button:hover) {
+  background: rgba(255, 255, 255, 0.14);
+  transform: translateY(-1px);
+}
+
+.accountAction :global(button)::before {
+  content: "";
+  width: 18px;
+  height: 18px;
+  display: block;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 18px 18px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none'><path d='M14 8l4 4-4 4' stroke='white' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/><path d='M8 12h10' stroke='white' stroke-width='1.8' stroke-linecap='round'/><path d='M10 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4' stroke='white' stroke-width='1.8' stroke-linecap='round'/></svg>");
 }
 
 .main {
-  flex: 1;
+  min-width: 0;
+  height: 100dvh;
+  overflow-y: auto;
   padding: 24px;
 }
 
 @media (max-width: 900px) {
-  .sidebar {
-    width: 250px;
+  .shell {
+    grid-template-columns: 248px minmax(0, 1fr);
+  }
+
+  .sidebarInner {
+    padding: 16px 14px 14px;
+  }
+
+  .navItem {
+    min-height: 46px;
+    padding: 0 12px;
   }
 
   .main {

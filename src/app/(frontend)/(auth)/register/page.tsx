@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { Eye, EyeOff } from 'lucide-react'
 import styles from './register.module.css'
 import Brand from '../../components/Brand/Brand'
 
@@ -10,11 +11,29 @@ const AUTH_COLLECTION = 'customers'
 function cleanEmailInput(v: string) {
   return v.trim().toLowerCase().replace(/\u200B|\u200C|\u200D|\uFEFF/g, '')
 }
+
 function isValidEmail(email: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
 }
+
 function isValidPhone(phone: string) {
   return /^[+\d\s]{6,}$/.test(phone.trim())
+}
+
+function hasUppercase(value: string) {
+  return /[A-ZÆØÅ]/.test(value)
+}
+
+function hasLowercase(value: string) {
+  return /[a-zæøå]/.test(value)
+}
+
+function hasNumber(value: string) {
+  return /\d/.test(value)
+}
+
+function hasSpecialChar(value: string) {
+  return /[^A-Za-z0-9]/.test(value)
 }
 
 export default function RegisterPage() {
@@ -38,8 +57,66 @@ export default function RegisterPage() {
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
 
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+
+  const passwordChecks = useMemo(() => {
+    return {
+      minLength: password.length >= 8,
+      uppercase: hasUppercase(password),
+      lowercase: hasLowercase(password),
+      number: hasNumber(password),
+      special: hasSpecialChar(password),
+    }
+  }, [password])
+
+  const passedPasswordChecks = Object.values(passwordChecks).filter(Boolean).length
+
+  const passwordStrength = useMemo(() => {
+    if (!password) {
+      return {
+        label: '',
+        level: 0,
+        className: styles.strengthEmpty,
+        progressClassName: '',
+        width: '0%',
+      }
+    }
+
+    if (passedPasswordChecks <= 2) {
+      return {
+        label: 'Svakt',
+        level: 1,
+        className: styles.strengthWeak,
+        progressClassName: styles.passwordProgressWeak,
+        width: '33%',
+      }
+    }
+
+    if (passedPasswordChecks <= 4) {
+      return {
+        label: 'Middels',
+        level: 2,
+        className: styles.strengthMedium,
+        progressClassName: styles.passwordProgressMedium,
+        width: '66%',
+      }
+    }
+
+    return {
+      label: 'Sterkt',
+      level: 3,
+      className: styles.strengthStrong,
+      progressClassName: styles.passwordProgressStrong,
+      width: '100%',
+    }
+  }, [password, passedPasswordChecks])
+
+  const passwordsMatch = confirm.length > 0 && password === confirm
+  const passwordsDontMatch = confirm.length > 0 && password !== confirm
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -74,8 +151,13 @@ export default function RegisterPage() {
       return
     }
 
-    if (password.length < 6) {
-      setError('Passord må være minst 6 tegn.')
+    if (password.length < 8) {
+      setError('Passord må være minst 8 tegn.')
+      return
+    }
+
+    if (!passwordChecks.uppercase || !passwordChecks.lowercase || !passwordChecks.number) {
+      setError('Passord må inneholde store og små bokstaver, samt minst ett tall.')
       return
     }
 
@@ -85,6 +167,7 @@ export default function RegisterPage() {
     }
 
     setLoading(true)
+
     try {
       const createRes = await fetch(`${API_BASE}`, {
         method: 'POST',
@@ -105,6 +188,7 @@ export default function RegisterPage() {
 
       const raw = await createRes.text()
       let createData: any = {}
+
       try {
         createData = JSON.parse(raw)
       } catch {}
@@ -145,8 +229,8 @@ export default function RegisterPage() {
           </h2>
 
           <p className={styles.heroText}>
-            Hold oversikt over kalender, avtaler og oppgaver rundt barnet
-            i hverdagen – samlet på ett sted.
+            Hold oversikt over kalender, avtaler og oppgaver rundt barnet i hverdagen – samlet på
+            ett sted.
           </p>
 
           <div className={styles.heroTags}>
@@ -324,34 +408,95 @@ export default function RegisterPage() {
                 <label className={styles.label} htmlFor="password">
                   Passord
                 </label>
+
                 <div className={styles.field}>
                   <input
                     id="password"
-                    type="password"
+                    type={showPassword ? 'text' : 'password'}
                     autoComplete="new-password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     disabled={loading}
                     placeholder="Skriv inn passord"
                   />
+
+                  <button
+                    type="button"
+                    className={styles.passwordToggle}
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    aria-label={showPassword ? 'Skjul passord' : 'Vis passord'}
+                  >
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
                 </div>
+
+                {password.length > 0 && (
+                  <div className={styles.passwordSection}>
+                    <div className={styles.passwordStrengthRow}>
+                      <span className={styles.passwordStrengthLabel}>PASSORDSIKKERHET</span>
+                      <span
+                        className={`${styles.passwordStrengthValue} ${passwordStrength.className}`}
+                      >
+                        {passwordStrength.label}
+                      </span>
+                    </div>
+
+                    <div
+                      className={styles.passwordProgress}
+                      role="progressbar"
+                      aria-valuemin={0}
+                      aria-valuemax={3}
+                      aria-valuenow={passwordStrength.level}
+                      aria-label="Passordstyrke"
+                    >
+                      <span
+                        className={`${styles.passwordProgressFill} ${passwordStrength.progressClassName}`}
+                        style={{ width: passwordStrength.width }}
+                      />
+                    </div>
+
+                    <p className={styles.passwordHint}>
+                      Bruk minst 8 tegn med stor og liten bokstav, samt minst ett tall.
+                    </p>
+                  </div>
+                )}
               </div>
 
               <div className={styles.fieldGroup}>
                 <label className={styles.label} htmlFor="confirm">
                   Bekreft passord
                 </label>
+
                 <div className={styles.field}>
                   <input
                     id="confirm"
-                    type="password"
+                    type={showConfirmPassword ? 'text' : 'password'}
                     autoComplete="new-password"
                     value={confirm}
                     onChange={(e) => setConfirm(e.target.value)}
                     disabled={loading}
                     placeholder="Gjenta passord"
                   />
+
+                  <button
+                    type="button"
+                    className={styles.passwordToggle}
+                    onClick={() => setShowConfirmPassword((prev) => !prev)}
+                    aria-label={showConfirmPassword ? 'Skjul passord' : 'Vis passord'}
+                  >
+                    {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
                 </div>
+
+                {confirm.length > 0 && (
+                  <div className={styles.confirmState}>
+                    {passwordsMatch ? (
+                      <span className={styles.matchOk}>Passordene matcher</span>
+                    ) : passwordsDontMatch ? (
+                      <span className={styles.matchError}>Passordene matcher ikke</span>
+                    ) : null}
+                  </div>
+                )}
               </div>
             </div>
 

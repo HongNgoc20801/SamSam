@@ -1533,6 +1533,7 @@ dashboard: {
   confirmJoin: 'Bekreft bli med',
   joining: 'Blir med...',
   parent: 'Forelder',
+  searchPlaceholder: 'Søk etter hendelser eller filer...',
 },
   },
 
@@ -3078,6 +3079,7 @@ dashboard: {
   confirmJoin: 'Confirm join',
   joining: 'Joining...',
   parent: 'Parent',
+  searchPlaceholder: 'Search events or files...',
 },
   },
 } as const

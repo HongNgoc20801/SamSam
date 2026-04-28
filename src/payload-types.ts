@@ -776,6 +776,11 @@ export interface CalendarEvent {
   handoverFrom?: (number | null) | Customer;
   handoverTo?: (number | null) | Customer;
   responsibleParent?: (number | null) | Customer;
+  handoverStatus?: ('not-started' | 'delivered' | 'completed') | null;
+  handoverDeliveredAt?: string | null;
+  handoverDeliveredBy?: (number | null) | Customer;
+  handoverReceivedAt?: string | null;
+  handoverReceivedBy?: (number | null) | Customer;
   linkedEconomyTransaction?: (number | null) | EconomyTransaction;
   source: 'manual' | 'economy-transaction' | 'economy-request' | 'system';
   silentSync?: boolean | null;
@@ -1483,6 +1488,11 @@ export interface CalendarEventsSelect<T extends boolean = true> {
   handoverFrom?: T;
   handoverTo?: T;
   responsibleParent?: T;
+  handoverStatus?: T;
+  handoverDeliveredAt?: T;
+  handoverDeliveredBy?: T;
+  handoverReceivedAt?: T;
+  handoverReceivedBy?: T;
   linkedEconomyTransaction?: T;
   source?: T;
   silentSync?: T;

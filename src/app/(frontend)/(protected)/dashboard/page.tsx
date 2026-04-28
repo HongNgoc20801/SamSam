@@ -6,22 +6,21 @@ import { useRouter } from 'next/navigation'
 import { format } from 'date-fns'
 import { useTranslations } from '@/app/lib/i18n/useTranslations'
 import {
+  AlertTriangle,
   Bell,
   CalendarDays,
   Check,
   ChevronRight,
   Clock3,
-  Plus,
-  X,
-  MapPin,
-  UserRound,
-  ArrowRightLeft,
+  FileText,
   Loader2,
-  Users,
-  AlertTriangle,
-  Wallet,
+  MapPin,
+  Plus,
   Receipt,
   UserPlus,
+  Users,
+  Wallet,
+  X,
 } from 'lucide-react'
 import styles from './dashboard.module.css'
 
@@ -45,6 +44,9 @@ type MeUser = {
   lastName?: string
   fullName?: string
   email?: string
+  profileImage?: any
+  avatar?: any
+  image?: any
 }
 
 type ParentOption = {
@@ -83,6 +85,11 @@ type DashboardEvent = {
   confirmedBy?: any
   confirmedAt?: string
   createdBy?: any
+  handoverStatus?: 'not-started' | 'delivered' | 'completed'
+  handoverDeliveredAt?: string
+  handoverDeliveredBy?: any
+  handoverReceivedAt?: string
+  handoverReceivedBy?: any
 }
 
 type ChildDashboardItem = {
@@ -197,6 +204,12 @@ type DashboardData = {
     confirmationStatus: string
     confirmedByName: string
     confirmedAt?: string
+    createdById: string
+    handoverFromId: string
+    handoverToId: string
+    handoverStatus: string
+    handoverDeliveredAt?: string
+    handoverReceivedAt?: string
   } | null
   decisionActions: DecisionActionItem[]
   openFinanceItems: OpenFinanceItem[]
@@ -234,6 +247,25 @@ function getRelDisplayName(v: any, nameMap?: Map<string, string>) {
   return v.fullName || v.name || full || (id ? nameMap?.get(id) || '' : '') || v.email || ''
 }
 
+function getMediaUrl(value: any) {
+  if (!value) return ''
+
+  if (typeof value === 'string') return value
+
+  return (
+    value?.url ||
+    value?.sizes?.thumbnail?.url ||
+    value?.sizes?.card?.url ||
+    value?.sizes?.small?.url ||
+    ''
+  )
+}
+
+function getProfileImageUrl(me: MeUser | null) {
+  if (!me) return ''
+  return getMediaUrl(me.profileImage) || getMediaUrl(me.avatar) || getMediaUrl(me.image)
+}
+
 function shorten(text?: string, max = 80) {
   const value = String(text || '').trim()
   if (!value) return ''
@@ -259,6 +291,12 @@ function getCountdownParts(targetIso?: string) {
   return { days, hours, minutes, expired: false }
 }
 
+function hasStarted(value?: string) {
+  if (!value) return false
+  const time = new Date(value).getTime()
+  return !Number.isNaN(time) && time <= Date.now()
+}
+
 export default function DashboardPage() {
   const router = useRouter()
   const t = useTranslations()
@@ -266,14 +304,13 @@ export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [parents, setParents] = useState<ParentOption[]>([])
+  const [, setParents] = useState<ParentOption[]>([])
   const [notifOpen, setNotifOpen] = useState(false)
   const [joinOpen, setJoinOpen] = useState(false)
   const [actionLoading, setActionLoading] = useState('')
   const [joinCode, setJoinCode] = useState('')
   const [joinPreview, setJoinPreview] = useState<FamilyJoinPreview | null>(null)
   const [joinModalOpen, setJoinModalOpen] = useState(false)
-  const [searchTerm, setSearchTerm] = useState('')
 
   const locale =
     typeof window !== 'undefined' && window.location.pathname.startsWith('/en')
@@ -360,6 +397,12 @@ export default function DashboardPage() {
     }
   }
 
+  function getHandoverStatusLabel(status?: string) {
+    if (status === 'delivered') return 'Levert – venter på mottak'
+    if (status === 'completed') return 'Overlevering fullført'
+    return 'Ikke overlevert enda'
+  }
+
   function buildNotificationTitle(item: NotificationItem) {
     const meta = item.meta || {}
     const actorName = String(meta.actorName || t.dashboard.aParent).trim()
@@ -370,6 +413,9 @@ export default function DashboardPage() {
     const documentName = String(meta.documentName || item.title || '').trim()
 
     if (item.type === 'calendar') {
+      if (meta.handoverStatus === 'delivered') return `${actorName} bekreftet at barnet er levert`
+      if (meta.handoverStatus === 'completed') return `${actorName} bekreftet at barnet er mottatt`
+
       if (item.event === 'created') {
         return `${actorName} ${t.dashboard.createdEventTitle} ${eventType.toLowerCase()}${childName ? ` ${t.dashboard.forChild} ${childName}` : ''}`
       }
@@ -477,6 +523,26 @@ export default function DashboardPage() {
     const confirmedAt = String(meta.confirmedAt || '').trim()
 
     if (item.type === 'calendar') {
+      if (meta.handoverStatus === 'delivered') {
+        return [
+          childName ? `${t.dashboard.childLabel}: ${childName}` : '',
+          meta.startAt ? formatNotificationTime(meta.startAt) : '',
+          meta.location || '',
+        ]
+          .filter(Boolean)
+          .join(' · ')
+      }
+
+      if (meta.handoverStatus === 'completed') {
+        return [
+          childName ? `${t.dashboard.childLabel}: ${childName}` : '',
+          meta.startAt ? formatNotificationTime(meta.startAt) : '',
+          meta.location || '',
+        ]
+          .filter(Boolean)
+          .join(' · ')
+      }
+
       const parts = [
         meta.startAt ? formatNotificationTime(meta.startAt) : '',
         meta.handoverFromName && meta.handoverToName
@@ -676,11 +742,16 @@ export default function DashboardPage() {
         return (
           event.requiresConfirmation === true &&
           event.confirmationStatus === 'pending' &&
-          String((event.createdBy as any)?.id || event.createdBy || '') !== currentUserId
+          getRelId(event.createdBy) !== currentUserId
         )
       })
 
-      const upcomingHandover = visibleUpcoming.find((event) => event.eventType === 'handover') ?? null
+      const upcomingHandover =
+        visibleUpcoming.find(
+          (event) => event.eventType === 'handover' && event.handoverStatus !== 'completed',
+        ) ??
+        visibleUpcoming.find((event) => event.eventType === 'handover') ??
+        null
 
       const decisionEventActions: DecisionActionItem[] = confirmableUpcoming.map((event) => ({
         id: event.id,
@@ -732,7 +803,7 @@ export default function DashboardPage() {
         bankStatusJson?.familyBank?.currency || bankStatusJson?.personalBank?.currency || 'NOK'
 
       const decisionRequestActions: DecisionActionItem[] = pendingRequests
-        .filter((item) => String(getRelId(item.createdBy)) !== currentUserId)
+        .filter((item) => getRelId(item.createdBy) !== currentUserId)
         .slice(0, 5)
         .map((item) => ({
           id: item.id,
@@ -745,7 +816,7 @@ export default function DashboardPage() {
         }))
 
       const openWaitingRequests: OpenFinanceItem[] = pendingRequests
-        .filter((item) => String(getRelId(item.createdBy)) === currentUserId)
+        .filter((item) => getRelId(item.createdBy) === currentUserId)
         .slice(0, 5)
         .map((item) => ({
           id: item.id,
@@ -764,11 +835,8 @@ export default function DashboardPage() {
       const financeOverview: FinanceOverview = {
         pendingPaymentCount: pendingPayments.length,
         pendingPaymentTotal: pendingPayments.reduce((sum, item) => sum + Number(item.amount || 0), 0),
-        pendingRequestReviewCount: pendingRequests.filter(
-          (item) => String(getRelId(item.createdBy)) !== currentUserId,
-        ).length,
-        waitingRequestCount: pendingRequests.filter((item) => String(getRelId(item.createdBy)) === currentUserId)
-          .length,
+        pendingRequestReviewCount: pendingRequests.filter((item) => getRelId(item.createdBy) !== currentUserId).length,
+        waitingRequestCount: pendingRequests.filter((item) => getRelId(item.createdBy) === currentUserId).length,
         familyBankBalance: Number(familyBank?.currentBalance || 0),
         familyBankCurrency: familyBank?.currency || 'NOK',
       }
@@ -797,6 +865,12 @@ export default function DashboardPage() {
               confirmationStatus: upcomingHandover.confirmationStatus || 'not-required',
               confirmedByName: getRelDisplayName(upcomingHandover.confirmedBy, localParentNameById),
               confirmedAt: upcomingHandover.confirmedAt,
+              createdById: getRelId(upcomingHandover.createdBy),
+              handoverFromId: getRelId(upcomingHandover.handoverFrom),
+              handoverToId: getRelId(upcomingHandover.handoverTo),
+              handoverStatus: upcomingHandover.handoverStatus || 'not-started',
+              handoverDeliveredAt: upcomingHandover.handoverDeliveredAt,
+              handoverReceivedAt: upcomingHandover.handoverReceivedAt,
             }
           : null,
         decisionActions: [...decisionChildActions, ...decisionEventActions, ...decisionRequestActions],
@@ -828,45 +902,43 @@ export default function DashboardPage() {
 
   const greetingName = useMemo(() => getDisplayName(data?.me ?? null), [data?.me])
 
+  const profileImageUrl = useMemo(() => getProfileImageUrl(data?.me ?? null), [data?.me])
+
   const countdown = useMemo(() => {
     return getCountdownParts(data?.upcomingHandover?.startAt)
   }, [data?.upcomingHandover?.startAt])
 
-  const normalizedQuery = useMemo(() => searchTerm.trim().toLowerCase(), [searchTerm])
-
-  const filteredDecisionActions = useMemo(() => {
+  const todayEvents = useMemo(() => {
     if (!data) return []
-    if (!normalizedQuery) return data.decisionActions
-    return data.decisionActions.filter((item) =>
-      [item.title, item.subtitle, item.detail].join(' ').toLowerCase().includes(normalizedQuery),
+
+    const todayKey = format(new Date(), 'yyyy-MM-dd')
+
+    return data.upcomingEvents.filter(
+      (item) => format(new Date(item.startAt), 'yyyy-MM-dd') === todayKey,
     )
-  }, [data, normalizedQuery])
+  }, [data])
 
-  const filteredFinanceItems = useMemo(() => {
-    if (!data) return []
-    if (!normalizedQuery) return data.openFinanceItems
-    return data.openFinanceItems.filter((item) =>
-      [item.title, item.subtitle, item.detail].join(' ').toLowerCase().includes(normalizedQuery),
-    )
-  }, [data, normalizedQuery])
+  const currentUserId = String(data?.me?.id || '')
 
-  const filteredUpcomingEvents = useMemo(() => {
-    if (!data) return []
-    if (!normalizedQuery) return data.upcomingEvents
-    return data.upcomingEvents.filter((item) =>
-      [item.title, item.childName, item.location, item.eventType].join(' ').toLowerCase().includes(normalizedQuery),
-    )
-  }, [data, normalizedQuery])
+  const canConfirmUpcomingHandover =
+    data?.upcomingHandover?.confirmationStatus === 'pending' &&
+    data.upcomingHandover.createdById !== currentUserId
 
-  const filteredNotifications = useMemo(() => {
-    if (!data) return []
-    if (!normalizedQuery) return data.notifications
-    return data.notifications.filter((item) => {
-      const title = buildNotificationTitle(item)
-      const message = buildNotificationMessage(item)
-      return [title, message].join(' ').toLowerCase().includes(normalizedQuery)
-    })
-  }, [data, normalizedQuery])
+  const handoverHasStarted = hasStarted(data?.upcomingHandover?.startAt)
+
+  const canMarkHandoverDelivered =
+    !!data?.upcomingHandover &&
+    handoverHasStarted &&
+    data.upcomingHandover.confirmationStatus !== 'declined' &&
+    data.upcomingHandover.handoverStatus === 'not-started' &&
+    data.upcomingHandover.handoverFromId === currentUserId
+
+  const canMarkHandoverCompleted =
+    !!data?.upcomingHandover &&
+    handoverHasStarted &&
+    data.upcomingHandover.confirmationStatus !== 'declined' &&
+    data.upcomingHandover.handoverStatus === 'delivered' &&
+    data.upcomingHandover.handoverToId === currentUserId
 
   async function markNotificationAsRead(id: string | number) {
     try {
@@ -886,6 +958,7 @@ export default function DashboardPage() {
     if (wasUnread) {
       setData((prev) => {
         if (!prev) return prev
+
         return {
           ...prev,
           unreadNotifications: Math.max(0, prev.unreadNotifications - 1),
@@ -903,6 +976,7 @@ export default function DashboardPage() {
 
   async function handleConfirmation(eventId: string | number, nextStatus: 'confirmed' | 'declined') {
     try {
+      setError('')
       setActionLoading(`confirm-${eventId}-${nextStatus}`)
 
       const res = await fetch(`/api/calendar-events/${eventId}`, {
@@ -911,6 +985,44 @@ export default function DashboardPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           confirmationStatus: nextStatus,
+        }),
+      })
+
+      const raw = await res.text()
+      let json: any = null
+
+      try {
+        json = raw ? JSON.parse(raw) : null
+      } catch {
+        json = null
+      }
+
+      if (!res.ok) {
+        throw new Error(json?.message || json?.errors?.[0]?.message || raw || t.dashboard.couldNotUpdateConfirmation)
+      }
+
+      await loadDashboard()
+    } catch (err: any) {
+      setError(err?.message || t.dashboard.couldNotUpdateConfirmation)
+    } finally {
+      setActionLoading('')
+    }
+  }
+
+  async function handleHandoverStatus(
+    eventId: string | number,
+    nextStatus: 'delivered' | 'completed',
+  ) {
+    try {
+      setError('')
+      setActionLoading(`handover-${eventId}-${nextStatus}`)
+
+      const res = await fetch(`/api/calendar-events/${eventId}`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          handoverStatus: nextStatus,
         }),
       })
 
@@ -1023,535 +1135,614 @@ export default function DashboardPage() {
     return <div className={styles.state}>{t.dashboard.noData}</div>
   }
 
+  if (data.childCount === 0) {
+    return (
+      <div className={styles.wrapper}>
+        <header className={styles.header}>
+          <div>
+            <h1 className={styles.title}>
+              {t.dashboard.goodMorning}, {greetingName}
+            </h1>
+            <p className={styles.subtitle}>{t.dashboard.structuredOverviewToday}</p>
+          </div>
+
+          <div className={styles.headerActions}>
+            <Link href="/profile" className={styles.profileAvatar} aria-label={t.dashboard.openProfile}>
+              {profileImageUrl ? (
+                <img src={profileImageUrl} alt="" className={styles.profileAvatarImage} />
+              ) : (
+                String(greetingName || '?').charAt(0).toUpperCase()
+              )}
+            </Link>
+          </div>
+        </header>
+
+        {error ? <div className={styles.inlineError}>{error}</div> : null}
+
+        <section className={styles.childOnlyEmpty}>
+          <div className={styles.childOnlyIcon}>
+            <Users size={28} />
+          </div>
+
+          <div>
+            <span className={styles.childOnlyEyebrow}>Samsam</span>
+            <h2>{t.dashboard.noChildProfileYet}</h2>
+            <p>{t.dashboard.noChildProfileDescription}</p>
+          </div>
+
+          <Link href="/child-info/new">{t.dashboard.createChildProfile}</Link>
+        </section>
+      </div>
+    )
+  }
+
   const handoverTone = getStatusTone(
     data.upcomingHandover?.confirmationStatus,
     data.upcomingHandover?.confirmationStatus !== 'not-required',
   )
 
-return (
-  <div className={styles.wrapper}>
-    <header className={styles.header}>
-      <div>
-        <h1 className={styles.title}>
-          {t.dashboard.goodMorning}, {greetingName}
-        </h1>
-        <p className={styles.subtitle}>{t.dashboard.structuredOverviewToday}</p>
-      </div>
-
-      <div className={styles.headerActions}>
-        <div className={styles.joinIconWrap}>
-          <button
-            type="button"
-            className={styles.iconBtn}
-            onClick={() => {
-              setJoinOpen((prev) => !prev)
-              setNotifOpen(false)
-            }}
-            aria-label={t.dashboard.joinFamily}
-          >
-            <UserPlus size={20} />
-          </button>
-
-          {joinOpen ? (
-            <div className={styles.joinPopover}>
-              <h3>{t.dashboard.joinFamily}</h3>
-              <p>{t.dashboard.joinFamilyDescription}</p>
-
-              <div className={styles.joinPopoverForm}>
-                <input
-                  type="text"
-                  placeholder={t.dashboard.enterInviteCode}
-                  value={joinCode}
-                  onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-                  maxLength={20}
-                />
-
-                <button
-                  type="button"
-                  onClick={previewJoinFamily}
-                  disabled={!joinCode.trim() || actionLoading === 'join-preview'}
-                >
-                  {actionLoading === 'join-preview' ? (
-                    <Loader2 size={16} className={styles.spin} />
-                  ) : (
-                    t.dashboard.joinFamily
-                  )}
-                </button>
-              </div>
-            </div>
-          ) : null}
-        </div>
-
-        <div className={styles.bellWrap}>
-          <button
-            type="button"
-            className={styles.iconBtn}
-            onClick={() => {
-              setNotifOpen((prev) => !prev)
-              setJoinOpen(false)
-            }}
-            aria-label={t.dashboard.openNotifications}
-          >
-            <Bell size={18} />
-
-            {data.unreadNotifications > 0 ? (
-              <span className={styles.bellCount}>
-                {data.unreadNotifications > 9 ? '9+' : data.unreadNotifications}
-              </span>
-            ) : null}
-          </button>
-
-          {notifOpen ? (
-            <div className={styles.notifDropdown}>
-              <div className={styles.notifHeader}>
-                <span>{t.dashboard.recentNotifications}</span>
-                <Link href="/notifications">{t.dashboard.viewAll}</Link>
-              </div>
-
-              {filteredNotifications.length === 0 ? (
-                <div className={styles.notifEmpty}>{t.dashboard.noNotificationsYet}</div>
-              ) : (
-                <div className={styles.notifList}>
-                  {filteredNotifications.map((item) => (
-                    <a
-                      key={String(item.id)}
-                      href={item.link || '/notifications'}
-                      className={styles.notifItem}
-                      onClick={(e) => handleNotificationClick(e, item)}
-                    >
-                      <strong>{buildNotificationTitle(item)}</strong>
-                      <p>{buildNotificationMessage(item)}</p>
-                      <small>{formatNotificationTime(item.createdAt)}</small>
-                    </a>
-                  ))}
-                </div>
-              )}
-            </div>
-          ) : null}
-        </div>
-
-        <Link href="/profile" className={styles.profileAvatar} aria-label={t.dashboard.openProfile}>
-          {String(greetingName || '?').charAt(0).toUpperCase()}
-        </Link>
-      </div>
-    </header>
-
-    {error ? <div className={styles.inlineError}>{error}</div> : null}
-
-    {data.childCount === 0 ? (
-      <section className={styles.bannerCard}>
-        <div className={styles.bannerIcon}>
-          <Users size={20} />
-        </div>
-
+  return (
+    <div className={styles.wrapper}>
+      <header className={styles.header}>
         <div>
-          <strong>{t.dashboard.noChildProfileYet}</strong>
-          <p>{t.dashboard.noChildProfileDescription}</p>
+          <h1 className={styles.title}>
+            {t.dashboard.goodMorning}, {greetingName}
+          </h1>
+          <p className={styles.subtitle}>{t.dashboard.structuredOverviewToday}</p>
         </div>
 
-        <Link href="/child-info/new">{t.dashboard.createChildProfile}</Link>
-      </section>
-    ) : null}
+        <div className={styles.headerActions}>
+          <div className={styles.joinIconWrap}>
+            <button
+              type="button"
+              className={styles.iconBtn}
+              onClick={() => {
+                setJoinOpen((prev) => !prev)
+                setNotifOpen(false)
+              }}
+              aria-label={t.dashboard.joinFamily}
+            >
+              <UserPlus size={20} />
+            </button>
 
-    <main className={styles.dashboardLayout}>
-      <section className={styles.handoverHero}>
-        {data.upcomingHandover ? (
-          <>
-            <div className={styles.handoverHeroText}>
-              <span className={styles.handoverEyebrow}>{t.dashboard.upcomingHandover}</span>
+            {joinOpen ? (
+              <div className={styles.joinPopover}>
+                <h3>{t.dashboard.joinFamily}</h3>
+                <p>{t.dashboard.joinFamilyDescription}</p>
 
-              <h2>{data.upcomingHandover.title}</h2>
+                <div className={styles.joinPopoverForm}>
+                  <input
+                    type="text"
+                    placeholder={t.dashboard.enterInviteCode}
+                    value={joinCode}
+                    onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                    maxLength={20}
+                  />
 
-              <div className={styles.handoverInfoGrid}>
-                <div className={styles.handoverInfoItem}>
-                  <span>{t.dashboard.childLabel}</span>
-                  <strong>{data.upcomingHandover.childName || t.dashboard.notSet}</strong>
-                </div>
-
-                <div className={styles.handoverInfoItem}>
-                  <span>{t.dashboard.from}</span>
-                  <strong>{data.upcomingHandover.handoverFromName || t.dashboard.notSet}</strong>
-                </div>
-
-                <div className={styles.handoverInfoItem}>
-                  <span>{t.dashboard.to}</span>
-                  <strong>{data.upcomingHandover.handoverToName || t.dashboard.notSet}</strong>
-                </div>
-
-                <div className={styles.handoverInfoItem}>
-                  <span>{t.dashboard.responsible}</span>
-                  <strong>{data.upcomingHandover.responsibleParentName || t.dashboard.notAssigned}</strong>
+                  <button
+                    type="button"
+                    onClick={previewJoinFamily}
+                    disabled={!joinCode.trim() || actionLoading === 'join-preview'}
+                  >
+                    {actionLoading === 'join-preview' ? (
+                      <Loader2 size={16} className={styles.spin} />
+                    ) : (
+                      t.dashboard.joinFamily
+                    )}
+                  </button>
                 </div>
               </div>
+            ) : null}
+          </div>
+
+          <div className={styles.bellWrap}>
+            <button
+              type="button"
+              className={styles.iconBtn}
+              onClick={() => {
+                setNotifOpen((prev) => !prev)
+                setJoinOpen(false)
+              }}
+              aria-label={t.dashboard.openNotifications}
+            >
+              <Bell size={18} />
+
+              {data.unreadNotifications > 0 ? (
+                <span className={styles.bellCount}>
+                  {data.unreadNotifications > 9 ? '9+' : data.unreadNotifications}
+                </span>
+              ) : null}
+            </button>
+
+            {notifOpen ? (
+              <div className={styles.notifDropdown}>
+                <div className={styles.notifHeader}>
+                  <span>{t.dashboard.recentNotifications}</span>
+                  <Link href="/notifications">{t.dashboard.viewAll}</Link>
+                </div>
+
+                {data.notifications.length === 0 ? (
+                  <div className={styles.notifEmpty}>{t.dashboard.noNotificationsYet}</div>
+                ) : (
+                  <div className={styles.notifList}>
+                    {data.notifications.map((item) => (
+                      <a
+                        key={String(item.id)}
+                        href={item.link || '/notifications'}
+                        className={styles.notifItem}
+                        onClick={(e) => handleNotificationClick(e, item)}
+                      >
+                        <strong>{buildNotificationTitle(item)}</strong>
+                        <p>{buildNotificationMessage(item)}</p>
+                        <small>{formatNotificationTime(item.createdAt)}</small>
+                      </a>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : null}
+          </div>
+
+          <Link href="/profile" className={styles.profileAvatar} aria-label={t.dashboard.openProfile}>
+            {profileImageUrl ? (
+              <img src={profileImageUrl} alt="" className={styles.profileAvatarImage} />
+            ) : (
+              String(greetingName || '?').charAt(0).toUpperCase()
+            )}
+          </Link>
+        </div>
+      </header>
+
+      {error ? <div className={styles.inlineError}>{error}</div> : null}
+
+      <main className={styles.dashboardLayout}>
+        <section className={styles.handoverHero}>
+          {data.upcomingHandover ? (
+            <>
+              <div className={styles.handoverHeroText}>
+                <div className={styles.handoverTopRow}>
+                  <span className={styles.handoverEyebrow}>{t.dashboard.upcomingHandover}</span>
+                  <span className={`${styles.statusBadge} ${handoverTone.className}`}>
+                    {handoverTone.label}
+                  </span>
+                </div>
+
+                <h2>{data.upcomingHandover.title}</h2>
+{/* 
+                <div className={styles.handoverSummary}>
+                  <div>
+                    <span>{t.dashboard.childLabel}</span>
+                    <strong>{data.upcomingHandover.childName || t.dashboard.notSet}</strong>
+                  </div>
+
+                  <div>
+                    <span>{t.dashboard.from}</span>
+                    <strong>{data.upcomingHandover.handoverFromName || t.dashboard.notSet}</strong>
+                  </div>
+
+                  <div>
+                    <span>{t.dashboard.to}</span>
+                    <strong>{data.upcomingHandover.handoverToName || t.dashboard.notSet}</strong>
+                  </div>
+
+                  <div>
+                    <span>{t.dashboard.responsible}</span>
+                    <strong>{data.upcomingHandover.responsibleParentName || t.dashboard.notAssigned}</strong>
+                  </div>
+                </div> */}
+                <div className={styles.handoverSummaryCompact}>
+  <span>
+    {t.dashboard.childLabel}: <strong>{data.upcomingHandover.childName || t.dashboard.notSet}</strong>
+  </span>
+
+  <span>
+    {t.dashboard.from}: <strong>{data.upcomingHandover.handoverFromName || t.dashboard.notSet}</strong>
+  </span>
+
+  <span>
+    {t.dashboard.to}: <strong>{data.upcomingHandover.handoverToName || t.dashboard.notSet}</strong>
+  </span>
+
+  <span>
+    {t.dashboard.responsible}: <strong>{data.upcomingHandover.responsibleParentName || t.dashboard.notAssigned}</strong>
+  </span>
+</div>
+
+                <div className={styles.handoverMeta}>
+                  <span>
+                    <Clock3 size={17} />
+                    {format(new Date(data.upcomingHandover.startAt), 'dd.MM.yyyy HH:mm')}
+                  </span>
+
+                  <span>
+                    <MapPin size={17} />
+                    {data.upcomingHandover.location || t.dashboard.noLocation}
+                  </span>
+
+                  <span>{getHandoverStatusLabel(data.upcomingHandover.handoverStatus)}</span>
+                </div>
+              </div>
+
+              <div className={styles.countdownCard}>
+                <span>{t.dashboard.nextHandoverIn}</span>
+
+                <div className={styles.countdownGrid}>
+                  <div className={styles.countdownItem}>
+                    <strong>{String(countdown?.days ?? 0).padStart(2, '0')}</strong>
+                    <small>{t.dashboard.days}</small>
+                  </div>
+
+                  <div className={styles.countdownItem}>
+                    <strong>{String(countdown?.hours ?? 0).padStart(2, '0')}</strong>
+                    <small>{t.dashboard.hours}</small>
+                  </div>
+
+                  <div className={styles.countdownItem}>
+                    <strong>{String(countdown?.minutes ?? 0).padStart(2, '0')}</strong>
+                    <small>{t.dashboard.mins}</small>
+                  </div>
+                </div>
+
+                {canConfirmUpcomingHandover ? (
+                  <div className={styles.heroActions}>
+                    <button
+                      type="button"
+                      className={styles.acceptBtn}
+                      onClick={() => handleConfirmation(data.upcomingHandover!.id, 'confirmed')}
+                      disabled={actionLoading === `confirm-${data.upcomingHandover.id}-confirmed`}
+                    >
+                      {actionLoading === `confirm-${data.upcomingHandover.id}-confirmed` ? (
+                        <Loader2 size={16} className={styles.spin} />
+                      ) : (
+                        <>
+                          <Check size={16} />
+                          {t.dashboard.accept}
+                        </>
+                      )}
+                    </button>
+
+                    <button
+                      type="button"
+                      className={styles.rejectBtn}
+                      onClick={() => handleConfirmation(data.upcomingHandover!.id, 'declined')}
+                      disabled={actionLoading === `confirm-${data.upcomingHandover.id}-declined`}
+                    >
+                      {actionLoading === `confirm-${data.upcomingHandover.id}-declined` ? (
+                        <Loader2 size={16} className={styles.spin} />
+                      ) : (
+                        <>
+                          <X size={16} />
+                          {t.dashboard.decline}
+                        </>
+                      )}
+                    </button>
+                  </div>
+                ) : canMarkHandoverDelivered ? (
+                  <button
+                    type="button"
+                    className={styles.heroDetailsButton}
+                    onClick={() => handleHandoverStatus(data.upcomingHandover!.id, 'delivered')}
+                    disabled={actionLoading === `handover-${data.upcomingHandover.id}-delivered`}
+                  >
+                    {actionLoading === `handover-${data.upcomingHandover.id}-delivered` ? (
+                      <Loader2 size={16} className={styles.spin} />
+                    ) : (
+                      'Bekreft at barnet er levert'
+                    )}
+                  </button>
+                ) : canMarkHandoverCompleted ? (
+                  <button
+                    type="button"
+                    className={styles.heroDetailsButton}
+                    onClick={() => handleHandoverStatus(data.upcomingHandover!.id, 'completed')}
+                    disabled={actionLoading === `handover-${data.upcomingHandover.id}-completed`}
+                  >
+                    {actionLoading === `handover-${data.upcomingHandover.id}-completed` ? (
+                      <Loader2 size={16} className={styles.spin} />
+                    ) : (
+                      'Bekreft at barnet er mottatt'
+                    )}
+                  </button>
+                ) : (
+                  <Link href={`/calendar?event=${data.upcomingHandover.id}`} className={styles.heroDetailsLink}>
+                    {t.dashboard.viewDetails}
+                  </Link>
+                )}
+              </div>
+            </>
+          ) : (
+            <div className={styles.handoverHeroText}>
+              <span className={styles.handoverEyebrow}>{t.dashboard.calendar}</span>
+              <h2>{t.dashboard.noUpcomingHandover}</h2>
 
               <div className={styles.handoverMeta}>
                 <span>
-                  <Clock3 size={17} />
-                  {format(new Date(data.upcomingHandover.startAt), 'dd.MM.yyyy HH:mm')}
-                </span>
-
-                <span>
-                  <MapPin size={17} />
-                  {data.upcomingHandover.location || t.dashboard.noLocation}
-                </span>
-
-                <span className={`${styles.statusBadge} ${handoverTone.className}`}>
-                  {handoverTone.label}
+                  <CalendarDays size={17} />
+                  {t.dashboard.addHandoverToKeepAligned}
                 </span>
               </div>
             </div>
+          )}
+        </section>
 
-            <div className={styles.countdownCard}>
-              <span>{t.dashboard.nextHandoverIn}</span>
+        <section className={styles.mainColumn}>
+          <section className={styles.card}>
+            <div className={styles.cardHeader}>
+              <h2>{t.dashboard.needsYourDecision}</h2>
+              <Link href="/notifications">{t.dashboard.viewAll}</Link>
+            </div>
 
-              <div className={styles.countdownGrid}>
-                <div className={styles.countdownItem}>
-                  <strong>{String(countdown?.days ?? 0).padStart(2, '0')}</strong>
-                  <small>{t.dashboard.days}</small>
-                </div>
+            {data.decisionActions.length ? (
+              <div className={styles.decisionList}>
+                {data.decisionActions.slice(0, 4).map((item) => (
+                  <div key={`${item.kind}-${item.id}`} className={styles.decisionItem}>
+                    <Link href={item.href} className={styles.decisionBody}>
+                      <div className={styles.decisionIcon}>
+                        {item.kind === 'request-review' ? (
+                          <Wallet size={17} />
+                        ) : item.kind === 'child' ? (
+                          <Users size={17} />
+                        ) : (
+                          <CalendarDays size={17} />
+                        )}
+                      </div>
 
-                <div className={styles.countdownItem}>
-                  <strong>{String(countdown?.hours ?? 0).padStart(2, '0')}</strong>
-                  <small>{t.dashboard.hours}</small>
-                </div>
+                      <div>
+                        <strong>{item.title}</strong>
+                        <span>{item.subtitle || item.detail}</span>
+                      </div>
+                    </Link>
 
-                <div className={styles.countdownItem}>
-                  <strong>{String(countdown?.minutes ?? 0).padStart(2, '0')}</strong>
-                  <small>{t.dashboard.mins}</small>
-                </div>
+                    {item.kind === 'event' ? (
+                      <div className={styles.decisionButtons}>
+                        <button
+                          type="button"
+                          aria-label={t.dashboard.decline}
+                          className={styles.smallRejectBtn}
+                          onClick={() => handleConfirmation(item.id, 'declined')}
+                          disabled={actionLoading === `confirm-${item.id}-declined`}
+                        >
+                          {actionLoading === `confirm-${item.id}-declined` ? (
+                            <Loader2 size={15} className={styles.spin} />
+                          ) : (
+                            <X size={17} />
+                          )}
+                        </button>
+
+                        <button
+                          type="button"
+                          aria-label={t.dashboard.accept}
+                          className={styles.smallAcceptBtn}
+                          onClick={() => handleConfirmation(item.id, 'confirmed')}
+                          disabled={actionLoading === `confirm-${item.id}-confirmed`}
+                        >
+                          {actionLoading === `confirm-${item.id}-confirmed` ? (
+                            <Loader2 size={15} className={styles.spin} />
+                          ) : (
+                            <Check size={17} />
+                          )}
+                        </button>
+                      </div>
+                    ) : (
+                      <Link href={item.href} className={styles.reviewBtn}>
+                        {t.dashboard.review}
+                      </Link>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className={styles.empty}>{t.dashboard.allCaughtUp}</div>
+            )}
+          </section>
+
+          <section className={styles.card}>
+            <div className={styles.cardHeader}>
+              <h2>{t.dashboard.openFamilyFinance}</h2>
+              <Link href="/economy">{t.dashboard.viewAll}</Link>
+            </div>
+
+            {data.openFinanceItems.length ? (
+              <div className={styles.financeList}>
+                {data.openFinanceItems.slice(0, 4).map((item) => (
+                  <Link key={`${item.kind}-${item.id}`} href={item.href} className={styles.financeItem}>
+                    <div>
+                      <strong>{item.title}</strong>
+                      <span>{item.subtitle}</span>
+                      <small>{item.detail}</small>
+                    </div>
+
+                    <ChevronRight size={18} />
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <div className={styles.empty}>{t.dashboard.noOpenFamilyFinanceItems}</div>
+            )}
+          </section>
+
+          <section className={styles.card}>
+            <div className={styles.cardHeader}>
+              <h2>{t.dashboard.todaysTimeline}</h2>
+              <span>{format(new Date(), 'EEEE, MMM d')}</span>
+            </div>
+
+            {todayEvents.length ? (
+              <div className={styles.timeline}>
+                {todayEvents.slice(0, 4).map((item, index) => (
+                  <Link key={String(item.id)} href={`/calendar?event=${item.id}`} className={styles.timelineItem}>
+                    <div className={`${styles.timelineDot} ${index > 0 ? styles.timelineDotMuted : ''}`} />
+
+                    <div className={styles.timelineBody}>
+                      <strong>{format(new Date(item.startAt), 'hh:mm a')}</strong>
+                      <span>{item.title}</span>
+                      <small>{item.location || getEventTypeLabel(item.eventType)}</small>
+                    </div>
+
+                    <em>
+                      {item.confirmationStatus === 'confirmed'
+                        ? t.dashboard.confirmed
+                        : item.requiresConfirmation
+                          ? t.dashboard.needsConfirmation
+                          : ''}
+                    </em>
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <div className={styles.empty}>{t.dashboard.noUpcomingEvents}</div>
+            )}
+          </section>
+        </section>
+
+        <aside className={styles.sideColumn}>
+          <section className={styles.quickActions}>
+            <div className={styles.cardHeader}>
+              <h2>{t.dashboard.quickActions}</h2>
+            </div>
+
+            <div className={styles.quickGrid}>
+              <Link href="/calendar" className={`${styles.quickAction} ${styles.quickActionPrimary}`}>
+                <Plus size={22} />
+                <span>{t.dashboard.addCalendarEvent}</span>
+              </Link>
+
+              <Link href="/economy" className={styles.quickAction}>
+                <Receipt size={22} />
+                <span>{t.dashboard.openEconomy}</span>
+              </Link>
+
+              <Link href="/child-info" className={styles.quickAction}>
+                <Users size={22} />
+                <span>{t.dashboard.openChildProfiles}</span>
+              </Link>
+
+             <Link href="/oppdateringer"
+              className={styles.quickAction}>
+                <FileText size={22} />
+                <span>{t.dashboard.updatesPost}</span>
+              </Link>
+            </div>
+          </section>
+
+          <section className={styles.financeCard}>
+            <div className={styles.cardHeader}>
+              <h2>{t.dashboard.familyFinanceOverview}</h2>
+              <Link href="/economy">{t.dashboard.viewAll}</Link>
+            </div>
+
+            <div className={styles.financeBalance}>
+              <span>{t.dashboard.sharedBalance}</span>
+              <strong>
+                {fmtCurrency(data.financeOverview.familyBankBalance, data.financeOverview.familyBankCurrency)}
+              </strong>
+            </div>
+
+            <div className={styles.financeRows}>
+              <div>
+                <span>{t.dashboard.requestsToReview}</span>
+                <strong>{data.financeOverview.pendingRequestReviewCount}</strong>
               </div>
 
-              {data.upcomingHandover.confirmationStatus === 'pending' ? (
-                <div className={styles.heroActions}>
-                  <button
-                    type="button"
-                    className={styles.acceptBtn}
-                    onClick={() => handleConfirmation(data.upcomingHandover!.id, 'confirmed')}
-                    disabled={actionLoading === `confirm-${data.upcomingHandover.id}-confirmed`}
-                  >
-                    {actionLoading === `confirm-${data.upcomingHandover.id}-confirmed` ? (
-                      <Loader2 size={16} className={styles.spin} />
-                    ) : (
-                      <>
-                        <Check size={16} />
-                        {t.dashboard.accept}
-                      </>
-                    )}
-                  </button>
-
-                  <button
-                    type="button"
-                    className={styles.rejectBtn}
-                    onClick={() => handleConfirmation(data.upcomingHandover!.id, 'declined')}
-                    disabled={actionLoading === `confirm-${data.upcomingHandover.id}-declined`}
-                  >
-                    {actionLoading === `confirm-${data.upcomingHandover.id}-declined` ? (
-                      <Loader2 size={16} className={styles.spin} />
-                    ) : (
-                      <>
-                        <X size={16} />
-                        {t.dashboard.decline}
-                      </>
-                    )}
-                  </button>
-                </div>
-              ) : (
-                <Link href={`/calendar?event=${data.upcomingHandover.id}`} className={styles.heroDetailsLink}>
-                  {t.dashboard.viewDetails}
-                </Link>
-              )}
+              <div>
+                <span>{t.dashboard.pendingPayments}</span>
+                <strong>
+                  {fmtCurrency(data.financeOverview.pendingPaymentTotal, data.financeOverview.familyBankCurrency)}
+                </strong>
+              </div>
             </div>
-          </>
-        ) : (
-          <div className={styles.handoverHeroText}>
-            <span className={styles.handoverEyebrow}>Calendar</span>
-            <h2>{t.dashboard.noUpcomingHandover}</h2>
+          </section>
 
-            <div className={styles.handoverMeta}>
-              <span>
-                <CalendarDays size={17} />
-                Add a handover to keep everyone aligned.
-              </span>
+          <section className={styles.card}>
+            <div className={styles.cardHeader}>
+              <h2>{t.dashboard.upcomingEvents}</h2>
+              <Link href="/calendar">{t.dashboard.viewAll}</Link>
             </div>
-          </div>
-        )}
-      </section>
 
-      <section className={styles.mainColumn}>
-        <section className={styles.card}>
-          <div className={styles.cardHeader}>
-            <h2>{t.dashboard.needsYourDecision}</h2>
-            <Link href="/notifications">{t.dashboard.viewAll}</Link>
-          </div>
-
-          {filteredDecisionActions.length ? (
-            <div className={styles.decisionList}>
-              {filteredDecisionActions.slice(0, 4).map((item) => (
-                <div key={`${item.kind}-${item.id}`} className={styles.decisionItem}>
-                  <Link href={item.href} className={styles.decisionBody}>
-                    <div className={styles.decisionIcon}>
-                      {item.kind === 'request-review' ? (
-                        <Wallet size={17} />
-                      ) : item.kind === 'child' ? (
-                        <Users size={17} />
-                      ) : (
-                        <CalendarDays size={17} />
-                      )}
+            {data.upcomingEvents.length ? (
+              <div className={styles.eventList}>
+                {data.upcomingEvents.slice(0, 5).map((item) => (
+                  <Link key={String(item.id)} href={`/calendar?event=${item.id}`} className={styles.eventItem}>
+                    <div className={styles.eventDate}>
+                      <span>{format(new Date(item.startAt), 'MMM')}</span>
+                      <strong>{format(new Date(item.startAt), 'dd')}</strong>
                     </div>
 
                     <div>
                       <strong>{item.title}</strong>
-                      <span>{item.subtitle || item.detail}</span>
+                      <span>
+                        {format(new Date(item.startAt), 'hh:mm a')}
+                        {item.location ? ` · ${item.location}` : ''}
+                      </span>
                     </div>
+
+                    <ChevronRight size={16} />
                   </Link>
-
-                  {item.kind === 'event' ? (
-                    <div className={styles.decisionButtons}>
-                      <button
-                        type="button"
-                        className={styles.smallRejectBtn}
-                        onClick={() => handleConfirmation(item.id, 'declined')}
-                        disabled={actionLoading === `confirm-${item.id}-declined`}
-                      >
-                        {actionLoading === `confirm-${item.id}-declined` ? (
-                          <Loader2 size={15} className={styles.spin} />
-                        ) : (
-                          <X size={17} />
-                        )}
-                      </button>
-
-                      <button
-                        type="button"
-                        className={styles.smallAcceptBtn}
-                        onClick={() => handleConfirmation(item.id, 'confirmed')}
-                        disabled={actionLoading === `confirm-${item.id}-confirmed`}
-                      >
-                        {actionLoading === `confirm-${item.id}-confirmed` ? (
-                          <Loader2 size={15} className={styles.spin} />
-                        ) : (
-                          <Check size={17} />
-                        )}
-                      </button>
-                    </div>
-                  ) : (
-                    <Link href={item.href} className={styles.reviewBtn}>
-                      {t.dashboard.review}
-                    </Link>
-                  )}
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className={styles.empty}>You are all caught up.</div>
-          )}
-        </section>
-
-        <section className={styles.card}>
-          <div className={styles.cardHeader}>
-            <h2>{t.dashboard.openFamilyFinance}</h2>
-            <Link href="/economy">{t.dashboard.viewAll}</Link>
-          </div>
-
-          {filteredFinanceItems.length ? (
-            <div className={styles.financeList}>
-              {filteredFinanceItems.slice(0, 4).map((item) => (
-                <Link key={`${item.kind}-${item.id}`} href={item.href} className={styles.financeItem}>
-                  <div>
-                    <strong>{item.title}</strong>
-                    <span>{item.subtitle}</span>
-                    <small>{item.detail}</small>
-                  </div>
-
-                  <ChevronRight size={18} />
-                </Link>
-              ))}
-            </div>
-          ) : (
-            <div className={styles.empty}>{t.dashboard.noOpenFamilyFinanceItems}</div>
-          )}
-        </section>
-
-        <section className={styles.card}>
-          <div className={styles.cardHeader}>
-            <h2>Today’s timeline</h2>
-            <span>{format(new Date(), 'EEEE, MMM d')}</span>
-          </div>
-
-          {filteredUpcomingEvents.length ? (
-            <div className={styles.timeline}>
-              {filteredUpcomingEvents.slice(0, 4).map((item, index) => (
-                <Link key={String(item.id)} href={`/calendar?event=${item.id}`} className={styles.timelineItem}>
-                  <div className={`${styles.timelineDot} ${index > 0 ? styles.timelineDotMuted : ''}`} />
-
-                  <div className={styles.timelineBody}>
-                    <strong>{format(new Date(item.startAt), 'hh:mm a')}</strong>
-                    <span>{item.title}</span>
-                    <small>{item.location || getEventTypeLabel(item.eventType)}</small>
-                  </div>
-
-                  <em>
-                    {item.confirmationStatus === 'confirmed'
-                      ? t.dashboard.confirmed
-                      : item.requiresConfirmation
-                        ? t.dashboard.needsConfirmation
-                        : ''}
-                  </em>
-                </Link>
-              ))}
-            </div>
-          ) : (
-            <div className={styles.empty}>{t.dashboard.noUpcomingEvents}</div>
-          )}
-        </section>
-      </section>
-
-      <aside className={styles.sideColumn}>
-        <section className={styles.quickActions}>
-          <div className={styles.cardHeader}>
-            <h2>{t.dashboard.quickActions}</h2>
-          </div>
-
-          <div className={styles.quickGrid}>
-            <Link href="/calendar" className={`${styles.quickAction} ${styles.quickActionPrimary}`}>
-              <Plus size={22} />
-              <span>{t.dashboard.addCalendarEvent}</span>
-            </Link>
-
-            <Link href="/economy" className={styles.quickAction}>
-              <Receipt size={22} />
-              <span>{t.dashboard.openEconomy}</span>
-            </Link>
-
-            <Link href="/child-info" className={styles.quickAction}>
-              <Users size={22} />
-              <span>{t.dashboard.openChildProfiles}</span>
-            </Link>
-
-            <Link href="/documents" className={styles.quickAction}>
-              <CalendarDays size={22} />
-              <span>Documents</span>
-            </Link>
-          </div>
-        </section>
-
-        <section className={styles.financeCard}>
-          <div className={styles.cardHeader}>
-            <h2>{t.dashboard.familyFinanceOverview}</h2>
-            <Link href="/economy">View all</Link>
-          </div>
-
-          <div className={styles.financeBalance}>
-            <span>Shared balance</span>
-            <strong>
-              {fmtCurrency(data.financeOverview.familyBankBalance, data.financeOverview.familyBankCurrency)}
-            </strong>
-          </div>
-
-          <div className={styles.financeRows}>
-            <div>
-              <span>{t.dashboard.requestsToReview}</span>
-              <strong>{data.financeOverview.pendingRequestReviewCount}</strong>
-            </div>
-
-            <div>
-              <span>{t.dashboard.pendingPayments}</span>
-              <strong>
-                {fmtCurrency(data.financeOverview.pendingPaymentTotal, data.financeOverview.familyBankCurrency)}
-              </strong>
-            </div>
-          </div>
-        </section>
-
-        <section className={styles.card}>
-          <div className={styles.cardHeader}>
-            <h2>{t.dashboard.upcomingEvents}</h2>
-            <Link href="/calendar">{t.dashboard.viewAll}</Link>
-          </div>
-
-          {filteredUpcomingEvents.length ? (
-            <div className={styles.eventList}>
-              {filteredUpcomingEvents.slice(0, 5).map((item) => (
-                <Link key={String(item.id)} href={`/calendar?event=${item.id}`} className={styles.eventItem}>
-                  <div className={styles.eventDate}>
-                    <span>{format(new Date(item.startAt), 'MMM')}</span>
-                    <strong>{format(new Date(item.startAt), 'dd')}</strong>
-                  </div>
-
-                  <div>
-                    <strong>{item.title}</strong>
-                    <span>
-                      {format(new Date(item.startAt), 'hh:mm a')}
-                      {item.location ? ` · ${item.location}` : ''}
-                    </span>
-                  </div>
-
-                  <ChevronRight size={16} />
-                </Link>
-              ))}
-            </div>
-          ) : (
-            <div className={styles.empty}>{t.dashboard.noUpcomingEvents}</div>
-          )}
-        </section>
-      </aside>
-    </main>
-
-    {joinModalOpen && joinPreview ? (
-      <div className={styles.modalBackdrop} onMouseDown={() => setJoinModalOpen(false)}>
-        <div className={styles.modalCard} onMouseDown={(e) => e.stopPropagation()}>
-          <div className={styles.modalHeader}>
-            <div className={styles.modalTitleRow}>
-              <AlertTriangle size={18} />
-              <h3 className={styles.modalTitle}>{t.dashboard.joinFamily}</h3>
-            </div>
-          </div>
-
-          <div className={styles.modalBody}>
-            <p className={styles.modalText}>
-              {t.dashboard.youAreAboutToJoin}{' '}
-              <strong>{joinPreview.targetFamily?.name || t.dashboard.thisFamily}</strong>.
-            </p>
-
-            {joinPreview.isSameFamily ? (
-              <div className={styles.modalInfo}>{t.dashboard.alreadyInThisFamily}</div>
-            ) : null}
-
-            {joinPreview.willLeaveCurrentFamily ? (
-              <div className={styles.modalWarning}>
-                <div className={styles.modalWarningTitle}>{t.dashboard.warning}</div>
-                <div className={styles.modalWarningText}>
-                  {t.dashboard.leaveCurrentFamilyWarningPrefix}{' '}
-                  <strong>{joinPreview.currentFamily?.name || t.dashboard.yourCurrentFamily}</strong>{' '}
-                  {t.dashboard.leaveCurrentFamilyWarningSuffix}
-                </div>
+                ))}
               </div>
-            ) : null}
-          </div>
+            ) : (
+              <div className={styles.empty}>{t.dashboard.noUpcomingEvents}</div>
+            )}
+          </section>
+        </aside>
+      </main>
 
-          <div className={styles.modalActions}>
-            <button type="button" className={styles.secondaryBtn} onClick={() => setJoinModalOpen(false)}>
-              {t.dashboard.cancel}
-            </button>
+      {joinModalOpen && joinPreview ? (
+        <div className={styles.modalBackdrop} onMouseDown={() => setJoinModalOpen(false)}>
+          <div className={styles.modalCard} onMouseDown={(e) => e.stopPropagation()}>
+            <div className={styles.modalHeader}>
+              <div className={styles.modalTitleRow}>
+                <AlertTriangle size={18} />
+                <h3 className={styles.modalTitle}>{t.dashboard.joinFamily}</h3>
+              </div>
+            </div>
 
-            <button
-              type="button"
-              className={styles.primaryBtn}
-              onClick={confirmJoinFamily}
-              disabled={joinPreview.isSameFamily || joinPreview.alreadyMember || actionLoading === 'join-confirm'}
-            >
-              {actionLoading === 'join-confirm' ? (
-                <>
-                  <Loader2 size={16} className={styles.spin} />
-                  {t.dashboard.joining}
-                </>
-              ) : (
-                t.dashboard.confirmJoin
-              )}
-            </button>
+            <div className={styles.modalBody}>
+              <p className={styles.modalText}>
+                {t.dashboard.youAreAboutToJoin}{' '}
+                <strong>{joinPreview.targetFamily?.name || t.dashboard.thisFamily}</strong>.
+              </p>
+
+              {joinPreview.isSameFamily ? (
+                <div className={styles.modalInfo}>{t.dashboard.alreadyInThisFamily}</div>
+              ) : null}
+
+              {joinPreview.willLeaveCurrentFamily ? (
+                <div className={styles.modalWarning}>
+                  <div className={styles.modalWarningTitle}>{t.dashboard.warning}</div>
+                  <div className={styles.modalWarningText}>
+                    {t.dashboard.leaveCurrentFamilyWarningPrefix}{' '}
+                    <strong>{joinPreview.currentFamily?.name || t.dashboard.yourCurrentFamily}</strong>{' '}
+                    {t.dashboard.leaveCurrentFamilyWarningSuffix}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+
+            <div className={styles.modalActions}>
+              <button type="button" className={styles.secondaryBtn} onClick={() => setJoinModalOpen(false)}>
+                {t.dashboard.cancel}
+              </button>
+
+              <button
+                type="button"
+                className={styles.primaryBtn}
+                onClick={confirmJoinFamily}
+                disabled={joinPreview.isSameFamily || joinPreview.alreadyMember || actionLoading === 'join-confirm'}
+              >
+                {actionLoading === 'join-confirm' ? (
+                  <>
+                    <Loader2 size={16} className={styles.spin} />
+                    {t.dashboard.joining}
+                  </>
+                ) : (
+                  t.dashboard.confirmJoin
+                )}
+              </button>
+            </div>
           </div>
         </div>
-      </div>
-    ) : null}
-  </div>
-)
+      ) : null}
+    </div>
+  )
 }

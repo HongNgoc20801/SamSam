@@ -202,8 +202,19 @@ function toConfirmationStatus(value: any) {
   return allowed.includes(value) ? value : 'not-required'
 }
 
+function toHandoverStatus(value: any) {
+  const allowed = ['not-started', 'delivered', 'completed']
+  return allowed.includes(value) ? value : 'not-started'
+}
+
 function isConfirmationDecision(value: any) {
   return value === 'confirmed' || value === 'declined'
+}
+
+function hasEventStarted(value: any) {
+  if (!value) return false
+  const time = new Date(value).getTime()
+  return !Number.isNaN(time) && time <= Date.now()
 }
 
 export const CalendarEvents: CollectionConfig = {
@@ -216,6 +227,7 @@ export const CalendarEvents: CollectionConfig = {
       'eventType',
       'priority',
       'confirmationStatus',
+      'handoverStatus',
       'source',
       'silentSync',
       'startAt',
@@ -293,6 +305,7 @@ export const CalendarEvents: CollectionConfig = {
         const effectivePriority = toPriority(mergedData.priority)
         const effectiveRequiresConfirmation = Boolean(mergedData.requiresConfirmation)
         const effectiveConfirmationStatus = toConfirmationStatus(mergedData.confirmationStatus)
+        const effectiveHandoverStatus = toHandoverStatus(mergedData.handoverStatus)
 
         nextData.eventType = effectiveEventType
         nextData.priority = effectivePriority
@@ -302,6 +315,13 @@ export const CalendarEvents: CollectionConfig = {
         if (effectiveEventType !== 'handover') {
           nextData.handoverFrom = null
           nextData.handoverTo = null
+          nextData.handoverStatus = 'not-started'
+          nextData.handoverDeliveredAt = null
+          nextData.handoverDeliveredBy = null
+          nextData.handoverReceivedAt = null
+          nextData.handoverReceivedBy = null
+        } else {
+          nextData.handoverStatus = effectiveHandoverStatus
         }
 
         const previousConfirmationStatus = originalDoc?.confirmationStatus
@@ -349,6 +369,50 @@ export const CalendarEvents: CollectionConfig = {
             nextData.confirmationStatus = 'pending'
             nextData.confirmedAt = null
             nextData.confirmedBy = null
+          }
+        }
+
+        const previousHandoverStatus = originalDoc?.handoverStatus || 'not-started'
+        const nextHandoverStatus = mergedData?.handoverStatus || 'not-started'
+
+        if (previousHandoverStatus !== nextHandoverStatus) {
+          if (!userId) {
+            throw new Error('You must be logged in to update handover status.')
+          }
+
+          if (effectiveEventType !== 'handover') {
+            throw new Error('Only handover events can update handover status.')
+          }
+
+          if (!hasEventStarted(mergedData.startAt)) {
+            throw new Error('Handover can only be confirmed after the handover time has started.')
+          }
+
+          const handoverFromId = getRelId(mergedData.handoverFrom)
+          const handoverToId = getRelId(mergedData.handoverTo)
+
+          if (nextHandoverStatus === 'delivered') {
+            if (String(handoverFromId) !== String(userId)) {
+              throw new Error('Only the parent handing over the child can confirm delivery.')
+            }
+
+            nextData.handoverStatus = 'delivered'
+            nextData.handoverDeliveredAt = new Date().toISOString()
+            nextData.handoverDeliveredBy = userId
+          }
+
+          if (nextHandoverStatus === 'completed') {
+            if (previousHandoverStatus !== 'delivered') {
+              throw new Error('The child must be marked as delivered before it can be received.')
+            }
+
+            if (String(handoverToId) !== String(userId)) {
+              throw new Error('Only the receiving parent can confirm receipt.')
+            }
+
+            nextData.handoverStatus = 'completed'
+            nextData.handoverReceivedAt = new Date().toISOString()
+            nextData.handoverReceivedBy = userId
           }
         }
 
@@ -407,6 +471,7 @@ export const CalendarEvents: CollectionConfig = {
               eventType: doc?.eventType,
               confirmationStatus: doc?.confirmationStatus,
               requiresConfirmation: !!doc?.requiresConfirmation,
+              handoverStatus: doc?.handoverStatus,
               startAt: doc?.startAt,
               endAt: doc?.endAt,
               location: doc?.location || '',
@@ -433,6 +498,7 @@ export const CalendarEvents: CollectionConfig = {
               eventType: doc?.eventType,
               confirmationStatus: doc?.confirmationStatus,
               requiresConfirmation: !!doc?.requiresConfirmation,
+              handoverStatus: doc?.handoverStatus,
               startAt: doc?.startAt,
               endAt: doc?.endAt,
               location: doc?.location || '',
@@ -494,8 +560,145 @@ export const CalendarEvents: CollectionConfig = {
             getRelId(previousDoc?.confirmedBy),
             getRelId(doc?.confirmedBy),
           )
+          pushChange(changes, 'handoverStatus', previousDoc?.handoverStatus, doc?.handoverStatus)
+          pushChange(
+            changes,
+            'handoverDeliveredAt',
+            previousDoc?.handoverDeliveredAt,
+            doc?.handoverDeliveredAt,
+          )
+          pushChange(
+            changes,
+            'handoverDeliveredBy',
+            getRelId(previousDoc?.handoverDeliveredBy),
+            getRelId(doc?.handoverDeliveredBy),
+          )
+          pushChange(
+            changes,
+            'handoverReceivedAt',
+            previousDoc?.handoverReceivedAt,
+            doc?.handoverReceivedAt,
+          )
+          pushChange(
+            changes,
+            'handoverReceivedBy',
+            getRelId(previousDoc?.handoverReceivedBy),
+            getRelId(doc?.handoverReceivedBy),
+          )
 
           if (!changes.length) return
+
+          const previousHandoverStatus = previousDoc?.handoverStatus || 'not-started'
+          const currentHandoverStatus = doc?.handoverStatus || 'not-started'
+          const handoverStatusChanged = previousHandoverStatus !== currentHandoverStatus
+
+          if (handoverStatusChanged && currentHandoverStatus === 'delivered') {
+            await logAudit(req, {
+              familyId,
+              childId: currentChild.childId,
+              childName: currentChild.childName,
+              action: 'event.handover.delivered',
+              entityType: 'event',
+              entityId: String(doc?.id),
+              scope: 'calendar',
+              severity: 'info',
+              relatedToRole: 'both',
+              summary: 'Child handover marked as delivered',
+              targetLabel: doc?.title,
+              changes,
+              meta: {
+                title: doc?.title,
+                handoverStatus: doc?.handoverStatus,
+                handoverDeliveredAt: doc?.handoverDeliveredAt,
+                handoverDeliveredBy: getRelId(doc?.handoverDeliveredBy),
+                handoverFromName,
+                handoverToName,
+                responsibleParentName,
+              },
+            })
+
+            await notifyFamily(req, {
+              familyId,
+              actorUserId,
+              childId: currentChild.childId,
+              type: 'calendar',
+              event: 'updated',
+              title: 'Child handover delivered',
+              message: `${doc?.title || 'A handover'} was marked as delivered`,
+              link: `/calendar?event=${doc?.id}`,
+              meta: {
+                actorName,
+                eventId: doc?.id,
+                title: doc?.title,
+                childName: currentChild.childName,
+                eventType: doc?.eventType,
+                handoverStatus: doc?.handoverStatus,
+                handoverDeliveredAt: doc?.handoverDeliveredAt,
+                handoverFromName,
+                handoverToName,
+                responsibleParentName,
+                startAt: doc?.startAt,
+                endAt: doc?.endAt,
+                location: doc?.location || '',
+              },
+            })
+
+            return
+          }
+
+          if (handoverStatusChanged && currentHandoverStatus === 'completed') {
+            await logAudit(req, {
+              familyId,
+              childId: currentChild.childId,
+              childName: currentChild.childName,
+              action: 'event.handover.completed',
+              entityType: 'event',
+              entityId: String(doc?.id),
+              scope: 'calendar',
+              severity: 'info',
+              relatedToRole: 'both',
+              summary: 'Child handover marked as received and completed',
+              targetLabel: doc?.title,
+              changes,
+              meta: {
+                title: doc?.title,
+                handoverStatus: doc?.handoverStatus,
+                handoverReceivedAt: doc?.handoverReceivedAt,
+                handoverReceivedBy: getRelId(doc?.handoverReceivedBy),
+                handoverFromName,
+                handoverToName,
+                responsibleParentName,
+              },
+            })
+
+            await notifyFamily(req, {
+              familyId,
+              actorUserId,
+              childId: currentChild.childId,
+              type: 'calendar',
+              event: 'updated',
+              title: 'Child handover completed',
+              message: `${doc?.title || 'A handover'} was marked as received`,
+              link: `/calendar?event=${doc?.id}`,
+              meta: {
+                actorName,
+                eventId: doc?.id,
+                title: doc?.title,
+                childName: currentChild.childName,
+                eventType: doc?.eventType,
+                handoverStatus: doc?.handoverStatus,
+                handoverReceivedAt: doc?.handoverReceivedAt,
+                handoverFromName,
+                handoverToName,
+                responsibleParentName,
+                startAt: doc?.startAt,
+                endAt: doc?.endAt,
+                location: doc?.location || '',
+              },
+            })
+
+            return
+          }
 
           await logAudit(req, {
             familyId,
@@ -515,6 +718,7 @@ export const CalendarEvents: CollectionConfig = {
               eventType: doc?.eventType,
               confirmationStatus: doc?.confirmationStatus,
               requiresConfirmation: !!doc?.requiresConfirmation,
+              handoverStatus: doc?.handoverStatus,
               startAt: doc?.startAt,
               endAt: doc?.endAt,
               location: doc?.location || '',
@@ -648,6 +852,7 @@ export const CalendarEvents: CollectionConfig = {
               eventType: doc?.eventType,
               confirmationStatus: doc?.confirmationStatus,
               requiresConfirmation: !!doc?.requiresConfirmation,
+              handoverStatus: doc?.handoverStatus,
               startAt: doc?.startAt,
               endAt: doc?.endAt,
               location: doc?.location || '',
@@ -697,6 +902,7 @@ export const CalendarEvents: CollectionConfig = {
             eventType: deletedDoc?.eventType,
             confirmationStatus: deletedDoc?.confirmationStatus,
             requiresConfirmation: !!deletedDoc?.requiresConfirmation,
+            handoverStatus: deletedDoc?.handoverStatus,
             startAt: deletedDoc?.startAt,
             endAt: deletedDoc?.endAt,
             location: deletedDoc?.location || '',
@@ -723,6 +929,7 @@ export const CalendarEvents: CollectionConfig = {
             eventType: deletedDoc?.eventType,
             confirmationStatus: deletedDoc?.confirmationStatus,
             requiresConfirmation: !!deletedDoc?.requiresConfirmation,
+            handoverStatus: deletedDoc?.handoverStatus,
             startAt: deletedDoc?.startAt,
             endAt: deletedDoc?.endAt,
             location: deletedDoc?.location || '',
@@ -826,6 +1033,34 @@ export const CalendarEvents: CollectionConfig = {
     },
     {
       name: 'responsibleParent',
+      type: 'relationship',
+      relationTo: 'customers',
+    },
+    {
+      name: 'handoverStatus',
+      type: 'select',
+      defaultValue: 'not-started',
+      options: [
+        { label: 'Not started', value: 'not-started' },
+        { label: 'Delivered', value: 'delivered' },
+        { label: 'Completed', value: 'completed' },
+      ],
+    },
+    {
+      name: 'handoverDeliveredAt',
+      type: 'date',
+    },
+    {
+      name: 'handoverDeliveredBy',
+      type: 'relationship',
+      relationTo: 'customers',
+    },
+    {
+      name: 'handoverReceivedAt',
+      type: 'date',
+    },
+    {
+      name: 'handoverReceivedBy',
       type: 'relationship',
       relationTo: 'customers',
     },

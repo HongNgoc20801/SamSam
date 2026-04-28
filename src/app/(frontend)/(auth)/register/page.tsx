@@ -134,7 +134,10 @@ export default function RegisterPage() {
     <main className={styles.page}>
       <section className={styles.hero}>
         <div className={styles.heroOverlay} />
+        <div className={styles.heroLogoBox}>
+            <Brand />
 
+          </div>
         <div className={styles.heroContent}>
           <p className={styles.heroEyebrow}>Sammen om omsorgen</p>
 
@@ -159,9 +162,7 @@ export default function RegisterPage() {
 
       <section className={styles.panel} aria-label="Registrering">
         <div className={styles.panelInner}>
-          <div className={styles.brand} aria-label="SamSam">
-            <Brand />
-          </div>
+          
 
           <h1 className={styles.title}>Opprett konto</h1>
           <p className={styles.subtitle}>Lag en ny konto for å bruke SamSam.</p>

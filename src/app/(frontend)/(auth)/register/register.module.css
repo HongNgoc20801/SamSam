@@ -271,6 +271,24 @@
   padding: 0 48px 56px;
   color: #fff;
 }
+.heroLogoBox {
+  position: absolute;
+  top: 36px;
+  left: 40px;
+  z-index: 2;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  width: fit-content;
+}
+
+.heroLogoBox img {
+  width: 84px;
+  height: auto;
+  object-fit: contain;
+}
+
+
 
 .heroEyebrow {
   margin: 0 0 14px;

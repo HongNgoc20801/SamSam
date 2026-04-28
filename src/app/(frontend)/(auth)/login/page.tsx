@@ -1,4 +1,5 @@
 'use client'
+import Brand from '../../components/Brand/Brand'
 
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -127,8 +128,9 @@ export default function LoginPage() {
     <main className={styles.page}>
       <aside className={styles.hero}>
         <div className={styles.heroInner}>
-          <div className={styles.heroBrand}>SamSam</div>
-
+          <div className={styles.heroLogoBox}>
+            <Brand />
+          </div>
           <div className={styles.heroContent}>
             <h2 className={styles.heroTitle}>Sammen om omsorgen.</h2>
             <p className={styles.heroText}>

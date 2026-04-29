@@ -85,6 +85,7 @@ export interface Config {
     'bank-transfers': BankTransfer;
     'calendar-events': CalendarEvent;
     'economy-requests': EconomyRequest;
+    'custody-schedules': CustodySchedule;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
@@ -109,6 +110,7 @@ export interface Config {
     'bank-transfers': BankTransfersSelect<false> | BankTransfersSelect<true>;
     'calendar-events': CalendarEventsSelect<false> | CalendarEventsSelect<true>;
     'economy-requests': EconomyRequestsSelect<false> | EconomyRequestsSelect<true>;
+    'custody-schedules': CustodySchedulesSelect<false> | CustodySchedulesSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -793,6 +795,26 @@ export interface CalendarEvent {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "custody-schedules".
+ */
+export interface CustodySchedule {
+  id: number;
+  family: number | Family;
+  child: number | Child;
+  title: string;
+  currentParent: number | Customer;
+  nextParent: number | Customer;
+  startAt: string;
+  endAt: string;
+  status: 'active' | 'completed' | 'changed' | 'cancelled';
+  handoverStatus?: ('not-ready' | 'ready' | 'handed-over') | null;
+  notes?: string | null;
+  createdBy?: (number | null) | Customer;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
 export interface PayloadKv {
@@ -882,6 +904,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'economy-requests';
         value: number | EconomyRequest;
+      } | null)
+    | ({
+        relationTo: 'custody-schedules';
+        value: number | CustodySchedule;
       } | null);
   globalSlug?: string | null;
   user:
@@ -1520,6 +1546,25 @@ export interface EconomyRequestsSelect<T extends boolean = true> {
   reviewedBy?: T;
   reviewedAt?: T;
   decisionNote?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "custody-schedules_select".
+ */
+export interface CustodySchedulesSelect<T extends boolean = true> {
+  family?: T;
+  child?: T;
+  title?: T;
+  currentParent?: T;
+  nextParent?: T;
+  startAt?: T;
+  endAt?: T;
+  status?: T;
+  handoverStatus?: T;
+  notes?: T;
+  createdBy?: T;
   updatedAt?: T;
   createdAt?: T;
 }

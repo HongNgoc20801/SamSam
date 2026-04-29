@@ -16,6 +16,8 @@ type NotificationEventType =
   | 'liked'
   | 'uploaded'
   | 'replaced'
+  | 'approved'
+  | 'rejected'
 
 type NotificationItem = {
   id: string | number
@@ -89,6 +91,9 @@ function buildNotificationTitle(item: NotificationItem) {
   const isChildUpdate = !!meta.isChildUpdate
   const documentName = String(meta.documentName || item.title || '').trim()
 
+  if (meta.type === 'custody-emergency') {
+    return `${meta.actorName || 'A parent'} ber om hastebytte${meta.childName ? ` for ${meta.childName}` : ''}`
+  }
   if (item.type === 'calendar') {
     if (item.event === 'created') {
       return `${eventType} created${childName ? ` for ${childName}` : ''}`
@@ -214,6 +219,17 @@ function buildNotificationMessage(item: NotificationItem) {
   const postTitle = shorten(meta.title || item.message || '')
   const confirmedAt = String(meta.confirmedAt || '').trim()
 
+  if (meta.type === 'custody-emergency') {
+    const reason = item.message || meta.reason || 'Hastebytte forespurt.'
+
+    const parts = [
+      meta.pickupAt ? `Henting: ${formatDateTime(meta.pickupAt)}` : '',
+      meta.returnAt ? `Varer til: ${formatDateTime(meta.returnAt)}` : '',
+      reason,
+    ].filter(Boolean)
+
+    return parts.join(' · ')
+  }
   if (item.type === 'calendar') {
     if (item.event === 'confirmed') {
       return `${actorName} accepted this event${confirmedAt ? ` at ${confirmedAt}` : ''}.`
@@ -308,7 +324,8 @@ export default function NotificationsPage() {
   const [loading, setLoading] = useState(true)
   const [markingAll, setMarkingAll] = useState(false)
   const [error, setError] = useState('')
-
+  const [selectedEmergency, setSelectedEmergency] = useState<NotificationItem | null>(null)
+  const [actionLoading, setActionLoading] = useState('')
   async function loadNotifications() {
     try {
       setLoading(true)
@@ -379,8 +396,165 @@ export default function NotificationsPage() {
       await markOneAsRead(item.id)
     }
 
+    if (item.meta?.type === 'custody-emergency') {
+      setSelectedEmergency(item)
+      return
+    }
+
     if (item.link) {
       window.location.href = item.link
+    }
+  }
+
+  async function respondEmergencyRequest(nextStatus: 'approved' | 'rejected') {
+    if (!selectedEmergency) return
+
+    try {
+      setError('')
+      setActionLoading(nextStatus)
+
+      const meta = selectedEmergency.meta || {}
+      const recipientId = meta.actorId
+
+      if (!recipientId) {
+        throw new Error('Mangler mottaker for svar på hastebytte.')
+      }
+
+      if (nextStatus === 'approved') {
+        const custodyId = meta.custodyId
+        const childId = meta.childId
+        const pickupAt = meta.pickupAt
+        const returnAt = meta.returnAt
+
+        if (!custodyId) {
+          throw new Error('Mangler omsorgsperiode for hastebytte.')
+        }
+
+        if (!childId) {
+          throw new Error('Mangler barn for hastebytte.')
+        }
+
+        if (!pickupAt) {
+          throw new Error('Mangler hentetidspunkt for hastebytte.')
+        }
+
+        if (!returnAt) {
+          throw new Error('Mangler sluttidspunkt for hastebytte.')
+        }
+
+        const pickupDate = new Date(pickupAt)
+        const returnDate = new Date(returnAt)
+
+        if (Number.isNaN(pickupDate.getTime())) {
+          throw new Error('Ugyldig hentetidspunkt.')
+        }
+
+        if (Number.isNaN(returnDate.getTime())) {
+          throw new Error('Ugyldig sluttidspunkt.')
+        }
+
+        if (returnDate <= pickupDate) {
+          throw new Error('Sluttidspunkt må være etter hentetidspunkt.')
+        }
+
+        const meRes = await fetch('/api/customers/me', {
+          credentials: 'include',
+          cache: 'no-store',
+        })
+
+        const meJson = await meRes.json().catch(() => null)
+
+        if (!meRes.ok) {
+          throw new Error(meJson?.message || 'Kunne ikke hente innlogget bruker.')
+        }
+
+        const meId = meJson?.user?.id || meJson?.id
+
+        if (!meId) {
+          throw new Error('Mangler innlogget bruker.')
+        }
+
+        const updateOldRes = await fetch(`/api/custody-schedules/${custodyId}`, {
+          method: 'PATCH',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            endAt: pickupDate.toISOString(),
+          }),
+        })
+
+        if (!updateOldRes.ok) {
+          const raw = await updateOldRes.text()
+          throw new Error(raw || 'Kunne ikke oppdatere eksisterende omsorgsperiode.')
+        }
+
+        const createNewRes = await fetch('/api/custody-schedules', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            child: Number(childId),
+            currentParent: Number(meId),
+            nextParent: Number(recipientId),
+            startAt: pickupDate.toISOString(),
+            endAt: returnDate.toISOString(),
+            notes: `Hastebytte godkjent.${meta.reason ? ` Begrunnelse: ${meta.reason}` : ''}`,
+          }),
+        })
+
+        if (!createNewRes.ok) {
+          const raw = await createNewRes.text()
+          throw new Error(raw || 'Kunne ikke opprette ny omsorgsperiode.')
+        }
+      }
+
+      await fetch(`/api/notifications/${selectedEmergency.id}/read`, {
+        method: 'POST',
+        credentials: 'include',
+      })
+
+      const res = await fetch('/api/notifications', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          recipient: Number(recipientId),
+          title: nextStatus === 'approved' ? 'Hastebytte godkjent' : 'Hastebytte avslått',
+          message:
+            nextStatus === 'approved'
+              ? 'Den andre forelderen har godkjent hastebytte.'
+              : 'Den andre forelderen har avslått hastebytte.',
+          type: 'calendar',
+          event: nextStatus === 'approved' ? 'approved' : 'rejected',
+          link: '/notifications',
+          meta: {
+            type: 'custody-emergency-response',
+            custodyId: meta.custodyId,
+            childId: meta.childId,
+            childName: meta.childName,
+            reason: meta.reason,
+            pickupAt: meta.pickupAt,
+            returnAt: meta.returnAt,
+            status: nextStatus,
+          },
+        }),
+      })
+
+      if (!res.ok) {
+        const raw = await res.text()
+        throw new Error(raw || 'Kunne ikke svare på forespørselen.')
+      }
+
+      setSelectedEmergency(null)
+      await loadNotifications()
+
+      if (nextStatus === 'approved') {
+        window.location.href = '/dashboard'
+      }
+    } catch (err: any) {
+      setError(err?.message || 'Kunne ikke svare på forespørselen.')
+    } finally {
+      setActionLoading('')
     }
   }
 
@@ -475,6 +649,72 @@ export default function NotificationsPage() {
           Back to dashboard
         </Link>
       </div>
+      {selectedEmergency ? (
+        <div className={styles.modalBackdrop} onMouseDown={() => setSelectedEmergency(null)}>
+          <div className={styles.modalCard} onMouseDown={(e) => e.stopPropagation()}>
+            <div className={styles.modalHeader}>
+              <h3>Hastebytte forespurt</h3>
+            </div>
+
+            <div className={styles.modalBody}>
+              <p>
+                <strong>{selectedEmergency.meta?.actorName || 'En forelder'}</strong> ber om
+                hastebytte
+                {selectedEmergency.meta?.childName
+                  ? ` for ${selectedEmergency.meta.childName}`
+                  : ''}
+                .
+              </p>
+
+              {selectedEmergency.meta?.pickupAt ? (
+                <p>
+                  <strong>Henting:</strong> {formatDateTime(selectedEmergency.meta.pickupAt)}
+                </p>
+              ) : null}
+
+              {selectedEmergency.meta?.returnAt ? (
+                <p>
+                  <strong>Varer til:</strong> {formatDateTime(selectedEmergency.meta.returnAt)}
+                </p>
+              ) : null}
+
+              <p>
+                <strong>Begrunnelse:</strong>{' '}
+                {selectedEmergency.message ||
+                  selectedEmergency.meta?.reason ||
+                  'Ingen begrunnelse oppgitt.'}
+              </p>
+            </div>
+
+            <div className={styles.modalActions}>
+              <button
+                type="button"
+                onClick={() => setSelectedEmergency(null)}
+                disabled={!!actionLoading}
+              >
+                Lukk
+              </button>
+
+              <button
+                type="button"
+                onClick={() => respondEmergencyRequest('rejected')}
+                disabled={!!actionLoading}
+              >
+                {actionLoading === 'rejected' ? 'Sender...' : 'Avslå'}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => respondEmergencyRequest('approved')}
+                disabled={!!actionLoading}
+              >
+                {actionLoading === 'approved' ? 'Sender...' : 'Godta'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
     </div>
   )
 }

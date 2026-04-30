@@ -301,23 +301,36 @@ function shorten(text?: string, max = 80) {
   return value.length > max ? `${value.slice(0, max)}…` : value
 }
 
-function getCountdownParts(targetIso?: string) {
+function getCountdownParts(targetIso?: string, nowMs = Date.now()) {
   if (!targetIso) return null
 
-  const now = Date.now()
   const target = new Date(targetIso).getTime()
-  const diff = target - now
+  const diff = target - nowMs
 
   if (Number.isNaN(target) || diff <= 0) {
-    return { days: 0, hours: 0, minutes: 0, expired: true }
+    return {
+      days: 0,
+      hours: 0,
+      minutes: 0,
+      seconds: 0,
+      expired: true,
+    }
   }
 
-  const totalMinutes = Math.floor(diff / 60000)
-  const days = Math.floor(totalMinutes / (60 * 24))
-  const hours = Math.floor((totalMinutes % (60 * 24)) / 60)
-  const minutes = totalMinutes % 60
+  const totalSeconds = Math.floor(diff / 1000)
 
-  return { days, hours, minutes, expired: false }
+  const days = Math.floor(totalSeconds / (60 * 60 * 24))
+  const hours = Math.floor((totalSeconds % (60 * 60 * 24)) / (60 * 60))
+  const minutes = Math.floor((totalSeconds % (60 * 60)) / 60)
+  const seconds = totalSeconds % 60
+
+  return {
+    days,
+    hours,
+    minutes,
+    seconds,
+    expired: false,
+  }
 }
 
 function hasStarted(value?: string) {
@@ -340,6 +353,7 @@ export default function DashboardPage() {
   const [joinPreview, setJoinPreview] = useState<FamilyJoinPreview | null>(null)
   const [joinModalOpen, setJoinModalOpen] = useState(false)
   const [custodyOpen, setCustodyOpen] = useState(false)
+  const [nowTick, setNowTick] = useState(() => Date.now())
   const [custodyChildId, setCustodyChildId] = useState('')
   const [custodyNextParentId, setCustodyNextParentId] = useState('')
   const [custodyStartAt, setCustodyStartAt] = useState('')
@@ -1033,7 +1047,18 @@ export default function DashboardPage() {
       document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
 
-  }, [])
+    }, [])
+
+    useEffect(() => {
+      const timer = window.setInterval(() => {
+        setNowTick(Date.now())
+      }, 1000)
+
+      return () => {
+        window.clearInterval(timer)
+      }
+    }, [])
+
   const greetingName = useMemo(() => getDisplayName(data?.me ?? null), [data?.me])
 
   const profileImageUrl = useMemo(() => getProfileImageUrl(data?.me ?? null), [data?.me])
@@ -1049,6 +1074,120 @@ export default function DashboardPage() {
   }, [data])
 
   const currentUserId = String(data?.me?.id || '')
+  const renderDashboardHeader = (dashboardData: DashboardData) => (
+    <header className={styles.header}>
+      <div>
+        <h1 className={styles.title}>
+          {t.dashboard.goodMorning}, {greetingName}
+        </h1>
+        <p className={styles.subtitle}>{t.dashboard.structuredOverviewToday}</p>
+      </div>
+
+      <div className={styles.headerActions}>
+        <div className={styles.joinIconWrap}>
+          <button
+            type="button"
+            className={styles.iconBtn}
+            onClick={() => {
+              setJoinOpen((prev) => !prev)
+              setNotifOpen(false)
+            }}
+            aria-label={t.dashboard.joinFamily}
+          >
+            <UserPlus size={20} />
+          </button>
+
+          {joinOpen ? (
+            <div className={styles.joinPopover}>
+              <h3>{t.dashboard.joinFamily}</h3>
+              <p>{t.dashboard.joinFamilyDescription}</p>
+
+              <div className={styles.joinPopoverForm}>
+                <input
+                  type="text"
+                  placeholder={t.dashboard.enterInviteCode}
+                  value={joinCode}
+                  onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                  maxLength={20}
+                />
+
+                <button
+                  type="button"
+                  onClick={previewJoinFamily}
+                  disabled={!joinCode.trim() || actionLoading === 'join-preview'}
+                >
+                  {actionLoading === 'join-preview' ? (
+                    <Loader2 size={16} className={styles.spin} />
+                  ) : (
+                    t.dashboard.joinFamily
+                  )}
+                </button>
+              </div>
+            </div>
+          ) : null}
+        </div>
+
+        <div className={styles.bellWrap}>
+          <button
+            type="button"
+            className={styles.iconBtn}
+            onClick={() => {
+              setNotifOpen((prev) => !prev)
+              setJoinOpen(false)
+            }}
+            aria-label={t.dashboard.openNotifications}
+          >
+            <Bell size={18} />
+
+            {dashboardData.unreadNotifications > 0 ? (
+              <span className={styles.bellCount}>
+                {dashboardData.unreadNotifications > 9 ? '9+' : dashboardData.unreadNotifications}
+              </span>
+            ) : null}
+          </button>
+
+          {notifOpen ? (
+            <div className={styles.notifDropdown}>
+              <div className={styles.notifHeader}>
+                <span>{t.dashboard.recentNotifications}</span>
+                <Link href="/notifications">{t.dashboard.viewAll}</Link>
+              </div>
+
+              {dashboardData.notifications.length === 0 ? (
+                <div className={styles.notifEmpty}>
+                  {t.dashboard.noNotificationsYet}
+                </div>
+              ) : (
+                <div className={styles.notifList}>
+                  {dashboardData.notifications.map((item) => (
+                    <a
+                      key={String(item.id)}
+                      href={item.link || '/notifications'}
+                      className={styles.notifItem}
+                      onClick={(e) => handleNotificationClick(e, item)}
+                    >
+                      <strong>{buildNotificationTitle(item)}</strong>
+                      <p>{buildNotificationMessage(item)}</p>
+                      <small>{formatNotificationTime(item.createdAt)}</small>
+                    </a>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : null}
+        </div>
+
+        <Link href="/profile" className={styles.profileAvatar} aria-label={t.dashboard.openProfile}>
+          {profileImageUrl ? (
+            <img src={profileImageUrl} alt="" className={styles.profileAvatarImage} />
+          ) : (
+            String(greetingName || '?').charAt(0).toUpperCase()
+          )}
+        </Link>
+      </div>
+    </header>
+  )
+
 
   async function markNotificationAsRead(id: string | number) {
     try {
@@ -1505,27 +1644,9 @@ export default function DashboardPage() {
   }
 
   if (data.childCount === 0) {
-    
     return (
       <div className={styles.wrapper}>
-        <header className={styles.header}>
-          <div>
-            <h1 className={styles.title}>
-              {t.dashboard.goodMorning}, {greetingName}
-            </h1>
-            <p className={styles.subtitle}>{t.dashboard.structuredOverviewToday}</p>
-          </div>
-
-          <div className={styles.headerActions}>
-            <Link href="/profile" className={styles.profileAvatar} aria-label={t.dashboard.openProfile}>
-              {profileImageUrl ? (
-                <img src={profileImageUrl} alt="" className={styles.profileAvatarImage} />
-              ) : (
-                String(greetingName || '?').charAt(0).toUpperCase()
-              )}
-            </Link>
-          </div>
-        </header>
+        {renderDashboardHeader(data)}
 
         {error ? <div className={styles.inlineError}>{error}</div> : null}
 
@@ -1551,122 +1672,13 @@ export default function DashboardPage() {
   const isNextCustodyParent =
     data.currentCustody?.nextParentId === currentUserId
 
-  const custodyCountdown = getCountdownParts(data.currentCustody?.endAt)
-  
-
+  const custodyCountdown = getCountdownParts(data.currentCustody?.endAt, nowTick)
   return (
     <div className={styles.wrapper}>
-      <header className={styles.header}>
-        <div>
-          <h1 className={styles.title}>
-            {t.dashboard.goodMorning}, {greetingName}
-          </h1>
-          <p className={styles.subtitle}>{t.dashboard.structuredOverviewToday}</p>
-        </div>
-
-        <div className={styles.headerActions}>
-          <div className={styles.joinIconWrap}>
-            <button
-              type="button"
-              className={styles.iconBtn}
-              onClick={() => {
-                setJoinOpen((prev) => !prev)
-                setNotifOpen(false)
-              }}
-              aria-label={t.dashboard.joinFamily}
-            >
-              <UserPlus size={20} />
-            </button>
-
-            {joinOpen ? (
-              <div className={styles.joinPopover}>
-                <h3>{t.dashboard.joinFamily}</h3>
-                <p>{t.dashboard.joinFamilyDescription}</p>
-
-                <div className={styles.joinPopoverForm}>
-                  <input
-                    type="text"
-                    placeholder={t.dashboard.enterInviteCode}
-                    value={joinCode}
-                    onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-                    maxLength={20}
-                  />
-
-                  <button
-                    type="button"
-                    onClick={previewJoinFamily}
-                    disabled={!joinCode.trim() || actionLoading === 'join-preview'}
-                  >
-                    {actionLoading === 'join-preview' ? (
-                      <Loader2 size={16} className={styles.spin} />
-                    ) : (
-                      t.dashboard.joinFamily
-                    )}
-                  </button>
-                </div>
-              </div>
-            ) : null}
-          </div>
-
-          <div className={styles.bellWrap}>
-            <button
-              type="button"
-              className={styles.iconBtn}
-              onClick={() => {
-                setNotifOpen((prev) => !prev)
-                setJoinOpen(false)
-              }}
-              aria-label={t.dashboard.openNotifications}
-            >
-              <Bell size={18} />
-
-              {data.unreadNotifications > 0 ? (
-                <span className={styles.bellCount}>
-                  {data.unreadNotifications > 9 ? '9+' : data.unreadNotifications}
-                </span>
-              ) : null}
-            </button>
-
-            {notifOpen ? (
-              <div className={styles.notifDropdown}>
-                <div className={styles.notifHeader}>
-                  <span>{t.dashboard.recentNotifications}</span>
-                  <Link href="/notifications">{t.dashboard.viewAll}</Link>
-                </div>
-
-                {data.notifications.length === 0 ? (
-                  <div className={styles.notifEmpty}>{t.dashboard.noNotificationsYet}</div>
-                ) : (
-                  <div className={styles.notifList}>
-                    {data.notifications.map((item) => (
-                      <a
-                        key={String(item.id)}
-                        href={item.link || '/notifications'}
-                        className={styles.notifItem}
-                        onClick={(e) => handleNotificationClick(e, item)}
-                      >
-                        <strong>{buildNotificationTitle(item)}</strong>
-                        <p>{buildNotificationMessage(item)}</p>
-                        <small>{formatNotificationTime(item.createdAt)}</small>
-                      </a>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ) : null}
-          </div>
-
-          <Link href="/profile" className={styles.profileAvatar} aria-label={t.dashboard.openProfile}>
-            {profileImageUrl ? (
-              <img src={profileImageUrl} alt="" className={styles.profileAvatarImage} />
-            ) : (
-              String(greetingName || '?').charAt(0).toUpperCase()
-            )}
-          </Link>
-        </div>
-      </header>
+      {renderDashboardHeader(data)}
 
       {error ? <div className={styles.inlineError}>{error}</div> : null}
+
 
       <main className={styles.dashboardLayout}>
         <section className={styles.custodyCard}>
@@ -1713,20 +1725,30 @@ export default function DashboardPage() {
 
               <div className={styles.custodySide}>
                 <div className={styles.custodyCountdown}>
-                  <span>Slutter om</span>
+                  <span className={styles.countdownLabel}>Slutter om</span>
 
-                  <strong>{getCountdownParts(data.currentCustody.endAt)?.days ?? 0}</strong>
-                  <small>dager</small>
+                  <strong className={styles.countdownDays}>
+                    {custodyCountdown?.days ?? 0}
+                  </strong>
+
+                  <small className={styles.countdownDaysText}>DAGER</small>
+
+                  <div className={styles.countdownDivider} />
 
                   <div className={styles.custodyCountdownDetails}>
-                    <div>
-                      <b>{String(getCountdownParts(data.currentCustody.endAt)?.hours ?? 0).padStart(2, '0')}</b>
-                      <small>timer</small>
+                    <div className={styles.countdownBox}>
+                      <b>{String(custodyCountdown?.hours ?? 0).padStart(2, '0')}</b>
+                      <small>TIMER</small>
                     </div>
 
-                    <div>
-                      <b>{String(getCountdownParts(data.currentCustody.endAt)?.minutes ?? 0).padStart(2, '0')}</b>
-                      <small>min</small>
+                    <div className={styles.countdownBox}>
+                      <b>{String(custodyCountdown?.minutes ?? 0).padStart(2, '0')}</b>
+                      <small>MIN</small>
+                    </div>
+
+                    <div className={styles.countdownBox}>
+                      <b>{String(custodyCountdown?.seconds ?? 0).padStart(2, '0')}</b>
+                      <small>SEK</small>
                     </div>
                   </div>
                 </div>
@@ -1928,31 +1950,6 @@ export default function DashboardPage() {
               </div>
             ) : (
               <div className={styles.empty}>{t.dashboard.allCaughtUp}</div>
-            )}
-          </section>
-
-          <section className={styles.card}>
-            <div className={styles.cardHeader}>
-              <h2>{t.dashboard.openFamilyFinance}</h2>
-              <Link href="/economy">{t.dashboard.viewAll}</Link>
-            </div>
-
-            {data.openFinanceItems.length ? (
-              <div className={styles.financeList}>
-                {data.openFinanceItems.slice(0, 4).map((item) => (
-                  <Link key={`${item.kind}-${item.id}`} href={item.href} className={styles.financeItem}>
-                    <div>
-                      <strong>{item.title}</strong>
-                      <span>{item.subtitle}</span>
-                      <small>{item.detail}</small>
-                    </div>
-
-                    <ChevronRight size={18} />
-                  </Link>
-                ))}
-              </div>
-            ) : (
-              <div className={styles.empty}>{t.dashboard.noOpenFamilyFinanceItems}</div>
             )}
           </section>
 

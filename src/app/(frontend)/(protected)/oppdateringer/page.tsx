@@ -988,20 +988,33 @@ export default function OppdateringerPage() {
                 />
               </label>
 
-              <label className={styles.label}>
-                {t.updates.imagesOptional}
-                <input
-                  className={styles.fileInput}
-                  type="file"
-                  accept="image/png,image/jpeg,image/webp"
-                  multiple
-                  onChange={(e) => {
-                    const selected = Array.from(e.target.files || [])
-                    setNewFiles((prev) => [...prev, ...selected])
-                  }}
-                  disabled={saving}
-                />
-              </label>
+              <div className={styles.label}>
+                <span>{t.updates.imagesOptional}</span>
+
+                <label className={styles.fileUploadBox}>
+                  <input
+                    className={styles.fileInputHidden}
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    multiple
+                    onChange={(e) => {
+                      const selected = Array.from(e.target.files || [])
+                      setNewFiles((prev) => [...prev, ...selected])
+                    }}
+                    disabled={saving}
+                  />
+
+                  <span className={styles.fileUploadText}>
+                    Velg bilder
+                  </span>
+
+                  <span className={styles.fileUploadHint}>
+                    {newFiles.length > 0
+                      ? `${newFiles.length} bilde(r) valgt`
+                      : 'PNG, JPG eller WEBP'}
+                  </span>
+                </label>
+              </div>
 
               {existingAttachments.length > 0 ? (
                 <div className={styles.attachmentBlock}>

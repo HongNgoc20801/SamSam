@@ -36,7 +36,6 @@ type ParentOption = {
 }
 
 type EventType =
-  | 'handover'
   | 'pickup'
   | 'dropoff'
   | 'school'
@@ -144,7 +143,6 @@ function getRelDisplayName(
 
 function toEventType(value: unknown): EventType {
   const allowed: EventType[] = [
-    'handover',
     'pickup',
     'dropoff',
     'school',
@@ -215,7 +213,6 @@ const localizer = dateFnsLocalizer({
 })
 
 const EVENT_TYPE_COLORS: Record<EventType, string> = {
-  handover: '#2563EB',
   pickup: '#0D9488',
   dropoff: '#F59E0B',
   school: '#22C55E',
@@ -241,7 +238,6 @@ export default function CalendarPage() {
 
   const EVENT_TYPE_LABELS = useMemo<Record<EventType, string>>(
     () => ({
-      handover: tc.eventTypeHandover,
       pickup: tc.eventTypePickup,
       dropoff: tc.eventTypeDropoff,
       school: tc.eventTypeSchool,
@@ -329,8 +325,7 @@ export default function CalendarPage() {
   const [requiresConfirmation, setRequiresConfirmation] = useState(false)
   const [confirmationStatus, setConfirmationStatus] =
     useState<ConfirmationStatus>('not-required')
-  const [handoverFrom, setHandoverFrom] = useState('')
-  const [handoverTo, setHandoverTo] = useState('')
+  
   const [responsibleParent, setResponsibleParent] = useState('')
   const [title, setTitle] = useState('')
   const [notes, setNotes] = useState('')
@@ -562,8 +557,6 @@ export default function CalendarPage() {
     setLocation('')
     setRequiresConfirmation(false)
     setConfirmationStatus('not-required')
-    setHandoverFrom('')
-    setHandoverTo('')
     setResponsibleParent('')
     setTitle('')
     setNotes('')
@@ -593,8 +586,6 @@ export default function CalendarPage() {
     setLocation(ev.resource.location ?? '')
     setRequiresConfirmation(Boolean(ev.resource.requiresConfirmation))
     setConfirmationStatus(toConfirmationStatus(ev.resource.confirmationStatus))
-    setHandoverFrom(ev.resource.handoverFromId ?? '')
-    setHandoverTo(ev.resource.handoverToId ?? '')
     setResponsibleParent(ev.resource.responsibleParentId ?? '')
     setTitle(ev.title ?? '')
     setNotes(ev.resource.notes ?? '')
@@ -652,13 +643,6 @@ export default function CalendarPage() {
       return tc.validationConfirmationInvalid
     }
 
-    if (eventType === 'handover') {
-      if (!location.trim()) return tc.validationHandoverLocationRequired
-      if (!handoverFrom) return tc.validationHandoverFromRequired
-      if (!handoverTo) return tc.validationHandoverToRequired
-      if (handoverFrom === handoverTo) return tc.validationHandoverSameParent
-    }
-
     return ''
   }
 
@@ -676,9 +660,6 @@ export default function CalendarPage() {
       location: location.trim() || undefined,
       requiresConfirmation,
       confirmationStatus: requiresConfirmation ? confirmationStatus : 'not-required',
-      handoverFrom:
-        eventType === 'handover' && handoverFrom ? normalizeID(handoverFrom) : null,
-      handoverTo: eventType === 'handover' && handoverTo ? normalizeID(handoverTo) : null,
       responsibleParent: responsibleParent ? normalizeID(responsibleParent) : null,
     }
   }
@@ -1004,7 +985,6 @@ export default function CalendarPage() {
   }
 
   const TYPE_CLASS: Record<EventType, string> = {
-    handover: styles.evtHandover,
     pickup: styles.evtPickup,
     dropoff: styles.evtDropoff,
     school: styles.evtSchool,
@@ -1292,29 +1272,6 @@ export default function CalendarPage() {
                       </div>
                     </div>
 
-                    {type === 'handover' ? (
-                      <div className={styles.handoverPanel}>
-                        <div className={styles.handoverTitle}>{tc.detailsHandover}</div>
-                        <div className={styles.handoverRow}>
-                          <div className={styles.handoverBox}>
-                            <div className={styles.handoverLabel}>{tc.detailsFrom}</div>
-                            <div className={styles.handoverValue}>
-                              {activeEvent.resource.handoverFromName || tc.detailsNotSet}
-                            </div>
-                          </div>
-
-                          <div className={styles.handoverArrow}>→</div>
-
-                          <div className={styles.handoverBox}>
-                            <div className={styles.handoverLabel}>{tc.detailsTo}</div>
-                            <div className={styles.handoverValue}>
-                              {activeEvent.resource.handoverToName || tc.detailsNotSet}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ) : null}
-
                     <div className={styles.descSection}>
                       <div className={styles.descLabel}>{tc.detailsNotes}</div>
                       <div className={styles.descBox}>
@@ -1419,7 +1376,6 @@ export default function CalendarPage() {
                       onChange={(e) => setEventType(e.target.value as EventType)}
                       disabled={saving}
                     >
-                      <option value="handover">{tc.eventTypeHandover}</option>
                       <option value="pickup">{tc.eventTypePickup}</option>
                       <option value="dropoff">{tc.eventTypeDropoff}</option>
                       <option value="school">{tc.eventTypeSchool}</option>
@@ -1481,44 +1437,6 @@ export default function CalendarPage() {
                     ))}
                   </select>
                 </label>
-
-                {eventType === 'handover' ? (
-                  <div className={styles.formRow}>
-                    <label className={styles.label}>
-                      {tc.handoverFrom}
-                      <select
-                        className={styles.select}
-                        value={handoverFrom}
-                        onChange={(e) => setHandoverFrom(e.target.value)}
-                        disabled={saving}
-                      >
-                        <option value="">{tc.selectParent}</option>
-                        {parents.map((p) => (
-                          <option key={String(p.id)} value={String(p.id)}>
-                            {p.fullName}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-
-                    <label className={styles.label}>
-                      {tc.handoverTo}
-                      <select
-                        className={styles.select}
-                        value={handoverTo}
-                        onChange={(e) => setHandoverTo(e.target.value)}
-                        disabled={saving}
-                      >
-                        <option value="">{tc.selectParent}</option>
-                        {parents.map((p) => (
-                          <option key={String(p.id)} value={String(p.id)}>
-                            {p.fullName}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  </div>
-                ) : null}
 
                 <label className={styles.checkboxRow}>
                   <input
@@ -1644,7 +1562,6 @@ export default function CalendarPage() {
                       onChange={(e) => setEventType(e.target.value as EventType)}
                       disabled={saving}
                     >
-                      <option value="handover">{tc.eventTypeHandover}</option>
                       <option value="pickup">{tc.eventTypePickup}</option>
                       <option value="dropoff">{tc.eventTypeDropoff}</option>
                       <option value="school">{tc.eventTypeSchool}</option>
@@ -1707,44 +1624,6 @@ export default function CalendarPage() {
                     ))}
                   </select>
                 </label>
-
-                {eventType === 'handover' ? (
-                  <div className={styles.formRow}>
-                    <label className={styles.label}>
-                      {tc.handoverFrom}
-                      <select
-                        className={styles.select}
-                        value={handoverFrom}
-                        onChange={(e) => setHandoverFrom(e.target.value)}
-                        disabled={saving}
-                      >
-                        <option value="">{tc.selectParent}</option>
-                        {parents.map((p) => (
-                          <option key={String(p.id)} value={String(p.id)}>
-                            {p.fullName}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-
-                    <label className={styles.label}>
-                      {tc.handoverTo}
-                      <select
-                        className={styles.select}
-                        value={handoverTo}
-                        onChange={(e) => setHandoverTo(e.target.value)}
-                        disabled={saving}
-                      >
-                        <option value="">{tc.selectParent}</option>
-                        {parents.map((p) => (
-                          <option key={String(p.id)} value={String(p.id)}>
-                            {p.fullName}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  </div>
-                ) : null}
 
                 <label className={styles.checkboxRow}>
                   <input

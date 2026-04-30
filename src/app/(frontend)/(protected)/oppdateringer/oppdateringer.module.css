@@ -1,10 +1,17 @@
 .wrapper {
-  padding: 24px;
+  --primary: #27357b;
+  --primary-soft: rgba(39, 53, 123, 0.1);
+  --primary-border: rgba(39, 53, 123, 0.22);
+
+  padding: 44px 46px 24px;
   background: #f6f7fb;
   min-height: 100vh;
   color: #111827;
+
   display: grid;
-  gap: 18px;
+  grid-template-rows: auto auto;
+  align-content: start;
+  row-gap: 28px;
 }
 
 .loading {
@@ -24,7 +31,8 @@
   margin: 0;
   font-size: 28px;
   font-weight: 1000;
-  color: #0f172a;
+  color: var(--primary);
+
   letter-spacing: -0.02em;
 }
 
@@ -40,13 +48,13 @@
   height: 52px;
   border: none;
   border-radius: 999px;
-  background: #4f6bed;
+  background: var(--primary);
   color: #fff;
   font-size: 30px;
   line-height: 1;
   font-weight: 700;
   cursor: pointer;
-  box-shadow: 0 14px 28px rgba(79, 107, 237, 0.22);
+  box-shadow: 0 14px 28px rgba(39, 53, 123, 0.24);
   flex: 0 0 auto;
 }
 
@@ -65,6 +73,7 @@
 }
 
 .feedCard {
+  margin-top: 0;
   background: #fff;
   border: 1px solid #e8edf5;
   border-radius: 22px;
@@ -90,9 +99,53 @@
 .cardTitle {
   font-size: 18px;
   font-weight: 1000;
-  color: #0f172a;
+  color: var(--primary);
+}
+.fileInputHidden {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
 }
 
+.fileUploadBox {
+  position: relative;
+  min-height: 92px;
+  border: 1.5px dashed rgba(39, 53, 123, 0.28);
+  border-radius: 16px;
+  background: rgba(39, 53, 123, 0.035);
+  display: grid;
+  place-items: center;
+  gap: 4px;
+  padding: 18px;
+  text-align: center;
+  cursor: pointer;
+  transition: 0.15s ease;
+}
+
+.fileUploadBox:hover {
+  border-color: #27357b;
+  background: rgba(39, 53, 123, 0.07);
+}
+
+.fileUploadBox:focus-within {
+  border-color: #27357b;
+  box-shadow: 0 0 0 4px rgba(39, 53, 123, 0.12);
+}
+
+.fileUploadText {
+  color: #27357b;
+  font-size: 14px;
+  font-weight: 1000;
+}
+
+.fileUploadHint {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 700;
+}
 .feedCount {
   font-size: 12px;
   font-weight: 900;
@@ -125,17 +178,17 @@
 }
 
 .filterSelect:focus {
-  border-color: #93c5fd;
-  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 4px rgba(39, 53, 123, 0.14);
 }
 
 .clearFilterBtn {
   height: 42px;
   padding: 0 16px;
-  border: 1px solid #d5dbe6;
+  border: 1px solid var(--primary-border);
   border-radius: 999px;
   background: #fff;
-  color: #0f172a;
+  color: var(--primary);
   font-weight: 900;
   cursor: pointer;
 }
@@ -163,7 +216,7 @@
 .emptyTitle {
   font-size: 18px;
   font-weight: 1000;
-  color: #0f172a;
+  color: var(--primary);
 }
 
 .emptyText {
@@ -178,7 +231,7 @@
   padding: 0 16px;
   border: none;
   border-radius: 999px;
-  background: #111827;
+  background: var(--primary);
   color: #fff;
   font-weight: 1000;
   cursor: pointer;
@@ -240,7 +293,7 @@
   font-weight: 1000;
   color: #ffffff;
   border: 1px solid rgba(255, 255, 255, 0.12);
-  background: linear-gradient(135deg, #1f2940 0%, #2f3b57 100%);
+  background: linear-gradient(135deg, #27357b 0%, #1f2a63 100%);
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
 }
 
@@ -262,9 +315,9 @@
 }
 
 .mineBadge {
-  background: #eef2ff;
-  color: #4338ca;
-  border: 1px solid #c7d2fe;
+  background: var(--primary-soft);
+  color: var(--primary);
+  border: 1px solid var(--primary-border);
 }
 
 .importantBadge {
@@ -378,8 +431,8 @@
 .primaryBtn {
   height: 42px;
   padding: 0 16px;
-  border: 1px solid #111827;
-  background: #111827;
+  border: 1px solid var(--primary);
+  background: var(--primary);
   color: #fff;
 }
 
@@ -564,9 +617,9 @@
 }
 
 .engagementBtnActive {
-  background: #eef2ff;
-  border-color: #c7d2fe;
-  color: #4338ca;
+  background: var(--primary-soft);
+  border-color: var(--primary-border);
+  color: var(--primary);
 }
 
 .commentOpenBtn {
@@ -657,15 +710,15 @@
 }
 
 .commentInput:focus {
-  border-color: #93c5fd;
-  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 4px rgba(39, 53, 123, 0.14);
 }
 
 .commentSubmit {
   height: 42px;
   padding: 0 16px;
-  border: 1px solid #111827;
-  background: #111827;
+  border: 1px solid var(--primary);
+  background: var(--primary);
   color: #fff;
   font-size: 13px;
 }
@@ -701,7 +754,7 @@
 .modalTitle {
   font-size: 20px;
   font-weight: 1000;
-  color: #111827;
+  color: var(--primary);
 }
 
 .closeBtn {
@@ -752,8 +805,8 @@
 .input:focus,
 .textarea:focus,
 .fileInput:focus {
-  border-color: #93c5fd;
-  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 4px rgba(39, 53, 123, 0.14);
 }
 
 .textarea {
@@ -852,7 +905,7 @@
 .commentModalTitle {
   font-size: 18px;
   font-weight: 1000;
-  color: #111827;
+  color: var(--primary);
 }
 
 .commentModalClose {

@@ -40,13 +40,11 @@
 }
 
 .header {
+  background: #f7f8fc;
+  padding: 24px 0;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 26px;
-  background: transparent;
-  border: 0;
-  box-shadow: none;
 }
 
 .title {
@@ -433,8 +431,7 @@
   font-size: 12px;
 }
 
-.decisionList,
-.financeList {
+.decisionList {
   display: grid;
   gap: 12px;
 }
@@ -478,17 +475,14 @@
   place-items: center;
 }
 
-.decisionItem strong,
-.financeItem strong {
+.decisionItem strong {
   display: block;
   color: var(--samsam-heading);
   font-size: 14px;
   font-weight: 850;
 }
 
-.decisionItem span,
-.financeItem span,
-.financeItem small {
+.decisionItem span {
   display: block;
   margin-top: 3px;
   color: var(--samsam-muted);
@@ -575,26 +569,6 @@
 
 .reviewBtn:hover {
   background: var(--samsam-primary-hover);
-}
-
-.financeItem {
-  min-height: 70px;
-  border: 1px solid var(--samsam-border);
-  border-radius: 14px;
-  background: #f8fbff;
-  padding: 14px;
-  text-decoration: none;
-  color: inherit;
-  display: grid;
-  grid-template-columns: 1fr 18px;
-  align-items: center;
-  gap: 12px;
-  transition: 0.16s ease;
-}
-
-.financeItem:hover {
-  background: #f4f7ff;
-  border-color: #ccd7ec;
 }
 
 .timeline {
@@ -1003,37 +977,73 @@
 }
 .custodyCard {
   grid-column: 1 / -1;
-  min-height: 260px;
+  min-height: 410px;
   position: relative;
   overflow: hidden;
-  background:
-    radial-gradient(circle at 78% 55%, rgba(47, 63, 145, 0.08), transparent 34%),
-    linear-gradient(135deg, #ffffff 0%, #fbfcff 100%);
-  border: 1px solid var(--samsam-border);
-  border-radius: 30px;
-  padding: 34px 42px;
+  background: #27357b;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 28px;
+  padding: 24px 30px;
   display: flex;
   justify-content: space-between;
-  gap: 36px;
+  gap: 24px;
   align-items: center;
-  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.07);
+  box-shadow: 0 24px 55px rgba(39, 53, 123, 0.28);
 }
-
-.custodyContent {
-  max-width: 720px;
+.custodyCard::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 58%;
+  width: 430px;
+  height: 430px;
+  transform: translate(-50%, -50%);
+  background-image: url('/images/logo.png');
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  opacity: 0.12;
+  filter: drop-shadow(0 0 22px rgba(252, 219, 129, 0.35));
+  pointer-events: none;
+  z-index: 1;
+}
+.custodyCard::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 52%;
+  width: 520px;
+  height: 520px;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(
+    circle,
+    rgba(231, 204, 130, 0.22) 0%,
+    rgba(231, 204, 130, 0.12) 32%,
+    rgba(39, 53, 123, 0) 70%
+  );
+  filter: blur(20px);
+  opacity: 0.8;
+  pointer-events: none;
+  z-index: 0;
+  animation: logoGlow 3.5s ease-in-out infinite;
+}
+.custodyContent,
+.custodySide {
+  position: relative;
+  z-index: 1;
 }
 
 .custodyEyebrow {
   width: fit-content;
   display: inline-flex;
   align-items: center;
-  gap: 7px;
+  gap: 6px;
   min-height: 26px;
-  padding: 0 12px;
+  padding: 8px 14px;
   border-radius: 999px;
-  background: #f0efff;
-  color: var(--samsam-primary);
-  font-size: 10px;
+  background: rgba(255, 255, 255, 0.14);
+  color: #f4e5ad;
+  font-size: 13px;
   font-weight: 900;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -1042,7 +1052,7 @@
 
 .custodyCard h2 {
   margin: 0;
-  color: #111827;
+  color: #ffffff;
   font-size: clamp(30px, 3vw, 42px);
   line-height: 1.05;
   font-weight: 900;
@@ -1051,21 +1061,31 @@
 
 .custodyCard p {
   margin: 14px 0 0;
-  color: var(--samsam-muted);
+  color: rgba(255, 255, 255, 0.76);
   font-size: 16px;
 }
 
 .custodyCard p strong {
-  color: #4b5563;
+  color: #f4e5ad;
   font-weight: 900;
 }
-
+.custodyContent h2 {
+  font-size: 32px;
+  line-height: 1.15;
+  margin: 14px 0 10px;
+}
+.custodyContent p {
+  font-size: 16px;
+  line-height: 1.5;
+  margin-bottom: 20px;
+}
 .custodyDates {
   margin-top: 28px;
   display: flex;
   align-items: center;
-  gap: 16px;
-  color: #475569;
+  gap: 18px;
+  margin: 18px 0 22px;
+  color: rgba(255, 255, 255, 0.88);
   font-size: 14px;
   font-weight: 850;
 }
@@ -1073,7 +1093,9 @@
 .custodyDateItem {
   display: inline-flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
+  font-size: 16px;
+
 }
 
 .custodyDateItem svg {
@@ -1081,14 +1103,14 @@
   height: 38px;
   padding: 10px;
   border-radius: 999px;
-  background: #f0efff;
-  color: var(--samsam-primary);
+  background: rgba(255, 255, 255, 0.13);
+  color: #f4e5ad;
 }
 
 .custodyLine {
   width: 110px;
   height: 2px;
-  background: #dbe1ff;
+  background: rgba(255, 255, 255, 0.25);
   position: relative;
 }
 
@@ -1103,18 +1125,17 @@
   transform: translate(-50%, -50%);
   box-shadow: 0 0 0 6px rgba(228, 213, 162, 0.18);
 }
-
 .custodyNoteBox {
   width: fit-content;
   margin-top: 26px;
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  padding: 12px 16px;
+  padding: 12px 18px;
   border-radius: 18px;
   background: #fffaf0;
   color: #7c6a3c;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 750;
 }
 
@@ -1130,17 +1151,43 @@
 }
 
 .custodyCountdown {
-  width: 210px;
-  height: 210px;
-  border-radius: 999px;
+  width: 280px;
+  aspect-ratio: 1 / 1;
+  border-radius: 50%;
   background: #fff;
-  border: 1px solid #eadfae;
-  color: var(--samsam-primary);
-  padding: 24px 22px 18px;
+  color: #303b91;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 22px 24px;
   text-align: center;
-  display: grid;
-  align-content: center;
-  box-shadow: 0 18px 40px rgba(47, 63, 145, 0.08);
+  box-shadow: 0 16px 35px rgba(16, 24, 64, 0.16);
+}
+.countdownLabel {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.countdownDays {
+  font-size: 56px;
+  line-height: 1;
+  font-weight: 900;
+}
+.countdownDaysText {
+  margin-top: 8px;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 1.2px;
+}
+
+.countdownDivider {
+  width: 76%;
+  height: 1px;
+  background: #d8ddef;
+  margin: 14px 0 ;
 }
 .custodyWaitingBox {
   min-height: 54px;
@@ -1182,16 +1229,17 @@
 
 .completeBtn {
   min-width: 210px;
-  min-height: 54px;
+  min-height: 50px;
   border: 0;
-  border-radius: 999px;
+  border-radius: 18px;
   background: var(--samsam-primary);
   color: #fff;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 900;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  padding: 12px 22px;
   gap: 9px;
   cursor: pointer;
   box-shadow: 0 14px 26px rgba(47, 63, 145, 0.26);
@@ -1203,13 +1251,15 @@
 
 .custodyIconActions {
   display: flex;
-  gap: 18px;
+  gap: 12px;
+  margin-top: 18px;
+
 }
 
 .roundEditBtn,
 .roundDeleteBtn {
-  width: 46px;
-  height: 46px;
+  width: 58px;
+  height: 58px;
   border: 0;
   border-radius: 999px;
   cursor: pointer;
@@ -1217,6 +1267,11 @@
   place-items: center;
   font-size: 17px;
   box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
+}
+.roundEditBtn svg,
+.roundDeleteBtn svg {
+  width: 20px;
+  height: 20px;
 }
 
 .roundEditBtn {
@@ -1232,15 +1287,36 @@
   background: #fee2e2;
 }
 .custodyCountdownDetails {
-  width: 130px;
-  margin: 12px auto 0;
-  padding-top: 10px;
-  border-top: 1px solid rgba(47, 63, 145, 0.15);
+  width: 78%;
+  margin: 0 auto;
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 8px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  justify-items: center;
+  gap: 10px;
 }
 
+.countdownBox {
+  min-width: 0;
+  display: flex;
+  font-size: 18px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  text-align: center;
+}
+
+.countdownBox b {
+  font-size: 18px;
+  line-height: 1;
+  font-weight: 900;
+}
+
+.countdownBox small {
+  margin-top: 6px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1px;
+}
 .custodyCountdownDetails div {
   display: grid;
   gap: 3px;
@@ -1346,11 +1422,7 @@
     width: min(calc(100vw - 24px), 390px);
   }
 
-  .custodyCard {
-    flex-direction: column;
-    align-items: flex-start;
-    padding: 24px 20px;
-  }
+  
 
   .custodyDates {
     flex-wrap: wrap;

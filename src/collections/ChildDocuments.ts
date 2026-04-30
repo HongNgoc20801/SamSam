@@ -2,6 +2,8 @@ import type { CollectionConfig, Where } from 'payload'
 import { logAudit } from '@/app/lib/logAudit'
 import { notifyFamily } from '@/app/lib/notifications/notifyFamily'
 
+type ProfileStatus = 'active' | 'inactive' | 'archived'
+
 function getCollectionSlug(req: any) {
   return req?.user?.collection ?? req?.user?._collection
 }
@@ -53,6 +55,12 @@ function normalizeRelId(v: any): string | number | null {
   return null
 }
 
+function normalizeProfileStatus(v: any): ProfileStatus {
+  if (v === 'inactive') return 'inactive'
+  if (v === 'archived') return 'archived'
+  return 'active'
+}
+
 function asText(v: any) {
   if (v === null || v === undefined) return ''
   if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') {
@@ -97,6 +105,37 @@ function getActorDisplayName(req: any) {
   if (email) return email
 
   return 'Family member'
+}
+
+async function getChildById(req: any, childValue: any) {
+  const childId = normalizeRelId(childValue)
+
+  if (!childId) {
+    throw new Error('Missing child.')
+  }
+
+  const childDoc = await req.payload.findByID({
+    collection: 'children',
+    id: childId,
+    req,
+    overrideAccess: true,
+  })
+
+  if (!childDoc?.id) {
+    throw new Error('Child not found.')
+  }
+
+  return childDoc
+}
+
+async function assertChildIsWritable(req: any, childValue: any) {
+  const childDoc = await getChildById(req, childValue)
+
+  if (normalizeProfileStatus(childDoc?.profileStatus) === 'archived') {
+    throw new Error('Archived child profiles are read-only. Documents cannot be changed.')
+  }
+
+  return childDoc
 }
 
 async function getChildSnapshot(req: any, childValue: any) {
@@ -247,16 +286,7 @@ export const ChildDocuments: CollectionConfig = {
 
           if (!next.category) next.category = 'other'
 
-          const childDoc = await req.payload.findByID({
-            collection: 'children',
-            id: childId,
-            req,
-            overrideAccess: true,
-          })
-
-          if (!childDoc?.id) {
-            throw new Error('Child not found.')
-          }
+          const childDoc = await assertChildIsWritable(req, childId)
 
           const childFamilyId =
             typeof childDoc.family === 'string' ? childDoc.family : childDoc.family?.id ?? null
@@ -279,18 +309,32 @@ export const ChildDocuments: CollectionConfig = {
           let version = 1
 
           if (next.replaces) {
-            try {
-              const prev = await req.payload.findByID({
-                collection: 'child_documents',
-                id: normalizeRelId(next.replaces),
-                req,
-                overrideAccess: true,
-              })
+            const replacesId = normalizeRelId(next.replaces)
 
-              version = Number(prev?.version || 1) + 1
-            } catch {
-              version = 2
+            if (!replacesId) {
+              throw new Error('Invalid document to replace.')
             }
+
+            const prev = await req.payload.findByID({
+              collection: 'child_documents',
+              id: replacesId,
+              req,
+              overrideAccess: true,
+            })
+
+            if (!prev?.id) {
+              throw new Error('Document to replace was not found.')
+            }
+
+            if (normalizeRelId(prev?.child) !== childId) {
+              throw new Error('You can only replace a document for the same child.')
+            }
+
+            if (getFamilyIdFromDoc(prev) !== familyId) {
+              throw new Error('You do not have permission to replace this document.')
+            }
+
+            version = Number(prev?.version || 1) + 1
           }
 
           const uploadedByName =
@@ -320,6 +364,8 @@ export const ChildDocuments: CollectionConfig = {
           if (!oldDoc?.id) {
             throw new Error('Original document not found.')
           }
+
+          await assertChildIsWritable(req, oldDoc.child)
 
           next.family = oldDoc.family
           next.uploadedBy = oldDoc.uploadedBy
@@ -351,6 +397,23 @@ export const ChildDocuments: CollectionConfig = {
         }
 
         return next
+      },
+    ],
+
+    beforeDelete: [
+      async ({ req, id }: any) => {
+        if (!req?.user || !id) return
+
+        const existingDoc = await req.payload.findByID({
+          collection: 'child_documents',
+          id,
+          req,
+          overrideAccess: true,
+        })
+
+        if (!existingDoc?.id) return
+
+        await assertChildIsWritable(req, existingDoc.child)
       },
     ],
 

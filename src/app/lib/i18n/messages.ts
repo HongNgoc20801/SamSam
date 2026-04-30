@@ -390,52 +390,76 @@ updates: {
   loadingShort: '...',
 },
  childInfo: {
-      loading: 'Laster…',
-      title: 'Barn-info',
-      subtitle: 'Administrer profiler, status og nødkontakter.',
-      addChild: '+ Legg til barn',
+  loading: 'Laster…',
 
-      apiErrorPrefix: 'API-feil:',
-      apiErrorHint: '(Åpne /api/children for å sjekke 404 / 401)',
+  title: 'Barnoversikt',
+  subtitle: 'Administrer barneprofiler og nødkontakter.',
 
-      searchPlaceholder: 'Søk barn (navn)…',
+  addChild: '+ Legg til barn',
 
-      allStatuses: 'Alle status',
-      pending: 'Pending',
-      confirmed: 'Confirmed',
-      unknown: 'Unknown',
+  apiErrorPrefix: 'API-feil:',
+  apiErrorHint: '(Åpne /api/children for å sjekke 404 / 401)',
 
-      newest: 'Nyeste',
-      az: 'A–Z',
+  searchPlaceholder: 'Søk barn etter navn…',
 
-      emptyTitle: 'Ingen barneprofil funnet',
-      emptyText:
-        'Opprett en profil for å dele kalender og nødinformasjon med familien.',
-      createChildProfile: 'Opprett barneprofil',
+  filterAll: 'Alle barn',
+  filterAttention: 'Trenger oppfølging',
+  filterInactive: 'Inaktiv',
+  filterArchived: 'Arkivert',
 
-      emergencyContact: 'Nødkontakt',
-      bloodPrefix: 'Blod',
-      yearsSuffix: 'år',
-      openProfile: 'Åpne profil →',
+  pending: 'Venter',
+  confirmed: 'Bekreftet',
+  unknown: 'Ukjent',
 
-      networkError: 'Network error',
-    },
-     newChild: {
-      backAriaLabel: 'Tilbake',
+  newest: 'Nyeste',
+  az: 'A–Å',
 
+  profiles: 'profiler',
+  needAttention: 'trenger oppfølging',
+  archivedCount: 'arkivert',
+
+  emptyTitle: 'Ingen barneprofiler funnet',
+  emptyText:
+    'Opprett en profil for å dele kalender og nødinformasjon med familien.',
+
+  createChildProfile: 'Opprett barneprofil',
+
+  emergencyContact: 'Nødkontakt',
+  missingEmergency: 'Manglende nødkontakt',
+
+  needsConfirmation: 'Må bekreftes',
+
+  bloodPrefix: 'Blod',
+  yearsSuffix: 'år',
+
+  openProfile: 'Åpne profil →',
+  readOnlyProfile: 'Vis skrivebeskyttet profil →',
+
+  updated: 'Oppdatert',
+  by: 'Av',
+
+  networkError: 'Nettverksfeil',
+  profileActive: 'Aktiv',
+profileInactive: 'Inaktiv',
+profileArchived: 'Arkivert',
+
+needsConfirmationText: 'Denne profilen venter på bekreftelse fra den andre forelderen.',
+missingEmergencyText: 'Nødkontakt er ikke registrert.',
+
+reason: 'Årsak',
+},
+    newChild: {
+      /* PAGE */
       pageTitle: 'Opprett barneprofil',
-      pageHint: 'Denne informasjonen deles med familiegruppen din.',
+      pageHint: 'Delt med familiegruppen din.',
+      backAriaLabel: 'Gå tilbake',
 
+      /* BASIC */
       basicTitle: 'Grunnleggende informasjon',
-      basicHint: 'Brukes i kalender, varsler og struktur.',
-
-      avatarAriaLabel: 'Avatar',
-      addPhoto: 'Legg til bilde',
-      avatarHelp: 'Avatar (valgfritt) • PNG/JPG anbefales.',
-      removePhoto: 'Fjern bilde',
+      basicHint: 'Viktig informasjon om barnet.',
 
       fullName: 'Fullt navn',
-      fullNamePlaceholder: 'Skriv fullt navn',
+      fullNamePlaceholder: 'Skriv inn fullt navn',
 
       birthDate: 'Fødselsdato',
 
@@ -445,73 +469,106 @@ updates: {
       genderFemale: 'Jente',
       genderOther: 'Annet',
 
-      nationalId: 'Fødselsnummer (11 siffer) (valgfritt)',
-      nationalIdPlaceholder: 'Eksempel: 12345678901',
+      nationalId: 'Fødselsnummer',
+      nationalIdPlaceholder: '11 sifre',
       nationalIdHelp: 'Valgfritt. Mellomrom fjernes automatisk.',
 
-      schoolTitle: 'Skole / Barnehage',
-      schoolHint: 'Hjelper med å holde planer og kontaktinformasjon konsistent.',
-      schoolName: 'Skolens navn',
-      className: 'Klasse',
-      mainTeacher: 'Kontaktlærer (valgfritt)',
+      avatarAriaLabel: 'Barnebilde',
+      addPhoto: 'Legg til bilde',
+      removePhoto: 'Fjern bilde',
+      avatarHelp: 'Valgfritt bilde (PNG/JPG).',
 
-      medicalTitle: 'Medisinsk (nødinformasjon)',
-      medicalHint: 'Hold det kort og konkret.',
+      /* SCHOOL */
+      schoolTitle: 'Skole / Barnehage',
+      schoolHint: 'Valgfri skoleinformasjon.',
+
+      schoolName: 'Navn på skole',
+      schoolNamePlaceholder: 'Skriv inn skole',
+
+      className: 'Klasse',
+      classNamePlaceholder: 'Skriv inn klasse',
+
+      mainTeacher: 'Hovedlærer',
+      mainTeacherPlaceholder: 'Skriv inn lærer',
+
+      /* MEDICAL */
+      medicalTitle: 'Medisinsk informasjon',
+      medicalHint: 'Kun viktig nødinformasjon.',
+
       bloodType: 'Blodtype',
       bloodUnknown: 'Ukjent / Annet',
 
-      allergies: 'Allergier (tags)',
-      conditions: 'Tilstander (tags)',
-      tagsHelpComma: 'Skill med komma eller semikolon.',
+      allergies: 'Allergier',
+      allergiesPlaceholder: 'Peanøtter, pollen',
+
+      conditions: 'Tilstander',
+      conditionsPlaceholder: 'Astma, diabetes',
+
+      medicalShort: 'Medisinsk notat',
+      medicalShortPlaceholder: 'Eksempel: Har EpiPen.',
+      medicalShortHelp: 'Kort notat',
+
+      tagsHelpComma: 'Skill med komma.',
       tagsHelpShort: 'Bruk korte nøkkelord.',
 
-      medicalShort: 'Kort medisinsk notat (valgfritt)',
-      medicalShortPlaceholder: 'Eksempel: Har EpiPen. Unngå medisin X.',
-      medicalShortHelp: 'Maks 160 tegn',
-
-      gpTitle: 'Fastlege (GP)',
+      /* DOCTOR */
+      gpTitle: 'Fastlege',
       doctorName: 'Legens navn',
-      clinic: 'Klinikk (valgfritt)',
-      addPhone: 'Legg til telefonnummer',
-      phoneNumbers: 'Telefonnumre',
-      phoneNumbersPlaceholder: 'telefonnummer',
+      doctorNamePlaceholder: 'Skriv inn navn',
 
+      clinic: 'Klinikk',
+      clinicPlaceholder: 'Skriv inn klinikk',
+
+      phoneNumbers: 'Telefonnumre',
+      phoneNumbersPlaceholder: '+47 123 45 678',
+      addPhone: 'Legg til nummer',
+
+      /* EMERGENCY */
       emergencyTitle: 'Nødkontakter',
-      emergencyHint: 'Legg til minst én kontakt og velg én primærkontakt.',
+      emergencyHint: 'Legg til minst én primærkontakt.',
+
       primary: 'Primær',
       remove: 'Fjern',
 
       contactName: 'Kontaktperson',
+      contactNamePlaceholder: 'Skriv inn fullt navn',
+
       relation: 'Relasjon',
-      relationSelect: 'Velg',
-      relationGuardian: 'Foresatt',
-      relationGrandparent: 'Besteforelder',
+      relationSelect: 'Velg relasjon',
+
       relationMother: 'Mor',
       relationFather: 'Far',
+      relationGuardian: 'Foresatt',
+      relationGrandparent: 'Besteforelder',
       relationRelative: 'Slektning',
       relationBabysitter: 'Barnevakt',
       relationOther: 'Annet',
 
-      addEmergencyPhone: 'Legg til telefonnummer',
+      addEmergencyPhone: 'Telefonnumre',
       emergencyPhonePlaceholder: '+47 123 45 678',
-      addEmergencyContact: '+ Legg til nødkontakt',
 
-      agreeText: 'Jeg forstår at denne informasjonen deles i familiegruppen min.',
+      addEmergencyContact: '+ Legg til kontakt',
+
+      /* ACTIONS */
+      agreeText: 'Jeg forstår at denne informasjonen deles med familiegruppen.',
 
       cancel: 'Avbryt',
       saveProfile: 'Lagre profil',
-      saving: 'Lagrer…',
+      saving: 'Lagrer...',
 
+      /* ERRORS */
       uploadImageError: 'Kunne ikke laste opp bilde.',
-      createError: 'Kunne ikke opprette barneprofil.',
+      createError: 'Kunne ikke opprette profil.',
       unknownError: 'Noe gikk galt.',
+      networkError: 'Nettverksfeil.',
 
-      validationNationalId: 'Fødselsnummer må være nøyaktig 11 siffer.',
+      /* VALIDATION */
+      validationNationalId: 'Fødselsnummer må inneholde 11 sifre.',
       validationEmergencyRequired: 'Legg til minst én nødkontakt.',
       validationEmergencyInvalid:
-        'Hver nødkontakt må ha navn og minst ett gyldig telefonnummer.',
-      validationPrimaryRequired: 'Velg én primær nødkontakt.',
-      validationGpInvalid: 'Telefonnummer for fastlege er ugyldig.',
+        'Hver nødkontakt må ha navn og gyldig telefonnummer.',
+      validationPrimaryRequired: 'Velg én primærkontakt.',
+      validationGpInvalid: 'Ugyldig telefonnummer for lege.',
     },
      childDetail: {
       back: 'Tilbake',
@@ -1935,50 +1992,74 @@ updates: {
   viewerImageAlt: 'Image preview',
   loadingShort: '...',
 },
-     childInfo: {
-      loading: 'Loading…',
-      title: 'Child info',
-      subtitle: 'Manage profiles, status, and emergency contacts.',
-      addChild: '+ Add child',
+    childInfo: {
+  loading: 'Loading…',
 
-      apiErrorPrefix: 'API error:',
-      apiErrorHint: '(Open /api/children to check 404 / 401)',
+  title: 'Children',
+  subtitle: 'Manage child profiles and emergency contacts.',
 
-      searchPlaceholder: 'Search children (name)…',
+  addChild: '+ Add child',
 
-      allStatuses: 'All statuses',
-      pending: 'Pending',
-      confirmed: 'Confirmed',
-      unknown: 'Unknown',
+  apiErrorPrefix: 'API error:',
+  apiErrorHint: '(Open /api/children to check 404 / 401)',
 
-      newest: 'Newest',
-      az: 'A–Z',
+  searchPlaceholder: 'Search children by name…',
 
-      emptyTitle: 'No child profile found',
-      emptyText:
-        'Create a profile to share calendar and emergency information with the family.',
-      createChildProfile: 'Create child profile',
+  filterAll: 'All children',
+  filterAttention: 'Needs attention',
+  filterInactive: 'Inactive',
+  filterArchived: 'Archived',
 
-      emergencyContact: 'Emergency contact',
-      bloodPrefix: 'Blood',
-      yearsSuffix: 'years',
-      openProfile: 'Open profile →',
+  pending: 'Pending',
+  confirmed: 'Confirmed',
+  unknown: 'Unknown',
 
-      networkError: 'Network error',
-    },
-     newChild: {
-      backAriaLabel: 'Back',
+  newest: 'Newest',
+  az: 'A–Z',
 
+  profiles: 'profiles',
+  needAttention: 'need attention',
+  archivedCount: 'archived',
+
+  emptyTitle: 'No child profiles found',
+  emptyText:
+    'Create a profile to share calendar and emergency details with your family.',
+
+  createChildProfile: 'Create child profile',
+
+  emergencyContact: 'Emergency contact',
+  missingEmergency: 'Missing emergency contact',
+
+  needsConfirmation: 'Needs confirmation',
+
+  bloodPrefix: 'Blood',
+  yearsSuffix: 'years',
+
+  openProfile: 'Open profile →',
+  readOnlyProfile: 'View read-only profile →',
+
+  updated: 'Updated',
+  by: 'By',
+
+  networkError: 'Network error',
+  profileActive: 'Active',
+profileInactive: 'Inactive',
+profileArchived: 'Archived',
+
+needsConfirmationText: 'This profile is waiting for confirmation from the other parent.',
+missingEmergencyText: 'Emergency contact is not registered.',
+
+reason: 'Reason',
+},
+        newChild: {
+      /* PAGE */
       pageTitle: 'Create child profile',
-      pageHint: 'This information will be shared with your family group.',
+      pageHint: 'Shared with your family group.',
+      backAriaLabel: 'Go back',
 
+      /* BASIC */
       basicTitle: 'Basic information',
-      basicHint: 'Used for calendars, notifications, and structure.',
-
-      avatarAriaLabel: 'Avatar',
-      addPhoto: 'Add photo',
-      avatarHelp: 'Avatar (optional) • PNG/JPG recommended.',
-      removePhoto: 'Remove photo',
+      basicHint: 'Basic details for this child.',
 
       fullName: 'Full name',
       fullNamePlaceholder: 'Enter full name',
@@ -1987,78 +2068,112 @@ updates: {
 
       gender: 'Gender',
       genderNa: 'Prefer not to say',
-      genderMale: 'Male',
-      genderFemale: 'Female',
+      genderMale: 'Boy',
+      genderFemale: 'Girl',
       genderOther: 'Other',
 
-      nationalId: 'National ID (11 digits) (optional)',
-      nationalIdPlaceholder: 'Example: 12345678901',
+      nationalId: 'National ID',
+      nationalIdPlaceholder: '11 digits',
       nationalIdHelp: 'Optional. Spaces are removed automatically.',
 
-      schoolTitle: 'School / Kindergarten',
-      schoolHint: 'Helps keep schedules and contact info consistent.',
-      schoolName: 'School name',
-      className: 'Class',
-      mainTeacher: 'Main teacher (optional)',
+      avatarAriaLabel: 'Child avatar',
+      addPhoto: 'Add photo',
+      removePhoto: 'Remove photo',
+      avatarHelp: 'Optional photo (PNG/JPG).',
 
-      medicalTitle: 'Medical (emergency)',
-      medicalHint: 'Keep it short and specific.',
+      /* SCHOOL */
+      schoolTitle: 'School / Kindergarten',
+      schoolHint: 'Optional school details.',
+
+      schoolName: 'School name',
+      schoolNamePlaceholder: 'Enter school name',
+
+      className: 'Class',
+      classNamePlaceholder: 'Enter class',
+
+      mainTeacher: 'Main teacher',
+      mainTeacherPlaceholder: 'Enter teacher name',
+
+      /* MEDICAL */
+      medicalTitle: 'Medical information',
+      medicalHint: 'Important emergency details only.',
+
       bloodType: 'Blood type',
       bloodUnknown: 'Unknown / Other',
 
-      allergies: 'Allergies (tags)',
-      conditions: 'Conditions (tags)',
-      tagsHelpComma: 'Separate with commas or semicolons.',
-      tagsHelpShort: 'Use short keywords only.',
+      allergies: 'Allergies',
+      allergiesPlaceholder: 'Peanuts, pollen',
 
-      medicalShort: 'Medical note (short) (optional)',
-      medicalShortPlaceholder: 'Example: Carries an EpiPen. Avoid medication X.',
-      medicalShortHelp: 'Max 160 characters',
+      conditions: 'Conditions',
+      conditionsPlaceholder: 'Asthma, diabetes',
 
-      gpTitle: 'Primary doctor (GP)',
+      medicalShort: 'Medical note',
+      medicalShortPlaceholder: 'Example: Carries an EpiPen.',
+      medicalShortHelp: 'Short note',
+
+      tagsHelpComma: 'Separate with commas.',
+      tagsHelpShort: 'Use short keywords.',
+
+      /* DOCTOR */
+      gpTitle: 'Primary doctor',
       doctorName: 'Doctor name',
-      clinic: 'Clinic (optional)',
-      addPhone: 'Add phone',
-      phoneNumbers: 'Phone numbers',
-      phoneNumbersPlaceholder: 'phone numbers',
+      doctorNamePlaceholder: 'Enter doctor name',
 
+      clinic: 'Clinic',
+      clinicPlaceholder: 'Enter clinic name',
+
+      phoneNumbers: 'Phone numbers',
+      phoneNumbersPlaceholder: '+47 123 45 678',
+      addPhone: 'Add phone',
+
+      /* EMERGENCY */
       emergencyTitle: 'Emergency contacts',
-      emergencyHint: 'Add at least one contact and select one primary.',
+      emergencyHint: 'Add at least one primary contact.',
+
       primary: 'Primary',
       remove: 'Remove',
 
       contactName: 'Contact name',
+      contactNamePlaceholder: 'Enter full name',
+
       relation: 'Relation',
-      relationSelect: 'Select',
-      relationGuardian: 'Guardian',
-      relationGrandparent: 'Grandparent',
+      relationSelect: 'Select relation',
+
       relationMother: 'Mother',
       relationFather: 'Father',
+      relationGuardian: 'Guardian',
+      relationGrandparent: 'Grandparent',
       relationRelative: 'Relative',
       relationBabysitter: 'Babysitter',
       relationOther: 'Other',
 
-      addEmergencyPhone: 'Add phone numbers',
+      addEmergencyPhone: 'Phone numbers',
       emergencyPhonePlaceholder: '+47 123 45 678',
-      addEmergencyContact: '+ Add emergency contact',
 
-      agreeText: 'I understand this information is shared within my family group.',
+      addEmergencyContact: '+ Add contact',
+
+      /* ACTIONS */
+      agreeText: 'I understand this information is shared with my family group.',
 
       cancel: 'Cancel',
       saveProfile: 'Save profile',
-      saving: 'Saving…',
+      saving: 'Saving...',
 
-      uploadImageError: 'Could not upload image.',
-      createError: 'Could not create child profile.',
+      /* ERRORS */
+      uploadImageError: 'Failed to upload image.',
+      createError: 'Failed to create profile.',
       unknownError: 'Something went wrong.',
+      networkError: 'Network error.',
 
-      validationNationalId: 'National ID must be exactly 11 digits.',
-      validationEmergencyRequired: 'Please add at least one emergency contact.',
+      /* VALIDATION */
+      validationNationalId: 'National ID must contain 11 digits.',
+      validationEmergencyRequired: 'Add at least one emergency contact.',
       validationEmergencyInvalid:
-        'Each emergency contact must have a name and at least one valid phone number.',
-      validationPrimaryRequired: 'Please select one primary emergency contact.',
-      validationGpInvalid: 'Primary doctor phone number is invalid.',
+        'Each emergency contact needs a name and valid phone number.',
+      validationPrimaryRequired: 'Select one primary contact.',
+      validationGpInvalid: 'Doctor phone number is invalid.',
     },
+
     childDetail: {
       back: 'Back',
       edit: 'Edit',

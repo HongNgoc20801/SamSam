@@ -24,6 +24,8 @@ const BLOOD_ALL = [
 ] as const
 
 type Gender = 'na' | 'male' | 'female' | 'other'
+type ProfileStatus = 'active' | 'inactive' | 'archived'
+
 type Relation =
   | 'mother'
   | 'father'
@@ -88,6 +90,9 @@ export default function EditChildPage() {
   const [error, setError] = useState('')
   const [status, setStatus] = useState<'pending' | 'confirmed' | string>('pending')
 
+  const [profileStatus, setProfileStatus] = useState<ProfileStatus>('active')
+  const [profileStatusReason, setProfileStatusReason] = useState('')
+
   const [avatarFile, setAvatarFile] = useState<File | null>(null)
   const [existingAvatarUrl, setExistingAvatarUrl] = useState('')
   const [filePreview, setFilePreview] = useState('')
@@ -138,6 +143,14 @@ export default function EditChildPage() {
         if (ignore) return
 
         setStatus(j?.status || 'pending')
+
+        setProfileStatus(
+          j?.profileStatus === 'inactive' || j?.profileStatus === 'archived'
+            ? j.profileStatus
+            : 'active',
+        )
+        setProfileStatusReason(j?.profileStatusReason || '')
+
         setFullName(j?.fullName || '')
         setBirthDate(j?.birthDate ? String(j.birthDate).slice(0, 10) : '')
         setGender((j?.gender || 'na') as Gender)
@@ -330,6 +343,8 @@ export default function EditChildPage() {
         birthDate,
         gender,
         nationalId: cleanNationalId || '',
+        profileStatus,
+        profileStatusReason: profileStatusReason.trim() || undefined,
       }
 
       if (avatarFile) {
@@ -442,6 +457,56 @@ export default function EditChildPage() {
         <section className={styles.section}>
           <div className={styles.sectionTop}>
             <div>
+              <div className={styles.sectionTitle}>Profile status</div>
+              <div className={styles.sectionHint}>
+                Velg om barneprofilen skal være aktiv, inaktiv eller arkivert.
+              </div>
+            </div>
+          </div>
+
+          <div className={styles.row2}>
+            <div className={styles.field}>
+              <label>Status</label>
+              <select
+                value={profileStatus}
+                onChange={(e) => setProfileStatus(e.target.value as ProfileStatus)}
+                disabled={loading}
+              >
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+                <option value="archived">Archived</option>
+              </select>
+            </div>
+
+            <div className={styles.field}>
+              <label>Reason</label>
+              <input
+                value={profileStatusReason}
+                onChange={(e) => setProfileStatusReason(e.target.value)}
+                disabled={loading}
+                placeholder="Optional reason"
+                maxLength={160}
+              />
+            </div>
+          </div>
+        </section>
+
+        {profileStatus === 'archived' ? (
+          <section className={styles.warningBox}>
+            <div className={styles.warningTop}>
+              <AlertTriangle size={18} />
+              <strong>Archive profile</strong>
+            </div>
+            <div className={styles.warningText}>
+              Archived child profiles are kept for history and documentation, but should not be
+              used for the daily co-parenting workflow.
+            </div>
+          </section>
+        ) : null}
+
+        <section className={styles.section}>
+          <div className={styles.sectionTop}>
+            <div>
               <div className={styles.sectionTitle}>{t.editChild.basicTitle}</div>
               <div className={styles.sectionHint}>{t.editChild.basicHint}</div>
             </div>
@@ -452,7 +517,11 @@ export default function EditChildPage() {
               <label className={styles.avatarPicker}>
                 <div className={styles.avatarCircle} aria-label={t.editChild.avatarAriaLabel}>
                   {avatarSrc ? (
-                    <img className={styles.avatarImg} src={avatarSrc} alt={t.editChild.avatarAlt} />
+                    <img
+                      className={styles.avatarImg}
+                      src={avatarSrc}
+                      alt={t.editChild.avatarAlt}
+                    />
                   ) : (
                     <div className={styles.avatarPlaceholder}>{avatarLetter}</div>
                   )}
@@ -657,7 +726,11 @@ export default function EditChildPage() {
           <div className={styles.row2}>
             <div className={styles.field}>
               <label>{t.editChild.doctorName}</label>
-              <input value={gpName} onChange={(e) => setGpName(e.target.value)} disabled={loading} />
+              <input
+                value={gpName}
+                onChange={(e) => setGpName(e.target.value)}
+                disabled={loading}
+              />
             </div>
 
             <div className={styles.field}>

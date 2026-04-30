@@ -9,6 +9,7 @@ import {
   IdCard,
   Shapes,
   Pencil,
+  Archive,
 } from 'lucide-react'
 
 import styles from './documents.module.css'
@@ -19,9 +20,12 @@ const DOCS_SLUG = 'child_documents'
 
 type SearchParams = Promise<{ category?: string }>
 
+type ProfileStatus = 'active' | 'inactive' | 'archived'
+
 type Child = {
   id: string
   fullName: string
+  profileStatus?: ProfileStatus | string
 }
 
 type Media = {
@@ -54,6 +58,15 @@ type ChildDoc = {
   uploadedByName?: string
 }
 
+function normalizeProfileStatus(s?: string): ProfileStatus {
+  const v = String(s || '').toLowerCase()
+
+  if (v === 'inactive') return 'inactive'
+  if (v === 'archived') return 'archived'
+
+  return 'active'
+}
+
 function fmtDate(value?: string | null, fallback = '—') {
   if (!value) return fallback
 
@@ -79,10 +92,7 @@ function fileMeta(file?: string | Media, fallbackFileName = 'file') {
   return `${name}${size ? ` • ${size}` : ''}`
 }
 
-function uploaderLabel(
-  doc: ChildDoc,
-  labels: { unknownUser: string; familyMember: string }
-) {
+function uploaderLabel(doc: ChildDoc, labels: { unknownUser: string; familyMember: string }) {
   if (doc.uploadedByName?.trim()) return doc.uploadedByName.trim()
 
   const value = doc.uploadedBy
@@ -151,6 +161,9 @@ export default async function DocumentsPage({
   const child: Child | null = await childRes.json().catch(() => null)
   if (!child?.id) return notFound()
 
+  const profileStatus = normalizeProfileStatus(child.profileStatus)
+  const isArchived = profileStatus === 'archived'
+
   const docsData = docsRes.ok ? await docsRes.json().catch(() => null) : null
   const docs: ChildDoc[] = docsData?.docs ?? []
 
@@ -183,10 +196,23 @@ export default async function DocumentsPage({
           <div className={styles.titleRow}>
             <h1 className={styles.title}>{child.fullName}</h1>
 
-            <Link className={styles.primaryBtn} href={`/child-info/${id}/documents/new`}>
-              {td.addNew}
-            </Link>
+            {isArchived ? (
+              <span className={styles.disabledBtn}>
+                <Archive size={15} />
+                Archived
+              </span>
+            ) : (
+              <Link className={styles.primaryBtn} href={`/child-info/${id}/documents/new`}>
+                {td.addNew}
+              </Link>
+            )}
           </div>
+
+          {isArchived ? (
+            <div className={styles.archivedNotice}>
+              This child profile is archived. Documents can be viewed, but new uploads and edits are disabled.
+            </div>
+          ) : null}
         </div>
       </header>
 
@@ -237,10 +263,7 @@ export default async function DocumentsPage({
 
               return (
                 <div key={doc.id} className={styles.row}>
-                  <Link
-                    href={`/child-info/${id}/documents/${doc.id}`}
-                    className={styles.rowMain}
-                  >
+                  <Link href={`/child-info/${id}/documents/${doc.id}`} className={styles.rowMain}>
                     <div className={styles.rowIcon}>
                       <FileText size={15} />
                     </div>
@@ -275,15 +298,17 @@ export default async function DocumentsPage({
                     </div>
                   </Link>
 
-                  <div className={styles.rowActions}>
-                    <Link
-                      href={`/child-info/${id}/documents/${doc.id}/edit`}
-                      className={styles.iconBtn}
-                      aria-label={td.editDocument}
-                    >
-                      <Pencil size={15} />
-                    </Link>
-                  </div>
+                  {!isArchived ? (
+                    <div className={styles.rowActions}>
+                      <Link
+                        href={`/child-info/${id}/documents/${doc.id}/edit`}
+                        className={styles.iconBtn}
+                        aria-label={td.editDocument}
+                      >
+                        <Pencil size={15} />
+                      </Link>
+                    </div>
+                  ) : null}
                 </div>
               )
             })}

@@ -568,3 +568,12 @@
     grid-template-columns: 1fr;
   }
 }
+.statusHelpBox {
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid #dbeafe;
+  background: #eff6ff;
+  color: #1e3a8a;
+  font-size: 13px;
+  line-height: 1.5;
+}

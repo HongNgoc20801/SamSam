@@ -450,6 +450,13 @@ export interface Child {
         id?: string | null;
       }[]
     | null;
+  profileStatus: 'active' | 'inactive' | 'archived';
+  /**
+   * Optional reason when setting profile inactive or archived.
+   */
+  profileStatusReason?: string | null;
+  profileStatusChangedBy?: (number | null) | Customer;
+  profileStatusChangedAt?: string | null;
   status: 'pending' | 'confirmed';
   createdBy?: (number | null) | Customer;
   lastEditedBy?: (number | null) | Customer;
@@ -1304,6 +1311,10 @@ export interface ChildrenSelect<T extends boolean = true> {
             };
         id?: T;
       };
+  profileStatus?: T;
+  profileStatusReason?: T;
+  profileStatusChangedBy?: T;
+  profileStatusChangedAt?: T;
   status?: T;
   createdBy?: T;
   lastEditedBy?: T;

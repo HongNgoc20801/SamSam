@@ -28,6 +28,8 @@ const DOCS_SLUG = 'child_documents'
 const AUDIT_SLUG = 'audit_logs'
 const LATEST_AUDIT_LIMIT = 5
 
+type ProfileStatus = 'active' | 'inactive' | 'archived'
+
 type Media = {
   id?: string
   url?: string
@@ -57,17 +59,18 @@ type Child = {
   gender?: string
   nationalId?: string
   status?: 'pending' | 'confirmed' | string
+  profileStatus?: ProfileStatus | string
+  profileStatusReason?: string
+  profileStatusChangedAt?: string
   createdBy?: any
   lastEditedBy?: any
   confirmedAt?: string | null
   avatar?: Media | string | null
-
   school?: {
     schoolName?: string
     className?: string
     mainTeacher?: string
   }
-
   medical?: {
     bloodType?: string
     allergies?: { value: string }[]
@@ -81,7 +84,6 @@ type Child = {
       phones?: PhoneT[]
     }
   }
-
   emergencyContacts?: EmergencyContact[]
 }
 
@@ -116,9 +118,24 @@ function calcAge(birthDate?: string) {
   return age
 }
 
-function normalizeStatus(s?: string) {
+function normalizeStatus(s?: string): 'pending' | 'confirmed' {
   const v = String(s || '').toLowerCase()
   return v.includes('confirm') ? 'confirmed' : 'pending'
+}
+
+function normalizeProfileStatus(s?: string): ProfileStatus {
+  const v = String(s || '').toLowerCase()
+
+  if (v === 'inactive') return 'inactive'
+  if (v === 'archived') return 'archived'
+
+  return 'active'
+}
+
+function profileLabel(s: ProfileStatus) {
+  if (s === 'inactive') return 'Inactive'
+  if (s === 'archived') return 'Archived'
+  return 'Active'
 }
 
 function normalizeMediaUrl(url: string) {
@@ -254,6 +271,9 @@ export default async function ChildDetailPage({
   const events: CalEvent[] = eventsData?.docs ?? []
 
   const status = normalizeStatus(child.status)
+  const profileStatus = normalizeProfileStatus(child.profileStatus)
+  const isArchived = profileStatus === 'archived'
+
   const age = calcAge(child.birthDate)
   const initial = (child.fullName?.trim()?.[0] || 'C').toUpperCase()
   const avatarUrl = getAvatarUrl(child.avatar)
@@ -285,20 +305,25 @@ export default async function ChildDetailPage({
         </div>
 
         <div className={styles.topActions}>
-          <Link
-            className={styles.iconBtn}
-            href={`/child-info/${id}/edit`}
-            aria-label={t.childDetail.edit}
-          >
-            <Pencil size={18} />
-          </Link>
-          <Link
-            className={styles.iconBtn}
-            href={`/child-info/${id}/documents/new`}
-            aria-label={t.childDetail.uploadDocument}
-          >
-            <Upload size={18} />
-          </Link>
+          {!isArchived ? (
+            <>
+              <Link
+                className={styles.iconBtn}
+                href={`/child-info/${id}/edit`}
+                aria-label={t.childDetail.edit}
+              >
+                <Pencil size={18} />
+              </Link>
+
+              <Link
+                className={styles.iconBtn}
+                href={`/child-info/${id}/documents/new`}
+                aria-label={t.childDetail.uploadDocument}
+              >
+                <Upload size={18} />
+              </Link>
+            </>
+          ) : null}
         </div>
       </header>
 
@@ -320,6 +345,10 @@ export default async function ChildDetailPage({
             <div className={styles.profileName}>{child.fullName}</div>
 
             <div className={styles.profileStatusRow}>
+              <span className={`${styles.statusPill} ${styles[`profile_${profileStatus}`]}`}>
+                {profileLabel(profileStatus)}
+              </span>
+
               <span
                 className={`${styles.statusPill} ${
                   status === 'confirmed' ? styles.statusOk : styles.statusWarn
@@ -343,6 +372,16 @@ export default async function ChildDetailPage({
               ) : null}
             </div>
 
+            {isArchived ? (
+              <div className={styles.profileStatusReason}>
+                This profile is archived and read-only.
+              </div>
+            ) : null}
+
+            {profileStatus !== 'active' && child.profileStatusReason ? (
+              <div className={styles.profileStatusReason}>{child.profileStatusReason}</div>
+            ) : null}
+
             <div className={styles.profileMetaLine}>
               {age !== null ? `${age} ${t.childDetail.years}` : '—'} • {t.childDetail.born}{' '}
               {fmtDate(child.birthDate, locale)}{' '}
@@ -350,9 +389,16 @@ export default async function ChildDetailPage({
             </div>
 
             <div className={styles.profileBtnRow}>
-              <Link className={styles.primaryBtn} href={`/child-info/${id}/edit`}>
-                <Pencil size={16} /> {t.childDetail.edit}
-              </Link>
+              {!isArchived ? (
+                <Link className={styles.primaryBtn} href={`/child-info/${id}/edit`}>
+                  <Pencil size={16} /> {t.childDetail.edit}
+                </Link>
+              ) : (
+                <span className={styles.disabledBtn}>
+                  <Pencil size={16} /> Read-only
+                </span>
+              )}
+
               <Link className={styles.secondaryBtn} href={`/calendar?child=${id}`}>
                 <Calendar size={16} /> {t.childDetail.calendar}
               </Link>
@@ -454,9 +500,12 @@ export default async function ChildDetailPage({
                   <UserRound size={18} />
                   <div className={styles.cardTitle}>{t.childDetail.basicInfo}</div>
                 </div>
-                <Link className={styles.cardLink} href={`/child-info/${id}/edit`}>
-                  {t.childDetail.edit}
-                </Link>
+
+                {!isArchived ? (
+                  <Link className={styles.cardLink} href={`/child-info/${id}/edit`}>
+                    {t.childDetail.edit}
+                  </Link>
+                ) : null}
               </div>
 
               <div className={styles.kvTable}>
@@ -482,6 +531,26 @@ export default async function ChildDetailPage({
                     {status === 'confirmed' ? t.childDetail.confirmed : t.childDetail.pending}
                   </div>
                 </div>
+                <div className={styles.kvRow}>
+                  <div className={styles.kvK}>Profile status</div>
+                  <div className={styles.kvV}>{profileLabel(profileStatus)}</div>
+                </div>
+
+                {child.profileStatusReason ? (
+                  <div className={styles.kvRow}>
+                    <div className={styles.kvK}>Status reason</div>
+                    <div className={styles.kvV}>{child.profileStatusReason}</div>
+                  </div>
+                ) : null}
+
+                {child.profileStatusChangedAt ? (
+                  <div className={styles.kvRow}>
+                    <div className={styles.kvK}>Status changed</div>
+                    <div className={styles.kvV}>
+                      {fmtDateTime(child.profileStatusChangedAt, locale)}
+                    </div>
+                  </div>
+                ) : null}
               </div>
             </section>
 
@@ -491,9 +560,12 @@ export default async function ChildDetailPage({
                   <School size={18} />
                   <div className={styles.cardTitle}>{t.childDetail.schoolDetails}</div>
                 </div>
-                <Link className={styles.cardLink} href={`/child-info/${id}/edit`}>
-                  {t.childDetail.edit}
-                </Link>
+
+                {!isArchived ? (
+                  <Link className={styles.cardLink} href={`/child-info/${id}/edit`}>
+                    {t.childDetail.edit}
+                  </Link>
+                ) : null}
               </div>
 
               <div className={styles.kvTable}>
@@ -655,9 +727,12 @@ export default async function ChildDetailPage({
                 <Link className={styles.cardLink} href={`/child-info/${id}/documents`}>
                   {t.childDetail.viewAll}
                 </Link>
-                <Link className={styles.cardLink} href={`/child-info/${id}/documents/new`}>
-                  {t.childDetail.addNew}
-                </Link>
+
+                {!isArchived ? (
+                  <Link className={styles.cardLink} href={`/child-info/${id}/documents/new`}>
+                    {t.childDetail.addNew}
+                  </Link>
+                ) : null}
               </div>
             </div>
 
@@ -703,7 +778,11 @@ export default async function ChildDetailPage({
               </Link>
             </div>
 
-            <div className={styles.docHint}>{t.childDetail.selectCategoryHint}</div>
+            <div className={styles.docHint}>
+              {isArchived
+                ? 'This child profile is archived. Documents are read-only.'
+                : t.childDetail.selectCategoryHint}
+            </div>
 
             {docs.length === 0 ? <div className={styles.empty}>{t.childDetail.noDocumentsYet}</div> : null}
           </section>

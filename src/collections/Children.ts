@@ -2,6 +2,8 @@ import type { CollectionConfig } from 'payload'
 import { logAudit } from '@/app/lib/logAudit'
 import { notifyFamily } from '@/app/lib/notifications/notifyFamily'
 
+type ProfileStatus = 'active' | 'inactive' | 'archived'
+
 function getCollectionSlug(req: any) {
   return req?.user?.collection ?? req?.user?._collection
 }
@@ -83,10 +85,9 @@ function getActorDisplayName(req: any) {
   const firstName = String(u.firstName || u.fornavn || '').trim()
   if (firstName) return firstName
 
-  const combined =
-    `${String(u.firstName || u.fornavn || '').trim()} ${String(
-      u.lastName || u.etternavn || '',
-    ).trim()}`.trim()
+  const combined = `${String(u.firstName || u.fornavn || '').trim()} ${String(
+    u.lastName || u.etternavn || '',
+  ).trim()}`.trim()
   if (combined) return combined
 
   const fullName = String(u.fullName || u.name || '').trim()
@@ -96,6 +97,16 @@ function getActorDisplayName(req: any) {
   if (email) return email
 
   return 'A parent'
+}
+
+function normalizeProfileStatus(v: any): ProfileStatus {
+  if (v === 'inactive') return 'inactive'
+  if (v === 'archived') return 'archived'
+  return 'active'
+}
+
+function hasOwn(obj: any, key: string) {
+  return Object.prototype.hasOwnProperty.call(obj ?? {}, key)
 }
 
 const IMPORTANT_FIELDS = [
@@ -147,19 +158,24 @@ export const Children: CollectionConfig = {
       async (args: any) => {
         const { data, req, operation } = args
         const originalDoc = args?.originalDoc ?? args?.previousDoc ?? args?.doc ?? null
-
         const next: any = { ...(data ?? {}) }
 
         if (next.fullName) next.fullName = String(next.fullName).trim()
         if (next.nationalId) next.nationalId = String(next.nationalId).replace(/\s+/g, '')
 
+        if (hasOwn(next, 'profileStatus')) {
+          next.profileStatus = normalizeProfileStatus(next.profileStatus)
+        }
+
+        if (hasOwn(next, 'profileStatusReason')) {
+          next.profileStatusReason = String(next.profileStatusReason || '').trim().slice(0, 160)
+        }
+
         if (Array.isArray(next?.emergencyContacts)) {
           next.emergencyContacts = next.emergencyContacts
             .map((c: any) => {
               const phones = Array.isArray(c?.phones)
-                ? c.phones
-                    .map((p: any) => ({ value: cleanPhone(p?.value) }))
-                    .filter((p: any) => p.value)
+                ? c.phones.map((p: any) => ({ value: cleanPhone(p?.value) })).filter((p: any) => p.value)
                 : []
 
               return {
@@ -226,9 +242,11 @@ export const Children: CollectionConfig = {
           if (next.school.schoolName) {
             next.school.schoolName = String(next.school.schoolName).trim()
           }
+
           if (next.school.className) {
             next.school.className = String(next.school.className).trim()
           }
+
           if (next.school.mainTeacher) {
             next.school.mainTeacher = String(next.school.mainTeacher).trim()
           }
@@ -249,66 +267,93 @@ export const Children: CollectionConfig = {
             family: next.family ?? familyId,
             createdBy: next.createdBy ?? userId,
             lastEditedBy: userId,
+
             status: next.status ?? 'pending',
             confirmedBy: null,
             confirmedAt: null,
+
+            profileStatus: 'active',
+            profileStatusReason: next.profileStatusReason ?? '',
+            profileStatusChangedBy: userId,
+            profileStatusChangedAt: new Date().toISOString(),
           }
         }
 
         if (operation === 'update') {
-          const userId = (req.user as any)?.id
+  const userId = (req.user as any)?.id
 
-          const wantsConfirm = next?.status === 'confirmed'
-          const wasPending = originalDoc?.status === 'pending'
-          const wasConfirmed = originalDoc?.status === 'confirmed'
+  const previousProfileStatus = normalizeProfileStatus(originalDoc?.profileStatus)
+  const nextProfileStatus = hasOwn(next, 'profileStatus')
+    ? normalizeProfileStatus(next.profileStatus)
+    : previousProfileStatus
 
-          const merged = { ...(originalDoc ?? {}), ...(next ?? {}) }
-          const prevKey = stableJson(pick(originalDoc, IMPORTANT_FIELDS as any))
-          const nextKey = stableJson(pick(merged, IMPORTANT_FIELDS as any))
-          const importantFieldsChanged = prevKey !== nextKey
+  const profileStatusChanged = previousProfileStatus !== nextProfileStatus
 
-          if (wantsConfirm && wasPending) {
-            const lastEditedById =
-              typeof originalDoc?.lastEditedBy === 'string'
-                ? originalDoc.lastEditedBy
-                : originalDoc?.lastEditedBy?.id
+  const wantsConfirm = next?.status === 'confirmed'
+  const wasPending = originalDoc?.status === 'pending'
+  const wasConfirmed = originalDoc?.status === 'confirmed'
+  const isConfirmAction = wantsConfirm && wasPending
 
-            if (lastEditedById && lastEditedById === userId) {
-              throw new Error(
-                'You cannot confirm a child profile that you last edited. The other parent must confirm it.',
-              )
-            }
+  if (previousProfileStatus === 'archived' && !isConfirmAction) {
+    throw new Error('Archived child profiles are read-only and cannot be edited.')
+  }
 
-            next.status = 'confirmed'
-            next.confirmedBy = userId
-            next.confirmedAt = new Date().toISOString()
+  if (profileStatusChanged) {
+    next.profileStatus = nextProfileStatus
+    next.profileStatusChangedBy = userId
+    next.profileStatusChangedAt = new Date().toISOString()
+    next.profileStatusReason = String(next.profileStatusReason || '').trim().slice(0, 160)
+  } else if (hasOwn(next, 'profileStatusReason')) {
+    next.profileStatusReason = String(next.profileStatusReason || '').trim().slice(0, 160)
+  }
 
-            if ('lastEditedBy' in next) {
-              delete next.lastEditedBy
-            }
+  const merged = { ...(originalDoc ?? {}), ...(next ?? {}) }
+  const prevKey = stableJson(pick(originalDoc, IMPORTANT_FIELDS as any))
+  const nextKey = stableJson(pick(merged, IMPORTANT_FIELDS as any))
+  const importantFieldsChanged = prevKey !== nextKey
 
-            return next
-          }
+  if (wantsConfirm && wasPending) {
+    const lastEditedById =
+      typeof originalDoc?.lastEditedBy === 'string'
+        ? originalDoc.lastEditedBy
+        : originalDoc?.lastEditedBy?.id
 
-          if (wasConfirmed && importantFieldsChanged) {
-            next.status = 'pending'
-            next.confirmedBy = null
-            next.confirmedAt = null
-          }
+    if (lastEditedById && lastEditedById === userId) {
+      throw new Error(
+        'You cannot confirm a child profile that you last edited. The other parent must confirm it.',
+      )
+    }
 
-          if (importantFieldsChanged) {
-            next.lastEditedBy = userId
-          }
+    next.status = 'confirmed'
+    next.confirmedBy = userId
+    next.confirmedAt = new Date().toISOString()
 
-          if ('confirmedBy' in next || 'confirmedAt' in next) {
-            if (!(next.status === 'confirmed' && originalDoc?.status === 'pending')) {
-              delete next.confirmedBy
-              delete next.confirmedAt
-            }
-          }
+    if ('lastEditedBy' in next) {
+      delete next.lastEditedBy
+    }
 
-          return next
-        }
+    return next
+  }
+
+  if (wasConfirmed && importantFieldsChanged) {
+    next.status = 'pending'
+    next.confirmedBy = null
+    next.confirmedAt = null
+  }
+
+  if (importantFieldsChanged) {
+    next.lastEditedBy = userId
+  }
+
+  if ('confirmedBy' in next || 'confirmedAt' in next) {
+    if (!(next.status === 'confirmed' && originalDoc?.status === 'pending')) {
+      delete next.confirmedBy
+      delete next.confirmedAt
+    }
+  }
+
+  return next
+}
 
         return next
       },
@@ -338,6 +383,7 @@ export const Children: CollectionConfig = {
               actorName,
               childName: doc?.fullName,
               status: doc?.status,
+              profileStatus: doc?.profileStatus,
               needsConfirmation: doc?.status === 'pending',
             },
           })
@@ -355,6 +401,7 @@ export const Children: CollectionConfig = {
               actorName,
               childName: doc?.fullName,
               status: doc?.status,
+              profileStatus: doc?.profileStatus,
               eventType: 'child-profile',
               needsConfirmation: doc?.status === 'pending',
             },
@@ -410,6 +457,49 @@ export const Children: CollectionConfig = {
             return
           }
 
+          const prevProfileStatus = normalizeProfileStatus(previousDoc?.profileStatus)
+          const nextProfileStatus = normalizeProfileStatus(doc?.profileStatus)
+
+          if (prevProfileStatus !== nextProfileStatus) {
+            await logAudit(req, {
+              familyId,
+              childId,
+              childName: doc?.fullName,
+              action: 'child.profileStatus.change',
+              entityType: 'child',
+              entityId: String(doc?.id),
+              scope: 'child_profile',
+              severity: 'important',
+              summary: `${actorName} changed ${doc?.fullName || 'this child'} from ${prevProfileStatus} to ${nextProfileStatus}`,
+              changes: [{ field: 'profileStatus', from: prevProfileStatus, to: nextProfileStatus }],
+              meta: {
+                actorName,
+                childName: doc?.fullName,
+                previousProfileStatus: prevProfileStatus,
+                profileStatus: nextProfileStatus,
+                reason: doc?.profileStatusReason ?? null,
+              },
+            })
+
+            await notifyFamily(req, {
+              familyId,
+              actorUserId,
+              childId,
+              type: 'status',
+              event: 'updated',
+              title: `${doc?.fullName || 'Child profile'} profile status changed`,
+              message: `${actorName} changed profile status to ${nextProfileStatus}.`,
+              link: `/child-info/${doc?.id}`,
+              meta: {
+                actorName,
+                childName: doc?.fullName,
+                previousProfileStatus: prevProfileStatus,
+                profileStatus: nextProfileStatus,
+                eventType: 'child-profile-status',
+              },
+            })
+          }
+
           const changes: Array<{ field: string; from?: any; to?: any }> = []
 
           pushChange(changes, 'fullName', previousDoc?.fullName, doc?.fullName)
@@ -417,39 +507,15 @@ export const Children: CollectionConfig = {
           pushChange(changes, 'gender', previousDoc?.gender, doc?.gender)
           pushChange(changes, 'nationalId', previousDoc?.nationalId, doc?.nationalId)
           pushChange(changes, 'status', previousDoc?.status, doc?.status)
+          pushChange(changes, 'profileStatus', previousDoc?.profileStatus, doc?.profileStatus)
           pushChange(changes, 'avatar', previousDoc?.avatar, doc?.avatar)
 
-          pushChange(
-            changes,
-            'school.schoolName',
-            previousDoc?.school?.schoolName,
-            doc?.school?.schoolName,
-          )
-          pushChange(
-            changes,
-            'school.className',
-            previousDoc?.school?.className,
-            doc?.school?.className,
-          )
-          pushChange(
-            changes,
-            'school.mainTeacher',
-            previousDoc?.school?.mainTeacher,
-            doc?.school?.mainTeacher,
-          )
+          pushChange(changes, 'school.schoolName', previousDoc?.school?.schoolName, doc?.school?.schoolName)
+          pushChange(changes, 'school.className', previousDoc?.school?.className, doc?.school?.className)
+          pushChange(changes, 'school.mainTeacher', previousDoc?.school?.mainTeacher, doc?.school?.mainTeacher)
 
-          pushChange(
-            changes,
-            'medical.bloodType',
-            previousDoc?.medical?.bloodType,
-            doc?.medical?.bloodType,
-          )
-          pushChange(
-            changes,
-            'medical.notesShort',
-            previousDoc?.medical?.notesShort,
-            doc?.medical?.notesShort,
-          )
+          pushChange(changes, 'medical.bloodType', previousDoc?.medical?.bloodType, doc?.medical?.bloodType)
+          pushChange(changes, 'medical.notesShort', previousDoc?.medical?.notesShort, doc?.medical?.notesShort)
           pushChange(
             changes,
             'medical.allergies',
@@ -500,6 +566,7 @@ export const Children: CollectionConfig = {
               childName: doc?.fullName,
               previousStatus: prevStatus,
               status: nextStatus,
+              profileStatus: nextProfileStatus,
               wasResetToPending,
               needsConfirmation: nextStatus === 'pending',
             },
@@ -523,6 +590,7 @@ export const Children: CollectionConfig = {
               childName: doc?.fullName,
               previousStatus: prevStatus,
               status: nextStatus,
+              profileStatus: nextProfileStatus,
               wasResetToPending,
               eventType: 'child-profile',
               needsConfirmation: nextStatus === 'pending',
@@ -573,13 +641,13 @@ export const Children: CollectionConfig = {
 
     {
       name: 'nationalId',
-      label: 'Số định danh (11 số)',
+      label: 'Sø fødselsnummer / ID number',
       type: 'text',
       required: false,
       validate: (value: any) => {
         if (!value) return true
         const v = String(value).replace(/\s+/g, '')
-        if (!/^\d{11}$/.test(v)) return 'Số định danh phải gồm đúng 11 chữ số.'
+        if (!/^\d{11}$/.test(v)) return 'ID number must contain exactly 11 digits.'
         return true
       },
     },
@@ -716,6 +784,40 @@ export const Children: CollectionConfig = {
     },
 
     {
+      name: 'profileStatus',
+      type: 'select',
+      required: true,
+      defaultValue: 'active',
+      index: true,
+      options: [
+        { label: 'Active', value: 'active' },
+        { label: 'Inactive', value: 'inactive' },
+        { label: 'Archived', value: 'archived' },
+      ],
+    },
+
+    {
+      name: 'profileStatusReason',
+      label: 'Profile status reason',
+      type: 'text',
+      required: false,
+      admin: {
+        description: 'Optional reason when setting profile inactive or archived.',
+      },
+    },
+
+    {
+      name: 'profileStatusChangedBy',
+      type: 'relationship',
+      relationTo: 'customers',
+    },
+
+    {
+      name: 'profileStatusChangedAt',
+      type: 'date',
+    },
+
+    {
       name: 'status',
       type: 'select',
       required: true,
@@ -725,21 +827,25 @@ export const Children: CollectionConfig = {
         { label: 'Confirmed', value: 'confirmed' },
       ],
     },
+
     {
       name: 'createdBy',
       type: 'relationship',
       relationTo: 'customers',
     },
+
     {
       name: 'lastEditedBy',
       type: 'relationship',
       relationTo: 'customers',
     },
+
     {
       name: 'confirmedBy',
       type: 'relationship',
       relationTo: 'customers',
     },
+
     {
       name: 'confirmedAt',
       type: 'date',

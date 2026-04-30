@@ -19,6 +19,13 @@ import { getTranslations } from '@/app/lib/i18n/getTranslations'
 
 const DOCS_SLUG = 'child_documents'
 
+type ProfileStatus = 'active' | 'inactive' | 'archived'
+
+type Child = {
+  id: string
+  profileStatus?: ProfileStatus | string
+}
+
 type Media = {
   id: string
   filename?: string
@@ -51,6 +58,13 @@ type ChildDoc = {
   uploadedByName?: string
 }
 
+function normalizeProfileStatus(s?: string): ProfileStatus {
+  const v = String(s || '').toLowerCase()
+  if (v === 'inactive') return 'inactive'
+  if (v === 'archived') return 'archived'
+  return 'active'
+}
+
 function fmtDate(v?: string | null, empty = '—') {
   if (!v) return empty
   const d = new Date(v)
@@ -60,16 +74,12 @@ function fmtDate(v?: string | null, empty = '—') {
 
 function uploaderLabel(
   doc: ChildDoc | null | undefined,
-  labels: { unknownUser: string; familyMember: string }
+  labels: { unknownUser: string; familyMember: string },
 ) {
   if (!doc) return labels.unknownUser
-
-  if (doc.uploadedByName?.trim()) {
-    return doc.uploadedByName.trim()
-  }
+  if (doc.uploadedByName?.trim()) return doc.uploadedByName.trim()
 
   const v = doc.uploadedBy
-
   if (!v) return labels.unknownUser
   if (typeof v === 'string') return labels.familyMember
 
@@ -90,7 +100,7 @@ function categoryLabel(
     categoryHealth: string
     categoryId: string
     categoryOther: string
-  }
+  },
 ) {
   if (c === 'agreement') return t.categoryAgreement
   if (c === 'school') return t.categorySchool
@@ -108,7 +118,7 @@ function prettyFileSize(size?: number) {
 
 function fileMeta(
   file: Media | null | undefined,
-  labels: { untitledFile: string; noValue: string }
+  labels: { untitledFile: string; noValue: string },
 ) {
   if (!file) return labels.noValue
   const name = file.filename || labels.untitledFile
@@ -148,11 +158,20 @@ export default async function DocumentDetailPage({
 
   const { id, docId } = await params
 
-  const res = await serverFetch(`/api/${DOCS_SLUG}/${docId}?depth=1`)
-  if (!res.ok) return notFound()
+  const [docRes, childRes] = await Promise.all([
+    serverFetch(`/api/${DOCS_SLUG}/${docId}?depth=1`),
+    serverFetch(`/api/children/${id}?depth=0`),
+  ])
 
-  const doc: ChildDoc | null = await res.json().catch(() => null)
-  if (!doc?.id) return notFound()
+  if (!docRes.ok || !childRes.ok) return notFound()
+
+  const doc: ChildDoc | null = await docRes.json().catch(() => null)
+  const child: Child | null = await childRes.json().catch(() => null)
+
+  if (!doc?.id || !child?.id) return notFound()
+
+  const profileStatus = normalizeProfileStatus(child.profileStatus)
+  const isArchived = profileStatus === 'archived'
 
   const file = doc.file && typeof doc.file === 'object' ? doc.file : null
   const fileUrl = file?.url || ''
@@ -177,22 +196,24 @@ export default async function DocumentDetailPage({
           <h1 className={styles.title}>{doc.title}</h1>
         </div>
 
-        <div className={styles.headerActions}>
-          <Link
-            href={`/child-info/${id}/documents/${doc.id}/edit`}
-            className={styles.editBtn}
-          >
-            <Pencil size={14} />
-            {td.edit}
-          </Link>
+        {!isArchived ? (
+          <div className={styles.headerActions}>
+            <Link
+              href={`/child-info/${id}/documents/${doc.id}/edit`}
+              className={styles.editBtn}
+            >
+              <Pencil size={14} />
+              {td.edit}
+            </Link>
 
-          <Link
-            href={`/child-info/${id}/documents/${doc.id}/replace`}
-            className={styles.replaceBtn}
-          >
-            {td.replace}
-          </Link>
-        </div>
+            <Link
+              href={`/child-info/${id}/documents/${doc.id}/replace`}
+              className={styles.replaceBtn}
+            >
+              {td.replace}
+            </Link>
+          </div>
+        ) : null}
       </header>
 
       <div className={styles.contentLayout}>
@@ -221,19 +242,11 @@ export default async function DocumentDetailPage({
               <div className={styles.empty}>{td.noFileAvailable}</div>
             ) : isImage(file) ? (
               <div className={styles.filePreviewWrap}>
-                <img
-                  src={fileUrl}
-                  alt={doc.title}
-                  className={styles.filePreviewImage}
-                />
+                <img src={fileUrl} alt={doc.title} className={styles.filePreviewImage} />
               </div>
             ) : (
               <div className={styles.filePreviewWrap}>
-                <iframe
-                  src={fileUrl}
-                  title={doc.title}
-                  className={styles.filePreviewFrame}
-                />
+                <iframe src={fileUrl} title={doc.title} className={styles.filePreviewFrame} />
               </div>
             )}
           </section>
@@ -251,9 +264,7 @@ export default async function DocumentDetailPage({
                 </div>
                 <div className={styles.summaryContent}>
                   <div className={styles.summaryLabel}>{td.category}</div>
-                  <div className={styles.summaryValue}>
-                    {categoryLabel(doc.category, td)}
-                  </div>
+                  <div className={styles.summaryValue}>{categoryLabel(doc.category, td)}</div>
                 </div>
               </div>
 
@@ -283,9 +294,7 @@ export default async function DocumentDetailPage({
                 </div>
                 <div className={styles.summaryContent}>
                   <div className={styles.summaryLabel}>{td.uploadedDate}</div>
-                  <div className={styles.summaryValue}>
-                    {fmtDate(doc.createdAt, td.noValue)}
-                  </div>
+                  <div className={styles.summaryValue}>{fmtDate(doc.createdAt, td.noValue)}</div>
                 </div>
               </div>
 
@@ -295,9 +304,7 @@ export default async function DocumentDetailPage({
                 </div>
                 <div className={styles.summaryContent}>
                   <div className={styles.summaryLabel}>{td.uploadedBy}</div>
-                  <div className={styles.summaryValue}>
-                    {uploaderLabel(doc, td)}
-                  </div>
+                  <div className={styles.summaryValue}>{uploaderLabel(doc, td)}</div>
                 </div>
               </div>
 
@@ -323,18 +330,16 @@ export default async function DocumentDetailPage({
             ) : null}
           </section>
 
-          <section className={`${styles.sideCard} ${styles.dangerCard}`}>
-            <div className={styles.sideTitle}>{td.dangerTitle}</div>
-            <div className={styles.sideSub}>{td.dangerHint}</div>
+          {!isArchived ? (
+            <section className={`${styles.sideCard} ${styles.dangerCard}`}>
+              <div className={styles.sideTitle}>{td.dangerTitle}</div>
+              <div className={styles.sideSub}>{td.dangerHint}</div>
 
-            <div className={styles.dangerActions}>
-              <DeleteDocumentButton
-                docId={doc.id}
-                childId={id}
-                className={styles.deleteBtn}
-              />
-            </div>
-          </section>
+              <div className={styles.dangerActions}>
+                <DeleteDocumentButton docId={doc.id} childId={id} className={styles.deleteBtn} />
+              </div>
+            </section>
+          ) : null}
         </aside>
       </div>
     </div>

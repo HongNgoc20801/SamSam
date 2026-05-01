@@ -5,7 +5,7 @@ import styles from './auditLogList.module.css'
 import type { AuditLog } from './auditTypes'
 import { useTranslations } from '@/app/lib/i18n/useTranslations'
 import { useSettings } from '@/app/(frontend)/components/providers/SettingsProvider'
-
+import { Search } from 'lucide-react'
 import {
   actionLabel,
   actionTone,
@@ -14,6 +14,7 @@ import {
   entityLabel,
   fieldLabel,
   fmtDateTime,
+  fmtTimeOnly,
   groupAuditLogsByDay,
   isImportantAudit,
   renderChangeValue,
@@ -210,7 +211,7 @@ export default function AuditLogList({
   const resolvedTitle = title || td.defaultTitle
   const resolvedSubtitle = subtitle || td.subtitle
 
-  return (
+    return (
     <div className={styles.wrapper}>
       {!compact && (
         <div className={styles.topbar}>
@@ -219,88 +220,88 @@ export default function AuditLogList({
             <p className={styles.subtitle}>{resolvedSubtitle}</p>
           </div>
 
-          <div className={styles.countBadge}>
-            <span>{filtered.length}</span>
-            <small>{td.activities}</small>
-          </div>
-        </div>
-      )}
+          {allowFilter ? (
+            <div className={styles.filterBar}>
+              <label className={styles.searchField}>
+                <span className={styles.srOnly}>{td.search}</span>
 
-      {allowFilter && !compact && (
-        <div className={styles.filterCard}>
-          <div className={styles.searchRow}>
-            <label className={styles.searchField}>
-              <span className={styles.filterLabel}>{td.search}</span>
-              <input
-                className={styles.input}
-                type="text"
-                placeholder={td.searchPlaceholder}
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </label>
-          </div>
+                <span className={styles.searchBox}>
+                  <Search
+                    className={styles.searchIcon}
+                    size={18}
+                    strokeWidth={2.4}
+                  />
 
-          <div className={styles.filterRow}>
-            <label className={styles.filterItem}>
-              <span className={styles.filterLabel}>{td.type}</span>
-              <select
-                className={styles.select}
-                value={entityFilter}
-                onChange={(e) =>
-                  setEntityFilter(
-                    e.target.value as
-                      | 'all'
-                      | 'document'
-                      | 'event'
-                      | 'post'
-                      | 'economy'
-                      | 'confirmation'
-                      | 'other',
-                  )
-                }
-              >
-                <option value="all">{td.all}</option>
-                <option value="document">{td.document}</option>
-                <option value="event">{td.event}</option>
-                <option value="post">{td.post}</option>
-                <option value="economy">{td.economy}</option>
-                <option value="confirmation">{td.confirmation}</option>
-                <option value="other">{td.other}</option>
-              </select>
-            </label>
+                  <input
+                    className={styles.input}
+                    type="text"
+                    placeholder={td.searchPlaceholder}
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                  />
+                </span>
+              </label>
 
-            {showChildFilter ? (
               <label className={styles.filterItem}>
-                <span className={styles.filterLabel}>{td.child}</span>
+                <span className={styles.srOnly}>{td.type}</span>
+
                 <select
                   className={styles.select}
-                  value={childFilter}
-                  onChange={(e) => setChildFilter(e.target.value)}
+                  value={entityFilter}
+                  onChange={(e) =>
+                    setEntityFilter(
+                      e.target.value as
+                        | 'all'
+                        | 'document'
+                        | 'event'
+                        | 'post'
+                        | 'economy'
+                        | 'confirmation'
+                        | 'other',
+                    )
+                  }
                 >
-                  <option value="all">{td.allChildren}</option>
-                  {children.map((child) => (
-                    <option key={String(child.id)} value={String(child.id)}>
-                      {child.fullName}
-                    </option>
-                  ))}
+                  <option value="all">
+                    {settings?.language === 'en' ? 'All types' : 'Alle typer'}
+                  </option>
+                  <option value="document">{td.document}</option>
+                  <option value="event">{td.event}</option>
+                  <option value="post">{td.post}</option>
+                  <option value="economy">{td.economy}</option>
+                  <option value="confirmation">{td.confirmation}</option>
+                  <option value="other">{td.other}</option>
                 </select>
               </label>
-            ) : null}
 
-            <label className={styles.checkCard}>
-              <input
-                type="checkbox"
-                checked={importantOnly}
-                onChange={(e) => setImportantOnly(e.target.checked)}
-              />
-              <span>{td.importantOnly}</span>
-            </label>
-          </div>
+              {showChildFilter ? (
+                <label className={styles.filterItem}>
+                  <span className={styles.srOnly}>{td.child}</span>
 
-          <div className={styles.resultCount}>
-            {td.showing} <strong>{filtered.length}</strong> {td.matchingActivities}
-          </div>
+                  <select
+                    className={styles.select}
+                    value={childFilter}
+                    onChange={(e) => setChildFilter(e.target.value)}
+                  >
+                    <option value="all">{td.allChildren}</option>
+                    {children.map((child) => (
+                      <option key={String(child.id)} value={String(child.id)}>
+                        {child.fullName}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
+
+              <label className={styles.checkCard}>
+                <input
+                  type="checkbox"
+                  checked={importantOnly}
+                  onChange={(e) => setImportantOnly(e.target.checked)}
+                />
+                <span>{td.importantOnly}</span>
+              </label>
+            </div>
+          ) : null}
         </div>
       )}
 
@@ -343,41 +344,46 @@ export default function AuditLogList({
                       </div>
 
                       <div className={styles.auditBody}>
-                        <div className={styles.auditHeader}>
-                          <div className={styles.auditSentence}>
-                            <strong>{who}</strong> {pretty.sentence}
-                            {pretty.target ? (
-                              <>
-                                {' '}
-                                <strong>{pretty.target}</strong>
-                              </>
-                            ) : null}
+                        <div className={styles.auditTopLine}>
+                          <div className={styles.auditMainLine}>
+                            <strong className={styles.actorName}>{who}</strong>
+
+                            <span
+                              className={`${styles.actionBadge} ${
+                                styles[`actionBadge--${actionTone(a.action)}`] || ''
+                              }`}
+                            >
+                              {actionLabel(a.action, td)}
+                            </span>
+
+                            <span className={styles.auditMessage}>
+                              {pretty.sentence}
+                              {pretty.target ? (
+                                <>
+                                  {' '}
+                                  <strong>{pretty.target}</strong>
+                                </>
+                              ) : null}
+                            </span>
                           </div>
 
-                          <span
-                            className={`${styles.actionBadge} ${
-                              styles[`actionBadge--${actionTone(a.action)}`] || ''
-                            }`}
-                          >
-                            {actionLabel(a.action, td)}
+                          <span className={styles.auditTime}>
+                            {fmtTimeOnly(a.createdAt, locale, timeZone, td.noValue)}
                           </span>
                         </div>
 
-                        <div className={styles.auditMeta}>
-                          <span>
-                            {fmtDateTime(a.createdAt, locale, timeZone, td.noValue)}
-                          </span>
+                        {pretty.sub || a.entityType ? (
+                          <div className={styles.auditMeta}>
+                            {pretty.sub ? <span>{pretty.sub}</span> : null}
 
-                          <span className={styles.dot}>•</span>
-                          <span>{entityLabel(a.entityType, td)}</span>
+                            {pretty.sub && a.entityType ? <span className={styles.dot}>•</span> : null}
 
-                          {pretty.sub ? (
-                            <>
-                              <span className={styles.dot}>•</span>
-                              <span>{pretty.sub}</span>
-                            </>
-                          ) : null}
-                        </div>
+                            {a.entityType ? <span>{entityLabel(a.entityType, td)}</span> : null}
+
+                            <span className={styles.dot}>•</span>
+                            <span>{fmtDateTime(a.createdAt, locale, timeZone, td.noValue)}</span>
+                          </div>
+                        ) : null}
 
                         {showExpandButton ? (
                           <button

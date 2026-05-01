@@ -1,5 +1,6 @@
- .page {
-  display: grid;
-  gap: 20px;
-  padding: 24px;
+.page {
+  min-height: 100vh;
+  padding: 32px 34px;
+  background: #f6f7fb;
+  color: #111827;
 }

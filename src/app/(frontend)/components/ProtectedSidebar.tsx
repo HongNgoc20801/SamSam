@@ -1,7 +1,9 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+
 import styles from '../(protected)/protectedLayout.module.css'
 import Brand from './Brand/Brand'
 import LogoutButton from '../../(frontend)/components/LogoutButton'
@@ -20,7 +22,11 @@ function Icon({
     | 'settings'
     | 'history'
 }) {
-  const common = { className: styles.icon, viewBox: '0 0 24 24', fill: 'none' as const }
+  const common = {
+    className: styles.icon,
+    viewBox: '0 0 24 24',
+    fill: 'none' as const,
+  }
 
   switch (type) {
     case 'dash':
@@ -86,14 +92,25 @@ function Icon({
       return (
         <svg {...common}>
           <path
-            d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4z"
+            d="M8.5 10.5a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"
             stroke="currentColor"
             strokeWidth="1.8"
           />
           <path
-            d="M4 21a8 8 0 0 1 16 0"
+            d="M3.5 20a5 5 0 0 1 10 0"
             stroke="currentColor"
             strokeWidth="1.8"
+            strokeLinecap="round"
+          />
+          <path
+            d="M16.5 11a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z"
+            stroke="currentColor"
+            strokeWidth="1.6"
+          />
+          <path
+            d="M14.5 20a4.5 4.5 0 0 1 6-4.2"
+            stroke="currentColor"
+            strokeWidth="1.6"
             strokeLinecap="round"
           />
         </svg>
@@ -103,14 +120,20 @@ function Icon({
       return (
         <svg {...common}>
           <path
-            d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4z"
+            d="M12 13a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9z"
             stroke="currentColor"
             strokeWidth="1.8"
           />
           <path
-            d="M6 21a6 6 0 0 1 12 0"
+            d="M4.5 21a7.5 7.5 0 0 1 15 0"
             stroke="currentColor"
             strokeWidth="1.8"
+            strokeLinecap="round"
+          />
+          <path
+            d="M15.5 8.5h.01"
+            stroke="currentColor"
+            strokeWidth="2.4"
             strokeLinecap="round"
           />
         </svg>
@@ -164,6 +187,19 @@ function Icon({
 export default function ProtectedSidebar({ user }: { user: any }) {
   const pathname = usePathname()
   const t = useTranslations()
+  const [menuOpen, setMenuOpen] = useState(false)
+
+  useEffect(() => {
+    setMenuOpen(false)
+  }, [pathname])
+
+  useEffect(() => {
+    document.body.style.overflow = menuOpen ? 'hidden' : ''
+
+    return () => {
+      document.body.style.overflow = ''
+    }
+  }, [menuOpen])
 
   const firstName = user?.firstName ?? '—'
   const lastName = user?.lastName ?? ''
@@ -187,55 +223,91 @@ export default function ProtectedSidebar({ user }: { user: any }) {
   }
 
   return (
-    <aside className={styles.sidebar} aria-label="Sidebar">
-      <div className={styles.sidebarInner}>
-        <div className={styles.brandWrap}>
-          <Brand />
-        </div>
+    <>
+      <button
+        type="button"
+        className={styles.mobileMenuButton}
+        onClick={() => setMenuOpen(true)}
+        aria-label="Open menu"
+      >
+        <span />
+        <span />
+        <span />
+      </button>
 
-        <nav className={styles.nav} aria-label={t.sidebar.navAria}>
-          {links.map((l) => (
-            <Link
-              key={l.href}
-              href={l.href}
-              className={`${styles.navItem} ${isActive(l.href) ? styles.navItemActive : ''}`}
+      {menuOpen ? (
+        <button
+          type="button"
+          className={styles.sidebarOverlay}
+          onClick={() => setMenuOpen(false)}
+          aria-label="Close menu"
+        />
+      ) : null}
+
+      <aside
+        className={`${styles.sidebar} ${menuOpen ? styles.sidebarOpen : ''}`}
+        aria-label="Sidebar"
+      >
+        <div className={styles.sidebarInner}>
+          <div className={styles.mobileSidebarTop}>
+            <div className={styles.brandWrap}>
+              <Brand />
+            </div>
+
+            <button
+              type="button"
+              className={styles.mobileCloseButton}
+              onClick={() => setMenuOpen(false)}
+              aria-label="Close menu"
             >
-              <Icon type={l.icon} />
-              <span className={styles.navLabel}>{l.label}</span>
-            </Link>
-          ))}
-        </nav>
+              ×
+            </button>
+          </div>
 
-        <div className={styles.sidebarFooter}>
-          <section className={styles.accountCard} aria-label={t.sidebar.signedInAs}>
-            <div className={styles.accountLeft}>
-              <div className={styles.accountAvatar}>
-                {user?.avatar?.url ? (
-                  <img
-                    src={user.avatar.url}
-                    alt={`${firstName} ${lastName}`}
-                    className={styles.accountAvatarImage}
-                  />
-                ) : (
-                  <span className={styles.accountInitials}>{initials}</span>
-                )}
-              </div>
+          <nav className={styles.nav} aria-label={t.sidebar.navAria}>
+            {links.map((l) => (
+              <Link
+                key={l.href}
+                href={l.href}
+                className={`${styles.navItem} ${isActive(l.href) ? styles.navItemActive : ''}`}
+              >
+                <Icon type={l.icon} />
+                <span className={styles.navLabel}>{l.label}</span>
+              </Link>
+            ))}
+          </nav>
 
-              <div className={styles.accountMeta}>
-                <div className={styles.accountName}>
-                  {firstName} {lastName}
+          <div className={styles.sidebarFooter}>
+            <section className={styles.accountCard} aria-label={t.sidebar.signedInAs}>
+              <div className={styles.accountLeft}>
+                <div className={styles.accountAvatar}>
+                  {user?.avatar?.url ? (
+                    <img
+                      src={user.avatar.url}
+                      alt={`${firstName} ${lastName}`}
+                      className={styles.accountAvatarImage}
+                    />
+                  ) : (
+                    <span className={styles.accountInitials}>{initials}</span>
+                  )}
                 </div>
-                <div className={styles.accountRole}>{String(role).toUpperCase()}</div>
-                <div className={styles.accountEmail}>{email}</div>
-              </div>
-            </div>
 
-            <div className={styles.accountAction}>
-              <LogoutButton />
-            </div>
-          </section>
+                <div className={styles.accountMeta}>
+                  <div className={styles.accountName}>
+                    {firstName} {lastName}
+                  </div>
+                  <div className={styles.accountRole}>{String(role).toUpperCase()}</div>
+                  <div className={styles.accountEmail}>{email}</div>
+                </div>
+              </div>
+
+              <div className={styles.accountAction}>
+                <LogoutButton />
+              </div>
+            </section>
+          </div>
         </div>
-      </div>
-    </aside>
+      </aside>
+    </>
   )
 }

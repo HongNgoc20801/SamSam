@@ -1,11 +1,12 @@
 import type { ReactNode } from 'react'
 import { redirect } from 'next/navigation'
+import 'react-big-calendar/lib/css/react-big-calendar.css'
+
 import styles from './protectedLayout.module.css'
 import ProtectedSidebar from '../components/ProtectedSidebar'
 import { serverFetch } from '../../lib/serverFetch'
 import { SettingsProvider } from '../components/providers/SettingsProvider'
 import { getCurrentSettings } from '../../lib/settings/getCurrentSettings'
-import 'react-big-calendar/lib/css/react-big-calendar.css'
 
 export const dynamic = 'force-dynamic'
 
@@ -25,20 +26,10 @@ export default async function ProtectedLayout({ children }: { children: ReactNod
 
   const initialSettings = await getCurrentSettings()
 
-  let inviteCode: string | null = null
-  if (user?.family) {
-    const familyId = typeof user.family === 'string' ? user.family : user.family?.id
-    if (familyId) {
-      const famRes = await serverFetch(`/api/families/${familyId}`)
-      const famData = famRes.ok ? await famRes.json().catch(() => null) : null
-      inviteCode = famData?.inviteCode ?? null
-    }
-  }
-
   return (
     <SettingsProvider initialSettings={initialSettings}>
       <div className={styles.shell}>
-        <ProtectedSidebar user={user} inviteCode={inviteCode} />
+        <ProtectedSidebar user={user} />
         <main className={styles.main}>{children}</main>
       </div>
     </SettingsProvider>

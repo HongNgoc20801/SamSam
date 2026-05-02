@@ -1,11 +1,19 @@
 .shell {
   display: grid;
-  grid-template-columns: 272px minmax(0, 1fr);
+  grid-template-columns: 288px minmax(0, 1fr);
   height: 100dvh;
-  background: #f6f7fb;
+  background: #f5f7fb;
   overflow: hidden;
 }
 
+.main {
+  min-width: 0;
+  height: 100dvh;
+  overflow-y: auto;
+  padding: 24px;
+}
+
+/* ===== Sidebar ===== */
 .sidebar {
   height: 100dvh;
   position: sticky;
@@ -15,48 +23,58 @@
   background: #27357b;
   border-right: 1px solid rgba(255, 255, 255, 0.06);
   box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.04);
+  z-index: 50;
 }
 
 .sidebarInner {
   height: 100%;
   display: flex;
   flex-direction: column;
-  padding: 18px 16px 16px;
+  padding: 20px 18px 18px;
+}
+
+.mobileSidebarTop {
+  display: block;
 }
 
 .brandWrap {
-  margin-bottom: 14px;
+  margin-bottom: 18px;
   flex: 0 0 auto;
 }
 
+/* ===== Nav ===== */
 .nav {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 7px;
   flex: 0 0 auto;
 }
 
 .navItem {
   display: flex;
   align-items: center;
-  gap: 12px;
-  min-height: 48px;
-  padding: 0 14px;
-  border-radius: 16px;
+  gap: 13px;
+  min-height: 50px;
+  padding: 0 15px;
+  border-radius: 17px;
   text-decoration: none;
   color: rgba(255, 255, 255, 0.88);
-  transition: all 0.2s ease;
+  transition:
+    background 0.2s ease,
+    color 0.2s ease,
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .navItem:hover {
-  background: rgba(55, 71, 154, 0.14);
+  background: rgba(255, 255, 255, 0.08);
   color: #ffffff;
   transform: translateX(1px);
 }
 
 .navItemActive {
-  background: linear-gradient(180deg, rgba(55, 71, 154, 0.3), rgba(55, 71, 154, 0.18));
-  border: 1px solid rgba(142, 167, 236, 0.2);
+  background: linear-gradient(180deg, rgba(55, 71, 154, 0.34), rgba(55, 71, 154, 0.2));
+  border: 1px solid rgba(142, 167, 236, 0.22);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.05),
     0 8px 18px rgba(17, 24, 39, 0.18);
@@ -65,21 +83,22 @@
 
 .navLabel {
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 850;
   line-height: 1.2;
   letter-spacing: 0.01em;
 }
 
 .icon {
-  width: 18px;
-  height: 18px;
-  flex: 0 0 18px;
+  width: 19px;
+  height: 19px;
+  flex: 0 0 19px;
   opacity: 0.95;
 }
 
+/* ===== Footer account ===== */
 .sidebarFooter {
-  margin-top: 14px;
-  padding-top: 14px;
+  margin-top: auto;
+  padding-top: 16px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
   display: flex;
   flex-direction: column;
@@ -87,8 +106,8 @@
 }
 
 .accountCard {
-  padding: 14px;
-  border-radius: 20px;
+  padding: 15px;
+  border-radius: 22px;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.05));
   border: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow:
@@ -110,48 +129,9 @@
 
 .accountAvatar {
   position: relative;
-  width: 50px;
-  height: 50px;
-  flex: 0 0 50px;
-  border-radius: 999px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: radial-gradient(circle at 30% 30%, #4060c8 0%, #2d428f 55%, #22316a 100%);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    0 6px 14px rgba(0, 0, 0, 0.18);
-}
-
-.accountInitials {
-  color: #ffffff;
-  font-size: 14px;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-}
-
-.accountMeta {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-}
-
-.accountName {
-  color: #ffffff;
-  font-size: 14px;
-  font-weight: 800;
-  line-height: 1.2;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.accountAvatar {
-  position: relative;
-  width: 50px;
-  height: 50px;
-  flex: 0 0 50px;
+  width: 52px;
+  height: 52px;
+  flex: 0 0 52px;
   border-radius: 999px;
   display: flex;
   align-items: center;
@@ -170,10 +150,35 @@
   object-fit: cover;
   display: block;
 }
+
+.accountInitials {
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 950;
+  letter-spacing: 0.04em;
+}
+
+.accountMeta {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.accountName {
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 950;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .accountRole {
   color: rgba(255, 255, 255, 0.64);
   font-size: 10px;
-  font-weight: 800;
+  font-weight: 900;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   line-height: 1.2;
@@ -226,28 +231,174 @@
   background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none'><path d='M14 8l4 4-4 4' stroke='white' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/><path d='M8 12h10' stroke='white' stroke-width='1.8' stroke-linecap='round'/><path d='M10 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4' stroke='white' stroke-width='1.8' stroke-linecap='round'/></svg>");
 }
 
-.main {
-  min-width: 0;
-  height: 100dvh;
-  overflow-y: auto;
-  padding: 24px;
+/* ===== Mobile controls hidden desktop ===== */
+.mobileMenuButton,
+.mobileCloseButton,
+.sidebarOverlay {
+  display: none;
 }
 
-@media (max-width: 900px) {
+/* ===== Tablet ===== */
+@media (max-width: 1120px) {
   .shell {
-    grid-template-columns: 248px minmax(0, 1fr);
+    grid-template-columns: 264px minmax(0, 1fr);
   }
 
   .sidebarInner {
-    padding: 16px 14px 14px;
+    padding: 18px 15px 15px;
   }
 
   .navItem {
-    min-height: 46px;
-    padding: 0 12px;
+    min-height: 48px;
+    padding: 0 13px;
   }
 
   .main {
+    padding: 18px;
+  }
+}
+
+/* ===== Mobile burger ===== */
+@media (max-width: 860px) {
+  .shell {
+    display: block;
+    height: 100dvh;
+  }
+
+  .main {
+    height: 100dvh;
+    padding: 76px 14px 20px;
+  }
+
+  .mobileMenuButton {
+    position: fixed;
+    top: 16px;
+    left: 16px;
+    z-index: 80;
+    width: 48px;
+    height: 48px;
+    border-radius: 16px;
+    border: 1px solid #e6eaf2;
+    background: rgba(255, 255, 255, 0.96);
+    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12);
+    display: grid;
+    place-items: center;
+    gap: 4px;
+    cursor: pointer;
+  }
+
+  .mobileMenuButton span {
+    display: block;
+    width: 19px;
+    height: 2px;
+    border-radius: 999px;
+    background: #0f172a;
+  }
+
+  .sidebarOverlay {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    border: none;
+    background: rgba(15, 23, 42, 0.42);
+    backdrop-filter: blur(3px);
+    cursor: pointer;
+  }
+
+  .sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    width: min(330px, calc(100vw - 34px));
+    height: 100dvh;
+    transform: translateX(-105%);
+    transition: transform 0.22s ease;
+    box-shadow: 24px 0 60px rgba(15, 23, 42, 0.28);
+  }
+
+  .sidebarOpen {
+    transform: translateX(0);
+  }
+
+  .sidebarInner {
+    padding: 18px;
+  }
+
+  .mobileSidebarTop {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+
+  .brandWrap {
+    margin-bottom: 0;
+  }
+
+  .mobileCloseButton {
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.08);
+    color: #ffffff;
+    font-size: 28px;
+    line-height: 1;
+    cursor: pointer;
+  }
+
+  .nav {
+    overflow-y: auto;
+    padding-right: 2px;
+  }
+
+  .navItem {
+    min-height: 50px;
+  }
+
+  .sidebarFooter {
+    margin-top: auto;
+  }
+}
+
+/* ===== Small mobile ===== */
+@media (max-width: 480px) {
+  .main {
+    padding: 72px 12px 18px;
+  }
+
+  .mobileMenuButton {
+    top: 14px;
+    left: 14px;
+  }
+
+  .sidebar {
+    width: min(306px, calc(100vw - 24px));
+  }
+
+  .sidebarInner {
     padding: 16px;
+  }
+
+  .accountCard {
+    padding: 12px;
+    border-radius: 20px;
+  }
+
+  .accountAvatar {
+    width: 46px;
+    height: 46px;
+    flex-basis: 46px;
+  }
+
+  .accountName {
+    font-size: 13px;
+  }
+
+  .accountEmail {
+    font-size: 10px;
   }
 }

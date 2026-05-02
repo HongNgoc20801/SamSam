@@ -30,6 +30,44 @@ function BellIcon() {
   )
 }
 
+function getMediaUrl(value: any) {
+  if (!value) return ''
+
+  if (typeof value === 'string') {
+    if (value.startsWith('http') || value.startsWith('/api/')) return value
+    return ''
+  }
+
+  return (
+    value?.url ||
+    value?.sizes?.thumbnail?.url ||
+    value?.sizes?.card?.url ||
+    value?.sizes?.small?.url ||
+    ''
+  )
+}
+
+function getCustomerName(customer: any) {
+  if (!customer) return ''
+
+  return (
+    customer?.fullName ||
+    `${customer?.firstName || ''} ${customer?.lastName || ''}`.trim() ||
+    customer?.email ||
+    ''
+  )
+}
+
+function getCustomerAvatar(customer: any) {
+  if (!customer) return ''
+
+  return (
+    getMediaUrl(customer?.avatar) ||
+    getMediaUrl(customer?.profileImage) ||
+    getMediaUrl(customer?.image)
+  )
+}
+
 export default function NotificationBell() {
   const router = useRouter()
   const wrapRef = useRef<HTMLDivElement | null>(null)
@@ -46,26 +84,84 @@ export default function NotificationBell() {
         credentials: 'include',
         cache: 'no-store',
       })
+
       const data = await res.json().catch(() => null)
+
       if (!res.ok) return
+
       setUnreadCount(Number(data?.count ?? 0))
     } catch {}
   }
 
   async function loadNotifications() {
     setLoading(true)
+
     try {
-      const res = await fetch('/api/notifications/me', {
-        credentials: 'include',
-        cache: 'no-store',
-      })
-      const data = await res.json().catch(() => null)
-      if (!res.ok) {
+      const [notificationsRes, customersRes] = await Promise.all([
+        fetch('/api/notifications/me?limit=8&sort=-createdAt', {
+          credentials: 'include',
+          cache: 'no-store',
+        }),
+
+        fetch('/api/customers?limit=200&sort=createdAt&depth=1', {
+          credentials: 'include',
+          cache: 'no-store',
+        }).catch(() => null),
+      ])
+
+      const notificationsJson = await notificationsRes.json().catch(() => null)
+      const customersJson = customersRes ? await customersRes.json().catch(() => null) : null
+
+      if (!notificationsRes.ok) {
         setItems([])
         return
       }
-      const docs = Array.isArray(data?.docs) ? data.docs : []
-      setItems(docs.slice(0, 8))
+
+      const docs = Array.isArray(notificationsJson?.docs) ? notificationsJson.docs : []
+      const customers = Array.isArray(customersJson?.docs) ? customersJson.docs : []
+
+      const customerById = new Map<string, any>()
+
+      customers.forEach((customer: any) => {
+        if (customer?.id != null) {
+          customerById.set(String(customer.id), customer)
+        }
+      })
+
+      const mappedDocs = docs.slice(0, 8).map((item: any) => {
+        const meta = item.meta || {}
+
+        const actorId = meta.actorId ? String(meta.actorId) : ''
+        const actorNameFromMeta = String(meta.actorName || '').trim().toLowerCase()
+
+        const actorFromId = actorId ? customerById.get(actorId) : null
+
+        const actorFromName =
+          !actorFromId && actorNameFromMeta
+            ? customers.find((customer: any) => {
+                return getCustomerName(customer).trim().toLowerCase() === actorNameFromMeta
+              })
+            : null
+
+        const actor = actorFromId || actorFromName || null
+
+        const actorName = meta.actorName || getCustomerName(actor)
+        const actorAvatarUrl = meta.actorAvatarUrl || getCustomerAvatar(actor)
+
+        return {
+          ...item,
+          isRead: Boolean(item.isRead || item.readAt),
+          type: item.type || 'status',
+          event: item.event || 'updated',
+          meta: {
+            ...meta,
+            actorName,
+            actorAvatarUrl,
+          },
+        }
+      })
+
+      setItems(mappedDocs)
     } catch {
       setItems([])
     } finally {
@@ -84,6 +180,7 @@ export default function NotificationBell() {
 
   async function markAllAsRead() {
     if (markingAll) return
+
     setMarkingAll(true)
 
     try {
@@ -94,7 +191,14 @@ export default function NotificationBell() {
 
       if (!res.ok) return
 
-      setItems((prev) => prev.map((item) => ({ ...item, isRead: true })))
+      setItems((prev) =>
+        prev.map((item) => ({
+          ...item,
+          isRead: true,
+          readAt: item.readAt || new Date().toISOString(),
+        })),
+      )
+
       setUnreadCount(0)
     } finally {
       setMarkingAll(false)
@@ -102,11 +206,17 @@ export default function NotificationBell() {
   }
 
   async function onClickNotification(item: NotificationItem) {
-    if (!item.isRead) {
+    if (!item.isRead && !item.readAt) {
       await markOneAsRead(item.id)
+
       setItems((prev) =>
-        prev.map((x) => (String(x.id) === String(item.id) ? { ...x, isRead: true } : x)),
+        prev.map((x) =>
+          String(x.id) === String(item.id)
+            ? { ...x, isRead: true, readAt: new Date().toISOString() }
+            : x,
+        ),
       )
+
       setUnreadCount((prev) => Math.max(0, prev - 1))
     }
 
@@ -123,6 +233,7 @@ export default function NotificationBell() {
 
   useEffect(() => {
     if (!open) return
+
     loadNotifications()
     loadUnreadCount()
   }, [open])
@@ -130,27 +241,33 @@ export default function NotificationBell() {
   useEffect(() => {
     function handleOutside(e: MouseEvent) {
       const target = e.target as Node | null
+
       if (!wrapRef.current || !target) return
-      if (!wrapRef.current.contains(target)) setOpen(false)
+
+      if (!wrapRef.current.contains(target)) {
+        setOpen(false)
+      }
     }
 
     document.addEventListener('mousedown', handleOutside)
-    return () => document.removeEventListener('mousedown', handleOutside)
+
+    return () => {
+      document.removeEventListener('mousedown', handleOutside)
+    }
   }, [])
 
   return (
     <div className={bellStyles.wrap} ref={wrapRef}>
       <button
         type="button"
-        className={bellStyles.trigger}
+        className={`${bellStyles.trigger} ${open ? bellStyles.triggerActive : ''}`}
         onClick={() => setOpen((prev) => !prev)}
         aria-label="Notifications"
       >
         <BellIcon />
+
         {unreadCount > 0 ? (
-          <span className={bellStyles.badge}>
-            {unreadCount > 99 ? '99+' : unreadCount}
-          </span>
+          <span className={bellStyles.badge}>{unreadCount > 99 ? '99+' : unreadCount}</span>
         ) : null}
       </button>
 

@@ -1,5 +1,6 @@
 'use client'
 
+import { useMemo, useState } from 'react'
 import styles from './notificationDropdown.module.css'
 
 export type NotificationEventType =
@@ -40,6 +41,30 @@ type Props = {
   onViewAll: () => void
 }
 
+function formatRelativeTime(value?: string) {
+  if (!value) return ''
+
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+
+  const now = Date.now()
+  const diffMs = now - date.getTime()
+
+  const minute = 60 * 1000
+  const hour = 60 * minute
+  const day = 24 * hour
+
+  if (diffMs < minute) return 'now'
+  if (diffMs < hour) return `${Math.floor(diffMs / minute)}m`
+  if (diffMs < day) return `${Math.floor(diffMs / hour)}h`
+  if (diffMs < day * 7) return `${Math.floor(diffMs / day)}d`
+
+  return date.toLocaleDateString('nb-NO', {
+    day: '2-digit',
+    month: '2-digit',
+  })
+}
+
 function fmtTime(value?: string) {
   if (!value) return ''
   const d = new Date(value)
@@ -48,7 +73,6 @@ function fmtTime(value?: string) {
   return d.toLocaleString('nb-NO', {
     day: '2-digit',
     month: '2-digit',
-    year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
   })
@@ -65,27 +89,6 @@ function fmtMoney(amount?: number, currency = 'NOK') {
     }).format(value)
   } catch {
     return `${value} ${currency}`
-  }
-}
-
-function getTypeLabel(type: NotificationItem['type']) {
-  switch (type) {
-    case 'calendar':
-      return 'Calendar'
-    case 'expense':
-      return 'Payments'
-    case 'request':
-      return 'Requests'
-    case 'bank':
-      return 'Bank'
-    case 'status':
-      return 'Status'
-    case 'documents':
-      return 'Documents'
-    case 'post':
-      return 'Updates'
-    default:
-      return type
   }
 }
 
@@ -116,6 +119,16 @@ function shorten(text?: string, max = 80) {
   return value.length > max ? `${value.slice(0, max)}…` : value
 }
 
+function getInitials(name?: string) {
+  const value = String(name || '').trim()
+  if (!value) return 'N'
+
+  const parts = value.split(' ').filter(Boolean)
+  if (parts.length === 1) return parts[0].charAt(0).toUpperCase()
+
+  return `${parts[0].charAt(0)}${parts[1].charAt(0)}`.toUpperCase()
+}
+
 function buildNotificationTitle(item: NotificationItem) {
   const meta = item.meta || {}
   const childName = String(meta.childName || '').trim()
@@ -126,102 +139,35 @@ function buildNotificationTitle(item: NotificationItem) {
   const actorName = String(meta.actorName || 'A parent').trim()
 
   if (item.type === 'calendar') {
-    if (item.event === 'created') return `${eventType} created${childName ? ` for ${childName}` : ''}`
-    if (item.event === 'updated') return `${eventType} updated${childName ? ` for ${childName}` : ''}`
-    if (item.event === 'deleted') return `${eventType} deleted${childName ? ` for ${childName}` : ''}`
-    if (item.event === 'confirmed') return `${eventType} accepted${childName ? ` for ${childName}` : ''}`
-    if (item.event === 'declined') return `${eventType} declined${childName ? ` for ${childName}` : ''}`
+    if (item.event === 'created') return `${actorName}`
+    if (item.event === 'updated') return `${actorName}`
+    if (item.event === 'deleted') return `${actorName}`
+    if (item.event === 'confirmed') return `${actorName}`
+    if (item.event === 'declined') return `${actorName}`
   }
 
   if (item.type === 'expense') {
-    if (item.event === 'created') return `${actorName} created a payment item`
-    if (item.event === 'updated') return `${actorName} updated a payment item`
-    if (item.event === 'deleted') return `${actorName} deleted a payment item`
-    if (item.event === 'paid') return `${actorName} paid a payment item`
+    return actorName
   }
 
   if (item.type === 'request') {
-    if (item.event === 'created') return `${actorName} created a money request`
-    if (item.event === 'approved') return `${actorName} approved a money request`
-    if (item.event === 'rejected') return `${actorName} rejected a money request`
-    if (item.event === 'updated') return `${actorName} updated a money request`
-    if (item.event === 'deleted') return `${actorName} deleted a money request`
+    return actorName
   }
 
   if (item.type === 'bank') {
-    if (item.event === 'created') return 'Bank connected'
-    if (item.event === 'updated') return 'Bank status updated'
-    if (item.event === 'declined') return 'Bank connection expired'
+    return 'Bank'
   }
 
   if (item.type === 'status') {
-    if (item.event === 'created' && childName) return `New child profile: ${childName}`
-    if (item.event === 'updated' && childName && meta.needsConfirmation) return `${childName} needs confirmation`
-    if (item.event === 'updated' && childName) return `${childName} profile updated`
-    if (item.event === 'confirmed' && childName) return `${childName} was confirmed`
-    if (item.event === 'declined' && childName) return `${childName} was declined`
+    if (childName) return actorName
   }
 
   if (item.type === 'documents') {
-    if (item.event === 'uploaded') {
-      return childName
-        ? `Document uploaded for ${childName}`
-        : documentName
-          ? `Document uploaded: ${documentName}`
-          : 'Document uploaded'
-    }
-
-    if (item.event === 'replaced') {
-      return childName
-        ? `Document replaced for ${childName}`
-        : documentName
-          ? `Document replaced: ${documentName}`
-          : 'Document replaced'
-    }
-
-    if (item.event === 'updated') {
-      return childName
-        ? `Document updated for ${childName}`
-        : documentName
-          ? `Document updated: ${documentName}`
-          : 'Document updated'
-    }
-
-    if (item.event === 'deleted') {
-      return childName
-        ? `Document deleted for ${childName}`
-        : documentName
-          ? `Document deleted: ${documentName}`
-          : 'Document deleted'
-    }
+    if (childName || documentName) return actorName
   }
 
   if (item.type === 'post') {
-    if (item.event === 'created') {
-      return isChildUpdate
-        ? `New update${childName ? ` for ${childName}` : ''}`
-        : 'New family update'
-    }
-
-    if (item.event === 'updated') {
-      return isChildUpdate
-        ? `Update edited${childName ? ` for ${childName}` : ''}`
-        : 'Family update edited'
-    }
-
-    if (item.event === 'deleted') {
-      return isChildUpdate
-        ? `Update deleted${childName ? ` for ${childName}` : ''}`
-        : 'Family update deleted'
-    }
-
-    if (item.event === 'commented') {
-      return childName ? `New comment for ${childName}` : 'New comment on update'
-    }
-
-    if (item.event === 'liked') {
-      return childName ? `Update liked for ${childName}` : 'Update liked'
-    }
+    return actorName
   }
 
   return rawTitle || 'Notification'
@@ -234,20 +180,33 @@ function buildNotificationMessage(item: NotificationItem) {
   const documentName = shorten(meta.documentName || item.title || '')
   const postTitle = shorten(meta.title || item.message || '')
   const confirmedAt = String(meta.confirmedAt || '').trim()
+  const eventType = getEventTypeLabel(meta.eventType)
 
   if (item.type === 'calendar') {
+    if (item.event === 'created') {
+      return `${eventType.toLowerCase()} created${childName ? ` for ${childName}` : ''}.`
+    }
+
+    if (item.event === 'updated') {
+      return `${eventType.toLowerCase()} updated${childName ? ` for ${childName}` : ''}.`
+    }
+
+    if (item.event === 'deleted') {
+      return `${eventType.toLowerCase()} deleted${childName ? ` for ${childName}` : ''}.`
+    }
+
     if (item.event === 'confirmed') {
-      return `${actorName} accepted this event${confirmedAt ? ` at ${confirmedAt}` : ''}.`
+      return `accepted this event${confirmedAt ? ` at ${confirmedAt}` : ''}.`
     }
 
     if (item.event === 'declined') {
-      return `${actorName} declined this event${confirmedAt ? ` at ${confirmedAt}` : ''}.`
+      return `declined this event${confirmedAt ? ` at ${confirmedAt}` : ''}.`
     }
 
     const parts = [
       meta.startAt ? fmtTime(meta.startAt) : '',
       meta.location || '',
-      childName ? `Child: ${childName}` : '',
+      childName ? childName : '',
     ].filter(Boolean)
 
     if (parts.length) return parts.join(' · ')
@@ -255,9 +214,12 @@ function buildNotificationMessage(item: NotificationItem) {
 
   if (item.type === 'expense') {
     return [
+      item.event === 'created' ? 'created a payment item' : '',
+      item.event === 'updated' ? 'updated a payment item' : '',
+      item.event === 'deleted' ? 'deleted a payment item' : '',
+      item.event === 'paid' ? 'paid a payment item' : '',
       meta.amount ? fmtMoney(meta.amount, meta.currency || 'NOK') : '',
-      meta.transactionDate ? `Due ${fmtTime(meta.transactionDate)}` : '',
-      childName ? `Child: ${childName}` : '',
+      childName ? childName : '',
     ]
       .filter(Boolean)
       .join(' · ')
@@ -265,9 +227,13 @@ function buildNotificationMessage(item: NotificationItem) {
 
   if (item.type === 'request') {
     return [
+      item.event === 'created' ? 'created a money request' : '',
+      item.event === 'approved' ? 'approved a money request' : '',
+      item.event === 'rejected' ? 'rejected a money request' : '',
+      item.event === 'updated' ? 'updated a money request' : '',
+      item.event === 'deleted' ? 'deleted a money request' : '',
       meta.amount ? fmtMoney(meta.amount, meta.currency || 'NOK') : '',
-      childName ? `Child: ${childName}` : '',
-      meta.category || '',
+      childName ? childName : '',
     ]
       .filter(Boolean)
       .join(' · ')
@@ -281,73 +247,102 @@ function buildNotificationMessage(item: NotificationItem) {
 
   if (item.type === 'status') {
     if (item.event === 'created' && childName) {
-      return `${actorName} created this child profile. Waiting for second parent confirmation.`
+      return `created child profile for ${childName}.`
     }
 
     if (item.event === 'updated' && childName && meta.needsConfirmation) {
-      return `${actorName} updated this child profile. Waiting for second parent confirmation.`
+      return `updated ${childName}'s profile. Waiting for confirmation.`
     }
 
     if (item.event === 'updated' && childName) {
-      return `${actorName} updated this child profile.`
+      return `updated ${childName}'s profile.`
     }
 
     if (item.event === 'confirmed' && childName) {
-      return `${actorName} confirmed this child profile.`
+      return `confirmed ${childName}'s profile.`
     }
 
     if (item.event === 'declined' && childName) {
-      return `${actorName} declined this child profile.`
+      return `declined ${childName}'s profile.`
     }
   }
 
   if (item.type === 'documents') {
     if (item.event === 'uploaded') {
-      return `${actorName} uploaded${documentName ? ` "${documentName}"` : ' a document'}.`
+      return `uploaded ${documentName ? `"${documentName}"` : 'a document'}.`
     }
 
     if (item.event === 'replaced') {
-      return `${actorName} replaced${documentName ? ` "${documentName}"` : ' a document'}.`
+      return `replaced ${documentName ? `"${documentName}"` : 'a document'}.`
     }
 
     if (item.event === 'updated') {
-      return `${actorName} updated${documentName ? ` "${documentName}"` : ' a document'}.`
+      return `updated ${documentName ? `"${documentName}"` : 'a document'}.`
     }
 
     if (item.event === 'deleted') {
-      return `${actorName} deleted${documentName ? ` "${documentName}"` : ' a document'}.`
+      return `deleted ${documentName ? `"${documentName}"` : 'a document'}.`
     }
   }
 
   if (item.type === 'post') {
     if (item.event === 'created') {
       return childName
-        ? `${actorName} created the post "${postTitle}" for ${childName}.`
-        : `${actorName} created the post "${postTitle}".`
+        ? `posted an update for ${childName}: "${postTitle}".`
+        : `posted: "${postTitle}".`
     }
 
     if (item.event === 'updated') {
       return childName
-        ? `${actorName} updated the post "${postTitle}" for ${childName}.`
-        : `${actorName} updated the post "${postTitle}".`
+        ? `updated a post for ${childName}: "${postTitle}".`
+        : `updated the post "${postTitle}".`
     }
 
     if (item.event === 'deleted') {
       return childName
-        ? `${actorName} deleted the post "${postTitle}" for ${childName}.`
-        : `${actorName} deleted the post "${postTitle}".`
+        ? `deleted a post for ${childName}: "${postTitle}".`
+        : `deleted the post "${postTitle}".`
     }
 
     if (item.event === 'commented') {
-      return `${actorName} commented on "${postTitle}".`
+      return `commented on "${postTitle}".`
     }
 
     if (item.event === 'liked') {
-      return `${actorName} liked "${postTitle}".`
+      return `liked "${postTitle}".`
     }
   }
 
   return item.message || 'Open to view details.'
+}
+
+function getMediaUrl(value: any) {
+  if (!value) return ''
+
+  if (typeof value === 'string') {
+    if (value.startsWith('http') || value.startsWith('/api/')) return value
+    return ''
+  }
+
+  return (
+    value?.url ||
+    value?.sizes?.thumbnail?.url ||
+    value?.sizes?.card?.url ||
+    value?.sizes?.small?.url ||
+    ''
+  )
+}
+
+function getAvatarUrl(item: NotificationItem) {
+  const meta = item.meta || {}
+
+  return (
+    getMediaUrl(meta.actorAvatarUrl) ||
+    getMediaUrl(meta.actorAvatar) ||
+    getMediaUrl(meta.avatarUrl) ||
+    getMediaUrl(meta.avatar) ||
+    ''
+  )
 }
 
 function NotificationTypeIcon({ type }: { type: NotificationItem['type'] }) {
@@ -369,6 +364,7 @@ function NotificationTypeIcon({ type }: { type: NotificationItem['type'] }) {
           />
         </svg>
       )
+
     case 'expense':
       return (
         <svg {...common}>
@@ -380,6 +376,7 @@ function NotificationTypeIcon({ type }: { type: NotificationItem['type'] }) {
           />
         </svg>
       )
+
     case 'request':
       return (
         <svg {...common}>
@@ -391,6 +388,7 @@ function NotificationTypeIcon({ type }: { type: NotificationItem['type'] }) {
           />
         </svg>
       )
+
     case 'bank':
       return (
         <svg {...common}>
@@ -402,6 +400,7 @@ function NotificationTypeIcon({ type }: { type: NotificationItem['type'] }) {
           />
         </svg>
       )
+
     case 'status':
       return (
         <svg {...common}>
@@ -412,6 +411,7 @@ function NotificationTypeIcon({ type }: { type: NotificationItem['type'] }) {
           />
         </svg>
       )
+
     case 'documents':
       return (
         <svg {...common}>
@@ -424,6 +424,7 @@ function NotificationTypeIcon({ type }: { type: NotificationItem['type'] }) {
           <path d="M14 3v5h5" stroke="currentColor" strokeWidth="1.8" />
         </svg>
       )
+
     case 'post':
       return (
         <svg {...common}>
@@ -453,66 +454,93 @@ export default function NotificationDropdown({
   onItemClick,
   onViewAll,
 }: Props) {
+  const [activeTab, setActiveTab] = useState<'all' | 'unread'>('all')
+
+  const visibleItems = useMemo(() => {
+    if (activeTab === 'unread') {
+      return items.filter((item) => !item.isRead)
+    }
+    return items
+  }, [activeTab, items])
+
   if (!open) return null
 
   return (
     <div className={styles.dropdown}>
       <div className={styles.header}>
-        <div>
-          <div className={styles.title}>Notifications</div>
-          <div className={styles.sub}>{unreadCount} unread</div>
+        <div className={styles.headerTop}>
+          <h2 className={styles.title}>Siste varsler</h2>
         </div>
 
-        <button
-          type="button"
-          className={styles.markAll}
-          onClick={onMarkAll}
-          disabled={markingAll || unreadCount === 0}
-        >
-          {markingAll ? 'Saving...' : 'Mark all read'}
+        <div className={styles.tabs}>
+          <button type="button" className={`${styles.tab} ${styles.activeTab}`}>
+            All
+          </button>
+
+          <button type="button" className={styles.tab}>
+            Unread
+          </button>
+        </div>
+      </div>
+
+      <div className={styles.sectionHeader}>
+        <span>New</span>
+
+        <button type="button" className={styles.seeAllBtn} onClick={onViewAll}>
+          See all
         </button>
       </div>
 
       <div className={styles.list}>
         {loading ? (
           <div className={styles.empty}>Loading notifications...</div>
-        ) : items.length === 0 ? (
+        ) : visibleItems.length === 0 ? (
           <div className={styles.empty}>No notifications yet.</div>
         ) : (
-          items.map((item) => (
-            <button
-              key={String(item.id)}
-              type="button"
-              className={`${styles.item} ${item.isRead ? styles.read : styles.unread}`}
-              onClick={() => onItemClick(item)}
-            >
-              <div className={styles.iconWrap}>
-                <NotificationTypeIcon type={item.type} />
-              </div>
+          visibleItems.map((item) => {
+            const avatarUrl = getAvatarUrl(item)
+            const actorName = String(item.meta?.actorName || item.title || 'Notification')
+            const fallbackInitials = getInitials(actorName)
 
-              <div className={styles.content}>
-                <div className={styles.top}>
-                  <div className={styles.itemTitle}>{buildNotificationTitle(item)}</div>
-                  {!item.isRead ? <span className={styles.dot} /> : null}
+            return (
+              <button
+                key={String(item.id)}
+                type="button"
+                className={`${styles.item} ${item.isRead ? styles.read : styles.unread}`}
+                onClick={() => onItemClick(item)}
+              >
+                <div className={styles.avatarWrap}>
+                  <div className={styles.avatar}>
+                    {avatarUrl ? (
+                      <img className={styles.avatarImg} src={avatarUrl} alt={actorName} />
+                    ) : (
+                      fallbackInitials
+                    )}
+                  </div>
+
+                  <div
+                    className={`${styles.smallTypeIcon} ${
+                      styles[`smallTypeIcon--${item.type}`] || ''
+                    }`}
+                  >
+                    <NotificationTypeIcon type={item.type} />
+                  </div>
                 </div>
 
-                <div className={styles.message}>{buildNotificationMessage(item)}</div>
+                <div className={styles.content}>
+                  <p className={styles.notificationText}>
+                    <strong>{buildNotificationTitle(item)}</strong>{' '}
+                    <span>{buildNotificationMessage(item)}</span>
+                  </p>
 
-                <div className={styles.meta}>
-                  <span>{getTypeLabel(item.type)}</span>
-                  <span>•</span>
-                  <span>{fmtTime(item.createdAt)}</span>
+                  <p className={styles.timeText}>{formatRelativeTime(item.createdAt)}</p>
                 </div>
-              </div>
-            </button>
-          ))
+
+                {!item.isRead ? <span className={styles.unreadDot} /> : null}
+              </button>
+            )
+          })
         )}
-      </div>
-
-      <div className={styles.footer}>
-        <button type="button" className={styles.viewAll} onClick={onViewAll}>
-          View all notifications
-        </button>
       </div>
     </div>
   )

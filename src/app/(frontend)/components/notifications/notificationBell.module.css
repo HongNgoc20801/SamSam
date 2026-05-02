@@ -4,12 +4,12 @@
 
 .trigger {
   position: relative;
-  width: 46px;
-  height: 46px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.06);
-  color: #ffffff;
-  border-radius: 14px;
+  width: 44px;
+  height: 44px;
+  border: 1px solid rgba(53, 58, 134, 0.12);
+  background: rgba(53, 58, 134, 0.04);
+  color: #5f6886;
+  border-radius: 50%;
   cursor: pointer;
   transition: 0.2s ease;
   display: inline-flex;
@@ -18,27 +18,28 @@
 }
 
 .trigger:hover {
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(53, 58, 134, 0.1);
+  color: #353a86;
 }
 
 .notificationBellIcon {
-  width: 20px;
-  height: 20px;
+  width: 19px;
+  height: 19px;
 }
 
 .badge {
   position: absolute;
-  top: -6px;
-  right: -6px;
-  min-width: 20px;
-  height: 20px;
-  padding: 0 6px;
+  top: -4px;
+  right: -4px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
   border-radius: 999px;
-  background: #ff5a7a;
+  background: #ff6b7d;
   color: #fff;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 800;
-  line-height: 20px;
+  line-height: 18px;
   text-align: center;
-  box-shadow: 0 6px 14px rgba(255, 90, 122, 0.35);
+  box-shadow: 0 6px 14px rgba(255, 107, 125, 0.28);
 }

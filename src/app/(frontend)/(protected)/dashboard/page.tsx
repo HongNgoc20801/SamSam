@@ -2,12 +2,12 @@
 import type { MouseEvent } from 'react'
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
+import NotificationBell from '@/app/(frontend)/components/notifications/NotificationBell'
 import { useRouter } from 'next/navigation'
 import { format } from 'date-fns'
 import { useTranslations } from '@/app/lib/i18n/useTranslations'
 import {
   AlertTriangle,
-  Bell,
   CalendarDays,
   Check,
   ChevronRight,
@@ -1127,54 +1127,8 @@ export default function DashboardPage() {
           ) : null}
         </div>
 
-        <div className={styles.bellWrap}>
-          <button
-            type="button"
-            className={styles.iconBtn}
-            onClick={() => {
-              setNotifOpen((prev) => !prev)
-              setJoinOpen(false)
-            }}
-            aria-label={t.dashboard.openNotifications}
-          >
-            <Bell size={18} />
-
-            {dashboardData.unreadNotifications > 0 ? (
-              <span className={styles.bellCount}>
-                {dashboardData.unreadNotifications > 9 ? '9+' : dashboardData.unreadNotifications}
-              </span>
-            ) : null}
-          </button>
-
-          {notifOpen ? (
-            <div className={styles.notifDropdown}>
-              <div className={styles.notifHeader}>
-                <span>{t.dashboard.recentNotifications}</span>
-                <Link href="/notifications">{t.dashboard.viewAll}</Link>
-              </div>
-
-              {dashboardData.notifications.length === 0 ? (
-                <div className={styles.notifEmpty}>
-                  {t.dashboard.noNotificationsYet}
-                </div>
-              ) : (
-                <div className={styles.notifList}>
-                  {dashboardData.notifications.map((item) => (
-                    <a
-                      key={String(item.id)}
-                      href={item.link || '/notifications'}
-                      className={styles.notifItem}
-                      onClick={(e) => handleNotificationClick(e, item)}
-                    >
-                      <strong>{buildNotificationTitle(item)}</strong>
-                      <p>{buildNotificationMessage(item)}</p>
-                      <small>{formatNotificationTime(item.createdAt)}</small>
-                    </a>
-                  ))}
-                </div>
-              )}
-            </div>
-          ) : null}
+        <div onClickCapture={() => setJoinOpen(false)}>
+          <NotificationBell />
         </div>
 
         <Link href="/profile" className={styles.profileAvatar} aria-label={t.dashboard.openProfile}>
@@ -1510,6 +1464,7 @@ export default function DashboardPage() {
       const current = data?.currentCustody
       if (!current) throw new Error('Fant ingen aktiv omsorgsperiode.')
       if (!current.childId) throw new Error('Mangler barn for hastebytte.')
+      const actorAvatarUrl = getProfileImageUrl(data?.me ?? null)
 
       setError('')
       setActionLoading(`custody-emergency-${emergencyCustodyId}`)
@@ -1531,6 +1486,8 @@ export default function DashboardPage() {
             childId: current.childId,
             actorId: data?.me?.id,
             actorName: getDisplayName(data?.me ?? null),
+            actorAvatarUrl: getProfileImageUrl(data?.me ?? null),
+
             childName: current.childName,
             currentParentName: current.currentParentName,
             nextParentName: current.nextParentName,

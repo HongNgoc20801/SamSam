@@ -1,6 +1,8 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import {
+  ArrowDownToLine,
+  Archive,
   ArrowLeft,
   FileText,
   HeartPulse,
@@ -9,7 +11,7 @@ import {
   IdCard,
   Shapes,
   Pencil,
-  Archive,
+  Plus,
 } from 'lucide-react'
 
 import styles from './documents.module.css'
@@ -19,7 +21,6 @@ import { getTranslations } from '@/app/lib/i18n/getTranslations'
 const DOCS_SLUG = 'child_documents'
 
 type SearchParams = Promise<{ category?: string }>
-
 type ProfileStatus = 'active' | 'inactive' | 'archived'
 
 type Child = {
@@ -60,10 +61,8 @@ type ChildDoc = {
 
 function normalizeProfileStatus(s?: string): ProfileStatus {
   const v = String(s || '').toLowerCase()
-
   if (v === 'inactive') return 'inactive'
   if (v === 'archived') return 'archived'
-
   return 'active'
 }
 
@@ -73,7 +72,11 @@ function fmtDate(value?: string | null, fallback = '—') {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return fallback
 
-  return date.toISOString().slice(0, 10)
+  return date.toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  })
 }
 
 function prettyFileSize(size?: number) {
@@ -92,6 +95,11 @@ function fileMeta(file?: string | Media, fallbackFileName = 'file') {
   return `${name}${size ? ` • ${size}` : ''}`
 }
 
+function fileUrl(file?: string | Media) {
+  if (!file || typeof file === 'string') return ''
+  return file.url || ''
+}
+
 function uploaderLabel(doc: ChildDoc, labels: { unknownUser: string; familyMember: string }) {
   if (doc.uploadedByName?.trim()) return doc.uploadedByName.trim()
 
@@ -108,12 +116,21 @@ function categoryHref(childId: string, category: string) {
   return `/child-info/${childId}/documents?category=${category}`
 }
 
-function categoryIcon(category: string) {
-  if (category === 'school') return <School size={15} />
-  if (category === 'health') return <HeartPulse size={15} />
-  if (category === 'agreement') return <ShieldCheck size={15} />
-  if (category === 'id') return <IdCard size={15} />
-  return <Shapes size={15} />
+function categoryIcon(category: string, size = 15) {
+  if (category === 'school') return <School size={size} />
+  if (category === 'health') return <HeartPulse size={size} />
+  if (category === 'agreement') return <ShieldCheck size={size} />
+  if (category === 'id') return <IdCard size={size} />
+  if (category === 'all') return <FileText size={size} />
+  return <Shapes size={size} />
+}
+
+function categoryClass(category?: string) {
+  if (category === 'school') return styles.catSchool
+  if (category === 'health') return styles.catHealth
+  if (category === 'agreement') return styles.catAgreement
+  if (category === 'id') return styles.catId
+  return styles.catOther
 }
 
 export default async function DocumentsPage({
@@ -125,23 +142,6 @@ export default async function DocumentsPage({
 }) {
   const t = await getTranslations()
   const td = t.documentsPage
-
-  const CATEGORY_TABS = [
-    { label: td.all, value: 'all' },
-    { label: td.academic, value: 'school' },
-    { label: td.medical, value: 'health' },
-    { label: td.consent, value: 'agreement' },
-    { label: td.id, value: 'id' },
-    { label: td.other, value: 'other' },
-  ] as const
-
-  function categoryLabel(category?: ChildDoc['category'] | string) {
-    if (category === 'agreement') return td.consent
-    if (category === 'school') return td.academic
-    if (category === 'health') return td.medical
-    if (category === 'id') return td.id
-    return td.other
-  }
 
   const { id } = await params
   const sp = await searchParams
@@ -167,82 +167,96 @@ export default async function DocumentsPage({
   const docsData = docsRes.ok ? await docsRes.json().catch(() => null) : null
   const docs: ChildDoc[] = docsData?.docs ?? []
 
+  function categoryLabel(category?: ChildDoc['category'] | string) {
+    if (category === 'agreement') return td.consent
+    if (category === 'school') return td.academic
+    if (category === 'health') return td.medical
+    if (category === 'id') return td.id
+    return td.other
+  }
+
+  const CATEGORY_TABS = [
+    { label: td.all, value: 'all' },
+    { label: td.academic, value: 'school' },
+    { label: td.medical, value: 'health' },
+    { label: td.consent, value: 'agreement' },
+    { label: td.id, value: 'id' },
+    { label: td.other, value: 'other' },
+  ] as const
+
   const filteredDocs =
     activeCategory === 'all'
       ? docs
       : docs.filter((doc) => (doc.category || 'other') === activeCategory)
+
+  const fileCountLabel = filteredDocs.length === 1 ? td.file : td.files
 
   const sectionTitle =
     activeCategory === 'all'
       ? td.allDocuments
       : `${categoryLabel(activeCategory)} ${td.documentsInCategory}`
 
-  const fileCountLabel = filteredDocs.length === 1 ? td.file : td.files
-
   return (
     <div className={styles.page}>
-      <header className={styles.topbar}>
-        <div className={styles.headerMain}>
-          <div className={styles.breadcrumbRow}>
-            <Link href={`/child-info/${id}`} className={styles.backBtn}>
-              <ArrowLeft size={16} />
-              <span>{td.backToChildInfo}</span>
+      <header className={styles.header}>
+  <div className={styles.headerTop}>
+    <Link href={`/child-info/${id}`} className={styles.backLink}>
+      <ArrowLeft size={16} />
+      {td.backToChildInfo}
+    </Link>
+
+    <div className={styles.breadcrumb}>
+      <Link href="/child-info" className={styles.breadcrumbLink}>
+        {td.children}
+      </Link>
+      <span>›</span>
+      <Link href={`/child-info/${id}`} className={styles.breadcrumbLink}>
+        {child.fullName}
+      </Link>
+      <span>›</span>
+      <span className={styles.breadcrumbCurrent}>{td.documents}</span>
+    </div>
+  </div>
+
+  <div className={styles.headerMain}>
+    <div>
+      <h1 className={styles.title}>{td.documents}</h1>
+    </div>
+
+    {isArchived ? (
+      <span className={styles.disabledBtn}>
+        <Archive size={15} />
+        {td.archived}
+      </span>
+    ) : (
+      <Link className={styles.primaryBtn} href={`/child-info/${id}/documents/new`}>
+        <Plus size={16} />
+        {td.addNew}
+      </Link>
+    )}
+  </div>
+
+  {isArchived ? <div className={styles.archivedNotice}>{td.archivedNotice}</div> : null}
+</header>
+      <nav className={styles.filterRow}>
+        {CATEGORY_TABS.map((tab) => {
+          const active = activeCategory === tab.value
+
+          return (
+            <Link
+              key={tab.value}
+              href={categoryHref(id, tab.value)}
+              className={`${styles.filterChip} ${active ? styles.filterChipActive : ''}`}
+            >
+              {categoryIcon(tab.value)}
+              <span>{tab.label}</span>
             </Link>
+          )
+        })}
+      </nav>
 
-            <span className={styles.breadcrumbSep}>/</span>
-            <span className={styles.breadcrumbCurrent}>{td.documents}</span>
-          </div>
-
-          <div className={styles.titleRow}>
-            <h1 className={styles.title}>{child.fullName}</h1>
-
-            {isArchived ? (
-              <span className={styles.disabledBtn}>
-                <Archive size={15} />
-                Archived
-              </span>
-            ) : (
-              <Link className={styles.primaryBtn} href={`/child-info/${id}/documents/new`}>
-                {td.addNew}
-              </Link>
-            )}
-          </div>
-
-          {isArchived ? (
-            <div className={styles.archivedNotice}>
-              This child profile is archived. Documents can be viewed, but new uploads and edits are disabled.
-            </div>
-          ) : null}
-        </div>
-      </header>
-
-      <section className={`${styles.card} ${styles.filterCard}`}>
-        <div className={styles.filterRow}>
-          {CATEGORY_TABS.map((tab) => {
-            const active = activeCategory === tab.value
-
-            return (
-              <Link
-                key={tab.value}
-                href={categoryHref(id, tab.value)}
-                className={`${styles.filterChip} ${active ? styles.filterChipActive : ''}`}
-              >
-                <span className={styles.filterChipIcon}>
-                  {tab.value !== 'all' ? categoryIcon(tab.value) : <FileText size={15} />}
-                </span>
-                <span>{tab.label}</span>
-              </Link>
-            )
-          })}
-        </div>
-      </section>
-
-      <section
-        className={`${styles.card} ${
-          filteredDocs.length === 0 ? styles.emptyCard : styles.listCard
-        }`}
-      >
-        <div className={styles.sectionHeader}>
+      <section className={styles.documentsCard}>
+        <div className={styles.listHeader}>
           <div>
             <div className={styles.sectionTitle}>{sectionTitle}</div>
             <div className={styles.sectionSub}>
@@ -252,37 +266,54 @@ export default async function DocumentsPage({
         </div>
 
         {filteredDocs.length === 0 ? (
-          <div className={styles.emptyBox}>
-            <div className={styles.emptyTitle}>{td.noDocumentsFound}</div>
-            <div className={styles.emptyText}>{td.noDocumentsInCategory}</div>
+          <div className={styles.emptyState}>
+            <div className={styles.emptyIcon}>
+              <FileText size={24} />
+            </div>
+
+            <div>
+              <div className={styles.emptyTitle}>{td.noDocumentsFound}</div>
+              <div className={styles.emptyText}>{td.noDocumentsInCategory}</div>
+            </div>
+
+            {!isArchived ? (
+              <Link className={styles.emptyAction} href={`/child-info/${id}/documents/new`}>
+                <Plus size={15} />
+                {td.addNew}
+              </Link>
+            ) : null}
           </div>
         ) : (
           <div className={styles.list}>
             {filteredDocs.map((doc) => {
               const meta = fileMeta(doc.file, td.untitledFile)
+              const downloadUrl = fileUrl(doc.file)
+              const cat = doc.category || 'other'
 
               return (
-                <div key={doc.id} className={styles.row}>
-                  <Link href={`/child-info/${id}/documents/${doc.id}`} className={styles.rowMain}>
-                    <div className={styles.rowIcon}>
-                      <FileText size={15} />
+                <article key={doc.id} className={styles.docRow}>
+                  <Link href={`/child-info/${id}/documents/${doc.id}`} className={styles.docMain}>
+                    <div className={`${styles.docIcon} ${categoryClass(cat)}`}>
+                      {categoryIcon(cat, 20)}
                     </div>
 
-                    <div className={styles.rowBody}>
-                      <div className={styles.rowTop}>
-                        <div className={styles.rowTitle}>{doc.title}</div>
+                    <div className={styles.docBody}>
+                      <div className={styles.docTop}>
+                        <h2 className={styles.docTitle}>{doc.title}</h2>
+
+                        <span className={`${styles.categoryBadge} ${categoryClass(cat)}`}>
+                          {categoryLabel(cat)}
+                        </span>
                       </div>
 
-                      <div className={styles.rowMeta}>
-                        <span>{categoryLabel(doc.category)}</span>
-                        <span className={styles.dot}>•</span>
+                      <div className={styles.docMeta}>
                         <span>
                           {td.version}
                           {doc.version ?? 1}
                         </span>
-                        <span className={styles.dot}>•</span>
+                        <span>•</span>
                         <span>{fmtDate(doc.createdAt)}</span>
-                        <span className={styles.dot}>•</span>
+                        <span>•</span>
                         <span>
                           {td.by}{' '}
                           {uploaderLabel(doc, {
@@ -292,24 +323,30 @@ export default async function DocumentsPage({
                         </span>
                       </div>
 
-                      {doc.noteShort ? <div className={styles.rowNote}>{doc.noteShort}</div> : null}
-
-                      {meta ? <div className={styles.rowFile}>{meta}</div> : null}
+                      {doc.noteShort ? <p className={styles.docNote}>{doc.noteShort}</p> : null}
+                      {meta ? <div className={styles.docFile}>{meta}</div> : null}
                     </div>
                   </Link>
 
-                  {!isArchived ? (
-                    <div className={styles.rowActions}>
+                  <div className={styles.docActions}>
+                    {downloadUrl ? (
+                      <a className={styles.downloadBtn} href={downloadUrl} download>
+                        <ArrowDownToLine size={14} />
+                        {td.download}
+                      </a>
+                    ) : null}
+
+                    {!isArchived ? (
                       <Link
                         href={`/child-info/${id}/documents/${doc.id}/edit`}
-                        className={styles.iconBtn}
+                        className={styles.editBtn}
                         aria-label={td.editDocument}
                       >
                         <Pencil size={15} />
                       </Link>
-                    </div>
-                  ) : null}
-                </div>
+                    ) : null}
+                  </div>
+                </article>
               )
             })}
           </div>

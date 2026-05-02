@@ -1,34 +1,30 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeft, FileText, RefreshCcw, UploadCloud, X } from 'lucide-react'
+import { ArrowLeft, FileText, RefreshCcw, ShieldCheck, UploadCloud } from 'lucide-react'
 
 import styles from './ReplaceChilDoc.module.css'
 import { useTranslations } from '@/app/lib/i18n/useTranslations'
 
 const DOCS_SLUG = 'child_documents'
-const MAX_FILE_SIZE = 10 * 1024 * 1024
 
 type Category = 'agreement' | 'school' | 'health' | 'id' | 'other'
 
 type Media = {
-  id: string | number
+  id: string
   filename?: string
   filesize?: number
   url?: string
   mimeType?: string
 }
 
-type ChildRelation = string | number | { id: string | number }
-
 type ChildDoc = {
   id: string
   title: string
   category?: Category
-  noteShort?: string
   version?: number
-  child?: ChildRelation
   file?: string | Media
 }
 
@@ -40,35 +36,6 @@ function safeJsonParse(raw: string) {
   }
 }
 
-function extractErrorMessage(raw: string, parsed: any, fallback: string) {
-  return (
-    parsed?.message ||
-    parsed?.error ||
-    parsed?.errors?.[0]?.message ||
-    parsed?.errors?.[0] ||
-    raw ||
-    fallback
-  )
-}
-
-function normalizeId(value: unknown): string | number | null {
-  if (value === null || value === undefined || value === '') return null
-
-  if (typeof value === 'number') return value
-
-  if (typeof value === 'string') {
-    const trimmed = value.trim()
-    if (!trimmed) return null
-    return /^\d+$/.test(trimmed) ? Number(trimmed) : trimmed
-  }
-
-  if (typeof value === 'object' && value !== null && 'id' in value) {
-    return normalizeId((value as any).id)
-  }
-
-  return null
-}
-
 function prettyFileSize(size?: number) {
   if (!size || size <= 0) return '—'
   if (size < 1024) return `${size} B`
@@ -76,7 +43,24 @@ function prettyFileSize(size?: number) {
   return `${(size / (1024 * 1024)).toFixed(1)} MB`
 }
 
-export default function ReplaceChildDocPage() {
+function categoryLabel(
+  category: Category | undefined,
+  td: {
+    categoryAgreement: string
+    categorySchool: string
+    categoryHealth: string
+    categoryId: string
+    categoryOther: string
+  },
+) {
+  if (category === 'agreement') return td.categoryAgreement
+  if (category === 'school') return td.categorySchool
+  if (category === 'health') return td.categoryHealth
+  if (category === 'id') return td.categoryId
+  return td.categoryOther
+}
+
+export default function ReplaceDocumentPage() {
   const router = useRouter()
   const params = useParams<{ id: string; docId: string }>()
   const t = useTranslations()
@@ -85,29 +69,22 @@ export default function ReplaceChildDocPage() {
   const childId = params?.id
   const docId = params?.docId
 
-  const [currentDoc, setCurrentDoc] = useState<ChildDoc | null>(null)
+  const [doc, setDoc] = useState<ChildDoc | null>(null)
   const [file, setFile] = useState<File | null>(null)
-
   const [loadingInitial, setLoadingInitial] = useState(true)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  const canSubmit = useMemo(() => {
-    return Boolean(childId && docId && currentDoc && file && !loading && !loadingInitial)
-  }, [childId, docId, currentDoc, file, loading, loadingInitial])
+  const currentFile = doc?.file && typeof doc.file === 'object' ? doc.file : null
 
-  function categoryLabel(category?: Category | string) {
-    if (category === 'agreement') return td.categoryAgreement
-    if (category === 'school') return td.categorySchool
-    if (category === 'health') return td.categoryHealth
-    if (category === 'id') return td.categoryId
-    return td.categoryOther
-  }
+  const canSubmit = useMemo(() => {
+    return Boolean(childId && docId && file && !loading && !loadingInitial)
+  }, [childId, docId, file, loading, loadingInitial])
 
   useEffect(() => {
     let cancelled = false
 
-    async function loadDoc() {
+    async function loadDocument() {
       if (!docId) return
 
       setLoadingInitial(true)
@@ -123,13 +100,11 @@ export default function ReplaceChildDocPage() {
         const json = safeJsonParse(raw)
 
         if (!res.ok) {
-          throw new Error(
-            extractErrorMessage(raw, json, td.failedToLoadDocument),
-          )
+          throw new Error(json?.message || raw || td.failedToLoadDocument)
         }
 
         if (!cancelled) {
-          setCurrentDoc(json as ChildDoc)
+          setDoc(json as ChildDoc)
         }
       } catch (err: any) {
         if (!cancelled) {
@@ -142,294 +117,197 @@ export default function ReplaceChildDocPage() {
       }
     }
 
-    loadDoc()
+    loadDocument()
 
     return () => {
       cancelled = true
     }
   }, [docId, td.failedToLoadDocument])
 
-  async function uploadToMedia(selectedFile: File) {
-    const form = new FormData()
-    form.append('file', selectedFile)
+  async function uploadMedia(selectedFile: File) {
+    const formData = new FormData()
+    formData.append('file', selectedFile)
 
     const res = await fetch('/api/media', {
       method: 'POST',
       credentials: 'include',
-      body: form,
+      body: formData,
     })
 
     const raw = await res.text()
     const json = safeJsonParse(raw)
 
     if (!res.ok) {
-      throw new Error(
-        extractErrorMessage(raw, json, td.uploadMediaFailed),
-      )
+      throw new Error(json?.message || raw || td.failedToUploadFile)
     }
 
-    const mediaId = json?.id ?? json?.doc?.id
-
-    if (mediaId === null || mediaId === undefined || mediaId === '') {
-      throw new Error(td.uploadMediaNoId)
-    }
-
-    return mediaId
+    return json?.doc || json
   }
 
-  async function createReplacementDocument(input: {
-    child: string | number
-    file: string | number
-    title: string
-    category: Category
-    noteShort?: string
-    replaces: string | number
-  }) {
-    const res = await fetch(`/api/${DOCS_SLUG}`, {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(input),
-    })
-
-    const raw = await res.text()
-    const json = safeJsonParse(raw)
-
-    if (!res.ok) {
-      throw new Error(
-        extractErrorMessage(raw, json, td.createDocumentFailed),
-      )
-    }
-
-    return json
-  }
-
-  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+  async function replaceDocument(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
 
-    if (!canSubmit || !file || !currentDoc || !docId) return
-
-    setError('')
-
-    const allowedTypes = [
-      'application/pdf',
-      'image/jpeg',
-      'image/png',
-      'image/webp',
-    ]
-
-    if (!allowedTypes.includes(file.type)) {
-      setError(td.onlyAllowedTypes)
-      return
-    }
-
-    if (file.size > MAX_FILE_SIZE) {
-      setError(td.fileTooLarge)
-      return
-    }
+    if (!canSubmit || !file || !docId || !childId) return
 
     setLoading(true)
+    setError('')
 
     try {
-      const normalizedChildId = normalizeId(currentDoc.child)
-      if (!normalizedChildId) {
-        throw new Error(td.missingChildId)
+      const uploaded = await uploadMedia(file)
+
+      const res = await fetch(`/api/${DOCS_SLUG}/${docId}`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          file: uploaded.id,
+          version: (doc?.version ?? 1) + 1,
+        }),
+      })
+
+      const raw = await res.text()
+      const json = safeJsonParse(raw)
+
+      if (!res.ok) {
+        throw new Error(json?.message || raw || td.failedToReplaceDocument)
       }
 
-      const normalizedReplacesId = normalizeId(docId)
-      if (!normalizedReplacesId) {
-        throw new Error(td.missingOriginalDocumentId)
-      }
-
-      const uploadedMediaId = await uploadToMedia(file)
-      const normalizedMediaId = normalizeId(uploadedMediaId)
-
-      if (!normalizedMediaId) {
-        throw new Error(td.missingUploadedMediaId)
-      }
-
-      const payload = {
-        child: normalizedChildId,
-        file: normalizedMediaId,
-        title: currentDoc.title?.trim() || td.untitledDocument,
-        category: currentDoc.category || 'other',
-        noteShort: currentDoc.noteShort?.trim() || undefined,
-        replaces: normalizedReplacesId,
-      }
-
-      const created = await createReplacementDocument(payload)
-      const newDocId = created?.id
-
-      if (newDocId) {
-        router.push(`/child-info/${childId}/documents/${newDocId}`)
-      } else {
-        router.push(`/child-info/${childId}/documents`)
-      }
-
+      router.push(`/child-info/${childId}/documents/${docId}`)
       router.refresh()
     } catch (err: any) {
-      console.error('[ReplaceChildDoc] ERROR', err)
       setError(err?.message || td.unknownError)
     } finally {
       setLoading(false)
     }
   }
 
-  const currentFile =
-    currentDoc?.file && typeof currentDoc.file === 'object' ? currentDoc.file : null
-
   return (
     <div className={styles.page}>
       <div className={styles.shell}>
-        <div className={styles.header}>
-          <button
-            type="button"
-            className={styles.ghostBtn}
-            onClick={() => router.back()}
-            disabled={loading}
-          >
-            <ArrowLeft size={16} />
-            {td.back}
-          </button>
+        <header className={styles.header}>
+          <div className={styles.breadcrumb}>
+            <Link href={`/child-info/${childId}/documents/${docId}`} className={styles.backBtn}>
+              <ArrowLeft size={16} />
+              {td.back}
+            </Link>
 
-          <div className={styles.headerText}>
-            <div className={styles.kicker}>{td.kicker}</div>
-            <h1 className={styles.title}>{td.pageTitle}</h1>
-            <p className={styles.sub}>{td.pageHint}</p>
+            <span>/</span>
+
+            <Link href={`/child-info/${childId}/documents`} className={styles.breadcrumbLink}>
+              {td.documents}
+            </Link>
+
+            <span>/</span>
+
+            <span className={styles.breadcrumbCurrent}>{doc?.title || td.pageTitle}</span>
           </div>
-        </div>
 
-        <form onSubmit={onSubmit} className={styles.card}>
-          <div className={styles.cardTop}>
-            <div className={styles.cardTopIcon}>
-              <RefreshCcw size={18} />
+          <h1 className={styles.title}>{td.pageTitle}</h1>
+          <p className={styles.sub}>{td.pageHint}</p>
+        </header>
+
+        <form onSubmit={replaceDocument} className={styles.card}>
+          <div className={styles.cardHeader}>
+            <div className={styles.cardIcon}>
+              <RefreshCcw size={22} />
             </div>
+
             <div>
-              <div className={styles.cardTitle}>{td.currentDocumentTitle}</div>
-              <div className={styles.cardSub}>{td.currentDocumentHint}</div>
+              <h2 className={styles.cardTitle}>{td.currentDocument}</h2>
+              <p className={styles.cardSub}>{td.currentDocumentHint}</p>
             </div>
           </div>
 
-          {loadingInitial ? (
-            <div className={styles.infoBox}>{td.loadingDocument}</div>
-          ) : currentDoc ? (
-            <>
-              <div className={styles.currentBox}>
-                <div className={styles.currentTitle}>{td.documentInformation}</div>
+          <div className={styles.contentGrid}>
+            <aside className={styles.infoPanel}>
+              <h3 className={styles.panelTitle}>{td.documentInfo}</h3>
 
-                <div className={styles.currentMetaRow}>
-                  <span className={styles.currentMetaLabel}>{td.title}</span>
-                  <span className={styles.currentMetaValue}>
-                    {currentDoc.title || td.noValue}
-                  </span>
-                </div>
+              {loadingInitial ? (
+                <div className={styles.infoBox}>{td.loadingDocument}</div>
+              ) : (
+                <>
+                  <div className={styles.fileCard}>
+                    <div className={styles.fileIcon}>
+                      <FileText size={22} />
+                    </div>
 
-                <div className={styles.currentMetaRow}>
-                  <span className={styles.currentMetaLabel}>{td.category}</span>
-                  <span className={styles.currentMetaValue}>
-                    {categoryLabel(currentDoc.category)}
-                  </span>
-                </div>
-
-                <div className={styles.currentMetaRow}>
-                  <span className={styles.currentMetaLabel}>{td.version}</span>
-                  <span className={styles.currentMetaValue}>v{currentDoc.version ?? 1}</span>
-                </div>
-
-                <div className={styles.currentMetaRow}>
-                  <span className={styles.currentMetaLabel}>{td.currentFile}</span>
-                  <span className={styles.currentMetaValue}>
-                    {currentFile?.filename || td.noValue}
-                    {currentFile?.filesize ? ` • ${prettyFileSize(currentFile.filesize)}` : ''}
-                  </span>
-                </div>
-
-                {currentDoc.noteShort ? (
-                  <div className={styles.currentMetaRow}>
-                    <span className={styles.currentMetaLabel}>{td.note}</span>
-                    <span className={styles.currentMetaValue}>{currentDoc.noteShort}</span>
+                    <div>
+                      <div className={styles.fileName}>
+                        {currentFile?.filename || td.noFile}
+                      </div>
+                      <div className={styles.fileMeta}>
+                        {currentFile?.mimeType || td.unknownFileType}
+                        {currentFile?.filesize ? ` • ${prettyFileSize(currentFile.filesize)}` : ''}
+                      </div>
+                    </div>
                   </div>
-                ) : null}
+
+                  <div className={styles.detailBox}>
+                    <span>{td.title}</span>
+                    <strong>{doc?.title || td.noValue}</strong>
+                  </div>
+
+                  <div className={styles.detailBox}>
+                    <span>{td.category}</span>
+                    <strong>{categoryLabel(doc?.category, td)}</strong>
+                  </div>
+
+                  <div className={styles.detailBox}>
+                    <span>{td.version}</span>
+                    <strong>v{doc?.version ?? 1}</strong>
+                  </div>
+
+                  <div className={styles.noticeBox}>
+                    <ShieldCheck size={15} />
+                    <span>{td.versionNotice}</span>
+                  </div>
+                </>
+              )}
+            </aside>
+
+            <section className={styles.uploadPanel}>
+              <div className={styles.uploadHead}>
+                <h3 className={styles.panelTitle}>{td.newFile}</h3>
+                <p>{td.allowedFileTypes}</p>
               </div>
 
-              <div className={styles.field}>
-                <label className={styles.label}>{td.newFile}</label>
+              <label className={styles.uploadBox}>
+                <input
+                  type="file"
+                  accept=".pdf,.jpg,.jpeg,.png,.webp"
+                  className={styles.fileInput}
+                  disabled={loading}
+                  onChange={(e) => setFile(e.target.files?.[0] || null)}
+                />
 
-                <label className={`${styles.uploadBox} ${file ? styles.uploadBoxActive : ''}`}>
-                  <input
-                    className={styles.fileInput}
-                    type="file"
-                    accept=".pdf,.jpg,.jpeg,.png,.webp"
-                    onChange={(e) => {
-                      setError('')
-                      setFile(e.target.files?.[0] ?? null)
-                    }}
-                    disabled={loading}
-                  />
+                <span className={styles.uploadIcon}>
+                  <UploadCloud size={34} />
+                </span>
 
-                  {!file ? (
-                    <div className={styles.uploadEmpty}>
-                      <div className={styles.uploadIcon}>
-                        <UploadCloud size={24} />
-                      </div>
-                      <div className={styles.uploadTitle}>{td.chooseReplacementFile}</div>
-                      <div className={styles.uploadSub}>{td.uploadHelp}</div>
-                    </div>
-                  ) : (
-                    <div className={styles.filePreview}>
-                      <div className={styles.filePreviewLeft}>
-                        <div className={styles.fileIcon}>
-                          <FileText size={20} />
-                        </div>
+                <strong>{file ? file.name : td.chooseReplacementFile}</strong>
 
-                        <div className={styles.fileInfo}>
-                          <div className={styles.fileName}>{file.name}</div>
-                          <div className={styles.fileMeta}>
-                            {file.type || td.unknownType} • {prettyFileSize(file.size)}
-                          </div>
-                        </div>
-                      </div>
+                <span>{file ? prettyFileSize(file.size) : td.allowedFileTypes}</span>
+              </label>
 
-                      <button
-                        type="button"
-                        className={styles.removeBtn}
-                        onClick={(e) => {
-                          e.preventDefault()
-                          setFile(null)
-                        }}
-                        disabled={loading}
-                        aria-label={td.removeFile}
-                      >
-                        <X size={16} />
-                      </button>
-                    </div>
-                  )}
-                </label>
+              {error ? <div className={styles.error}>⚠ {error}</div> : null}
+
+              <div className={styles.actions}>
+                <button
+                  type="button"
+                  className={styles.secondaryBtn}
+                  onClick={() => router.back()}
+                  disabled={loading}
+                >
+                  {td.cancel}
+                </button>
+
+                <button type="submit" className={styles.primaryBtn} disabled={!canSubmit}>
+                  {loading ? td.saving : td.replaceDocument}
+                </button>
               </div>
-            </>
-          ) : (
-            <div className={styles.infoBox}>{td.documentNotFound}</div>
-          )}
-
-          {error ? <div className={styles.error}>⚠ {error}</div> : null}
-
-          <div className={styles.actions}>
-            <button
-              type="button"
-              className={styles.secondaryBtn}
-              onClick={() => router.back()}
-              disabled={loading}
-            >
-              {td.cancel}
-            </button>
-
-            <button
-              type="submit"
-              className={styles.primaryBtn}
-              disabled={!canSubmit}
-            >
-              {loading ? td.replacing : td.replace}
-            </button>
+            </section>
           </div>
         </form>
       </div>

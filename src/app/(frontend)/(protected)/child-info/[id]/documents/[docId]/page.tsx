@@ -185,36 +185,30 @@ export default async function DocumentDetailPage({
   return (
     <div className={styles.page}>
       <header className={styles.header}>
-        <div className={styles.headerLeft}>
-          <Link href={`/child-info/${id}/documents`} className={styles.backBtn}>
-            <ArrowLeft size={16} />
-            {td.backToDocuments}
-          </Link>
+  <div className={styles.headerLeft}>
+    <Link href={`/child-info/${id}/documents`} className={styles.backBtn}>
+      <ArrowLeft size={16} />
+      {td.backToDocuments}
+    </Link>
 
-          <span className={styles.breadcrumbSep}>/</span>
+    <span className={styles.breadcrumbSep}>/</span>
 
-          <h1 className={styles.title}>{doc.title}</h1>
-        </div>
+    <h1 className={styles.title}>{doc.title}</h1>
+  </div>
 
-        {!isArchived ? (
-          <div className={styles.headerActions}>
-            <Link
-              href={`/child-info/${id}/documents/${doc.id}/edit`}
-              className={styles.editBtn}
-            >
-              <Pencil size={14} />
-              {td.edit}
-            </Link>
+  {!isArchived ? (
+    <div className={styles.headerActions}>
+      <Link href={`/child-info/${id}/documents/${doc.id}/edit`} className={styles.editBtn}>
+        <Pencil size={15} />
+        {td.edit}
+      </Link>
 
-            <Link
-              href={`/child-info/${id}/documents/${doc.id}/replace`}
-              className={styles.replaceBtn}
-            >
-              {td.replace}
-            </Link>
-          </div>
-        ) : null}
-      </header>
+      <Link href={`/child-info/${id}/documents/${doc.id}/replace`} className={styles.replaceBtn}>
+        {td.replace}
+      </Link>
+    </div>
+  ) : null}
+</header>
 
       <div className={styles.contentLayout}>
         <main className={styles.mainPane}>

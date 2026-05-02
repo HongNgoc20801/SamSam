@@ -1,8 +1,9 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeft, ShieldCheck } from 'lucide-react'
+import { ArrowLeft, FileText, ShieldCheck } from 'lucide-react'
 
 import styles from './EditChildDoc.module.css'
 import { useTranslations } from '@/app/lib/i18n/useTranslations'
@@ -10,6 +11,14 @@ import { useTranslations } from '@/app/lib/i18n/useTranslations'
 const DOCS_SLUG = 'child_documents'
 
 type Category = 'agreement' | 'school' | 'health' | 'id' | 'other'
+
+type Media = {
+  id?: string | number
+  filename?: string
+  filesize?: number
+  url?: string
+  mimeType?: string
+}
 
 type UserRef =
   | string
@@ -26,8 +35,10 @@ type ChildDoc = {
   title: string
   category?: Category
   noteShort?: string
+  createdAt?: string
   uploadedBy?: UserRef
   uploadedByName?: string
+  file?: string | Media
 }
 
 function safeJsonParse(raw: string) {
@@ -39,14 +50,29 @@ function safeJsonParse(raw: string) {
 }
 
 function extractErrorMessage(raw: string, parsed: any, fallback: string) {
-  return (
-    parsed?.message ||
-    parsed?.error ||
-    parsed?.errors?.[0]?.message ||
-    parsed?.errors?.[0] ||
-    raw ||
-    fallback
-  )
+  return parsed?.message || parsed?.error || parsed?.errors?.[0]?.message || raw || fallback
+}
+
+function prettyFileSize(size?: number) {
+  if (!size || size <= 0) return '—'
+  if (size < 1024) return `${size} B`
+  if (size < 1024 * 1024) return `${Math.max(1, Math.round(size / 1024))} KB`
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`
+}
+
+function fmtDateTime(value?: string | null) {
+  if (!value) return '—'
+
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return '—'
+
+  return date.toLocaleString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
 }
 
 export default function EditChildDocPage() {
@@ -66,6 +92,8 @@ export default function EditChildDocPage() {
   const [loadingInitial, setLoadingInitial] = useState(true)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+
+  const currentFile = doc?.file && typeof doc.file === 'object' ? doc.file : null
 
   const canSubmit = useMemo(() => {
     return Boolean(childId && docId && title.trim() && !loading && !loadingInitial)
@@ -109,9 +137,7 @@ export default function EditChildDocPage() {
         const json = safeJsonParse(raw)
 
         if (!res.ok) {
-          throw new Error(
-            extractErrorMessage(raw, json, td.failedToLoadDocument)
-          )
+          throw new Error(extractErrorMessage(raw, json, td.failedToLoadDocument))
         }
 
         const docData = json as ChildDoc
@@ -156,9 +182,7 @@ export default function EditChildDocPage() {
     const json = safeJsonParse(raw)
 
     if (!res.ok) {
-      throw new Error(
-        extractErrorMessage(raw, json, td.updateDocumentFailed)
-      )
+      throw new Error(extractErrorMessage(raw, json, td.updateDocumentFailed))
     }
 
     return json
@@ -172,13 +196,11 @@ export default function EditChildDocPage() {
     setLoading(true)
 
     try {
-      const payload = {
+      await updateChildDocument({
         title: title.trim(),
         category,
         noteShort: noteShort.trim() || undefined,
-      }
-
-      await updateChildDocument(payload)
+      })
 
       router.push(`/child-info/${childId}/documents/${docId}`)
       router.refresh()
@@ -192,42 +214,66 @@ export default function EditChildDocPage() {
   return (
     <div className={styles.page}>
       <div className={styles.shell}>
-        <div className={styles.header}>
-          <button
-            type="button"
-            className={styles.ghostBtn}
-            onClick={() => router.back()}
-            disabled={loading}
-          >
-            <ArrowLeft size={16} />
-            {td.back}
-          </button>
+   <header className={styles.header}>
+  <div className={styles.breadcrumb}>
+    <button
+      type="button"
+      className={styles.backBtn}
+      onClick={() => router.back()}
+      disabled={loading}
+    >
+      <ArrowLeft size={16} />
+      {td.back}
+    </button>
 
-          <div className={styles.headerText}>
-            <div className={styles.kicker}>{td.kicker}</div>
-            <h1 className={styles.title}>{td.pageTitle}</h1>
-            <p className={styles.sub}>{td.pageHint}</p>
-          </div>
-        </div>
+    <span className={styles.breadcrumbSep}>/</span>
+
+    <Link href={`/child-info/${childId}/documents`} className={styles.breadcrumbLink}>
+      {td.documents}
+    </Link>
+
+    <span className={styles.breadcrumbSep}>/</span>
+
+    <span className={styles.breadcrumbCurrent}>
+      {doc?.title || td.editDocument}
+    </span>
+  </div>
+
+  <h1 className={styles.title}>{td.editDocument}</h1>
+
+  <p className={styles.sub}>{td.pageHint}</p>
+</header>
 
         <form onSubmit={onSubmit} className={styles.card}>
-          <div className={styles.cardTop}>
-            <div className={styles.cardTopIcon}>
-              <ShieldCheck size={18} />
-            </div>
-            <div>
-              <div className={styles.cardTitle}>{td.detailsTitle}</div>
-              <div className={styles.cardSub}>{td.detailsHint}</div>
-            </div>
-          </div>
-
           {loadingInitial ? (
             <div className={styles.infoBox}>{td.loadingDocument}</div>
           ) : (
             <>
-              <div className={styles.field}>
-                <label className={styles.label}>{td.uploadedBy}</label>
-                <div className={styles.infoBox}>{getUploaderLabel(doc)}</div>
+              <div className={styles.fileCard}>
+                <div className={styles.fileLeft}>
+                  <div className={styles.fileIcon}>
+                    <FileText size={18} />
+                  </div>
+
+                  <div className={styles.fileInfo}>
+                    <div className={styles.fileName}>
+                      {currentFile?.filename || td.noValue}
+                    </div>
+                    <div className={styles.fileMeta}>
+                      {currentFile?.mimeType || td.unknownType}
+                      {currentFile?.filesize ? ` • ${prettyFileSize(currentFile.filesize)}` : ''}
+                    </div>
+                  </div>
+                </div>
+
+                {childId && docId ? (
+                  <Link
+                    href={`/child-info/${childId}/documents/${docId}/replace`}
+                    className={styles.replaceBtn}
+                  >
+                    {td.replace}
+                  </Link>
+                ) : null}
               </div>
 
               <div className={styles.field}>
@@ -241,35 +287,53 @@ export default function EditChildDocPage() {
                 />
               </div>
 
-              <div className={styles.field}>
-                <label className={styles.label}>{td.category}</label>
-                <select
-                  className={styles.input}
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value as Category)}
-                  disabled={loading}
-                >
-                  <option value="agreement">{td.categoryAgreement}</option>
-                  <option value="school">{td.categorySchool}</option>
-                  <option value="health">{td.categoryHealth}</option>
-                  <option value="id">{td.categoryId}</option>
-                  <option value="other">{td.categoryOther}</option>
-                </select>
+              <div className={styles.row2}>
+                <div className={styles.field}>
+                  <label className={styles.label}>{td.category}</label>
+                  <select
+                    className={styles.input}
+                    value={category}
+                    onChange={(e) => setCategory(e.target.value as Category)}
+                    disabled={loading}
+                  >
+                    <option value="agreement">{td.categoryAgreement}</option>
+                    <option value="school">{td.categorySchool}</option>
+                    <option value="health">{td.categoryHealth}</option>
+                    <option value="id">{td.categoryId}</option>
+                    <option value="other">{td.categoryOther}</option>
+                  </select>
+                </div>
+
+                <div className={styles.field}>
+                  <label className={styles.label}>{td.uploadedBy}</label>
+                  <div className={styles.readOnlyInput}>{getUploaderLabel(doc)}</div>
+                </div>
               </div>
 
               <div className={styles.field}>
-                <label className={styles.label}>{td.noteShort}</label>
-                <input
-                  className={styles.input}
+                <div className={styles.labelRow}>
+                  <label className={styles.label}>{td.noteShort}</label>
+                  <span className={styles.counter}>
+                    {noteShort.length}/160 {td.characters}
+                  </span>
+                </div>
+
+                <textarea
+                  className={styles.textarea}
                   value={noteShort}
                   onChange={(e) => setNoteShort(e.target.value)}
                   disabled={loading}
                   maxLength={160}
                   placeholder={td.notePlaceholder}
                 />
-                <div className={styles.hint}>
-                  {noteShort.length}/160 {td.characters}
-                </div>
+              </div>
+
+              <div className={styles.auditBox}>
+                <ShieldCheck size={15} />
+                <span>
+                  {td.uploadedBy} {getUploaderLabel(doc)}
+                  {doc?.createdAt ? ` • ${fmtDateTime(doc.createdAt)}` : ''}
+                </span>
               </div>
             </>
           )}
@@ -286,11 +350,7 @@ export default function EditChildDocPage() {
               {td.cancel}
             </button>
 
-            <button
-              type="submit"
-              className={styles.primaryBtn}
-              disabled={!canSubmit}
-            >
+            <button type="submit" className={styles.primaryBtn} disabled={!canSubmit}>
               {loading ? td.saving : td.saveChanges}
             </button>
           </div>

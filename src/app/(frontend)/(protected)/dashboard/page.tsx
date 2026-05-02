@@ -1,5 +1,5 @@
 'use client'
-
+import type { MouseEvent } from 'react'
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -11,16 +11,17 @@ import {
   CalendarDays,
   Check,
   ChevronRight,
-  Clock3,
   FileText,
   Loader2,
-  MapPin,
+  Pencil,
   Plus,
   Receipt,
+  Trash2,
   UserPlus,
   Users,
   Wallet,
   X,
+
 } from 'lucide-react'
 import styles from './dashboard.module.css'
 
@@ -154,7 +155,18 @@ type BankConnection = {
   status?: string
   connectionScope?: 'family' | 'personal'
 }
-
+type CustodyScheduleDoc = {
+  id: string | number
+  title?: string
+  child?: any
+  currentParent?: any
+  nextParent?: any
+  startAt: string
+  endAt: string
+  status?: 'active' | 'completed' | 'changed' | 'cancelled'
+  handoverStatus?: 'not-ready' | 'ready' | 'handed-over'
+  notes?: string
+}
 type DecisionActionItem = {
   id: string | number
   kind: 'child' | 'event' | 'request-review'
@@ -191,6 +203,23 @@ type DashboardData = {
   unreadNotifications: number
   notifications: NotificationItem[]
   childCount: number
+  children: ChildDashboardItem[]
+  parents: ParentOption[]
+  currentCustody: {
+    id: string | number
+    title: string
+    childId: string
+    childName: string
+    currentParentName: string
+    nextParentName: string
+    currentParentId: string
+    nextParentId: string
+    startAt: string
+    endAt: string
+    status: string
+    handoverStatus: string
+    notes?: string
+  } | null
   upcomingHandover: {
     id: string | number
     title: string
@@ -272,23 +301,36 @@ function shorten(text?: string, max = 80) {
   return value.length > max ? `${value.slice(0, max)}…` : value
 }
 
-function getCountdownParts(targetIso?: string) {
+function getCountdownParts(targetIso?: string, nowMs = Date.now()) {
   if (!targetIso) return null
 
-  const now = Date.now()
   const target = new Date(targetIso).getTime()
-  const diff = target - now
+  const diff = target - nowMs
 
   if (Number.isNaN(target) || diff <= 0) {
-    return { days: 0, hours: 0, minutes: 0, expired: true }
+    return {
+      days: 0,
+      hours: 0,
+      minutes: 0,
+      seconds: 0,
+      expired: true,
+    }
   }
 
-  const totalMinutes = Math.floor(diff / 60000)
-  const days = Math.floor(totalMinutes / (60 * 24))
-  const hours = Math.floor((totalMinutes % (60 * 24)) / 60)
-  const minutes = totalMinutes % 60
+  const totalSeconds = Math.floor(diff / 1000)
 
-  return { days, hours, minutes, expired: false }
+  const days = Math.floor(totalSeconds / (60 * 60 * 24))
+  const hours = Math.floor((totalSeconds % (60 * 60 * 24)) / (60 * 60))
+  const minutes = Math.floor((totalSeconds % (60 * 60)) / 60)
+  const seconds = totalSeconds % 60
+
+  return {
+    days,
+    hours,
+    minutes,
+    seconds,
+    expired: false,
+  }
 }
 
 function hasStarted(value?: string) {
@@ -304,14 +346,25 @@ export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [, setParents] = useState<ParentOption[]>([])
   const [notifOpen, setNotifOpen] = useState(false)
   const [joinOpen, setJoinOpen] = useState(false)
   const [actionLoading, setActionLoading] = useState('')
   const [joinCode, setJoinCode] = useState('')
   const [joinPreview, setJoinPreview] = useState<FamilyJoinPreview | null>(null)
   const [joinModalOpen, setJoinModalOpen] = useState(false)
-
+  const [custodyOpen, setCustodyOpen] = useState(false)
+  const [nowTick, setNowTick] = useState(() => Date.now())
+  const [custodyChildId, setCustodyChildId] = useState('')
+  const [custodyNextParentId, setCustodyNextParentId] = useState('')
+  const [custodyStartAt, setCustodyStartAt] = useState('')
+  const [custodyEndAt, setCustodyEndAt] = useState('')
+  const [custodyNotes, setCustodyNotes] = useState('')
+  const [editingCustodyId, setEditingCustodyId] = useState<string | number | null>(null)
+  const [emergencyOpen, setEmergencyOpen] = useState(false)
+  const [emergencyReason, setEmergencyReason] = useState('')
+  const [emergencyPickupAt, setEmergencyPickupAt] = useState('')
+  const [emergencyReturnAt, setEmergencyReturnAt] = useState('')
+  const [emergencyCustodyId, setEmergencyCustodyId] = useState<string | number | null>(null)
   const locale =
     typeof window !== 'undefined' && window.location.pathname.startsWith('/en')
       ? 'en-US'
@@ -397,20 +450,24 @@ export default function DashboardPage() {
     }
   }
 
-  function getHandoverStatusLabel(status?: string) {
-    if (status === 'delivered') return 'Levert – venter på mottak'
-    if (status === 'completed') return 'Overlevering fullført'
-    return 'Ikke overlevert enda'
-  }
-
   function buildNotificationTitle(item: NotificationItem) {
     const meta = item.meta || {}
     const actorName = String(meta.actorName || t.dashboard.aParent).trim()
     const childName = String(meta.childName || '').trim()
+    if (meta.type === 'custody-emergency') {
+      return `${actorName} ber om hastebytte${childName ? ` for ${childName}` : ''}`
+    }
+
+    if (meta.type === 'custody-emergency-response') {
+      return meta.status === 'approved'
+        ? `Hastebytte godkjent${childName ? ` for ${childName}` : ''}`
+        : `Hastebytte avslått${childName ? ` for ${childName}` : ''}`
+    }
     const eventType = getEventTypeLabel(meta.eventType)
     const rawTitle = String(item.title || t.dashboard.notification).trim()
     const isChildUpdate = !!meta.isChildUpdate
     const documentName = String(meta.documentName || item.title || '').trim()
+
 
     if (item.type === 'calendar') {
       if (meta.handoverStatus === 'delivered') return `${actorName} bekreftet at barnet er levert`
@@ -517,6 +574,29 @@ export default function DashboardPage() {
   function buildNotificationMessage(item: NotificationItem) {
     const meta = item.meta || {}
     const actorName = String(meta.actorName || t.dashboard.aParent).trim()
+    if (meta.type === 'custody-emergency') {
+      const reason = item.message || meta.reason || 'Hastebytte forespurt.'
+
+      return [
+        meta.pickupAt ? `Henting: ${formatNotificationTime(meta.pickupAt)}` : '',
+        meta.returnAt ? `Varer til: ${formatNotificationTime(meta.returnAt)}` : '',
+        reason,
+      ]
+        .filter(Boolean)
+        .join(' · ')
+    }
+
+    if (meta.type === 'custody-emergency-response') {
+      return [
+        meta.status === 'approved'
+          ? 'Den andre forelderen har godkjent hastebytte.'
+          : 'Den andre forelderen har avslått hastebytte.',
+        meta.pickupAt ? `Henting: ${formatNotificationTime(meta.pickupAt)}` : '',
+        meta.returnAt ? `Varer til: ${formatNotificationTime(meta.returnAt)}` : '',
+      ]
+        .filter(Boolean)
+        .join(' · ')
+    }
     const childName = String(meta.childName || '').trim()
     const documentName = shorten(meta.documentName || item.title || '')
     const postTitle = shorten(meta.title || item.message || '')
@@ -639,9 +719,9 @@ export default function DashboardPage() {
     return item.message || t.dashboard.openToViewDetails
   }
 
-  async function loadDashboard() {
+  async function loadDashboard(showLoader = true) {
     try {
-      setLoading(true)
+      if (showLoader) setLoading(true)
       setError('')
 
       const [
@@ -654,6 +734,7 @@ export default function DashboardPage() {
         economyTransactionsRes,
         economyRequestsRes,
         bankStatusRes,
+        custodySchedulesRes,
       ] = await Promise.all([
         fetch('/api/customers/me', { credentials: 'include', cache: 'no-store' }),
         fetch('/api/calendar-events?limit=100&sort=startAt&depth=1', {
@@ -688,6 +769,10 @@ export default function DashboardPage() {
           credentials: 'include',
           cache: 'no-store',
         }).catch(() => null),
+        fetch('/api/custody-schedules?limit=20&sort=startAt&depth=1', {
+          credentials: 'include',
+          cache: 'no-store',
+        }).catch(() => null),
       ])
 
       const meJson = await meRes.json().catch(() => null)
@@ -701,7 +786,9 @@ export default function DashboardPage() {
         : null
       const economyRequestsJson = economyRequestsRes ? await economyRequestsRes.json().catch(() => null) : null
       const bankStatusJson = bankStatusRes ? await bankStatusRes.json().catch(() => null) : null
-
+      const custodySchedulesJson = custodySchedulesRes
+        ? await custodySchedulesRes.json().catch(() => null)
+        : null
       if (!meRes.ok) {
         throw new Error(meJson?.message || `${t.dashboard.couldNotLoadCurrentUser} (${meRes.status})`)
       }
@@ -721,7 +808,6 @@ export default function DashboardPage() {
         email: p.email,
       }))
 
-      setParents(mappedParents)
 
       const localParentNameById = new Map<string, string>()
       mappedParents.forEach((p) => {
@@ -731,6 +817,24 @@ export default function DashboardPage() {
       const docs: DashboardEvent[] = calendarJson?.docs ?? []
       const currentUserId = String(meJson?.user?.id || meJson?.id || '')
       const now = new Date()
+      const custodyDocs: CustodyScheduleDoc[] = custodySchedulesJson?.docs ?? []
+
+      const activeCustody =
+        custodyDocs.find((item) => {
+          const start = new Date(item.startAt).getTime()
+          const end = new Date(item.endAt).getTime()
+          const current = now.getTime()
+
+          return (
+            item.status === 'active' &&
+            !Number.isNaN(start) &&
+            !Number.isNaN(end) &&
+            start <= current &&
+            end >= current
+          )
+        }) ??
+        custodyDocs.find((item) => item.status === 'active') ??
+        null
 
       const upcoming = docs
         .filter((event) => new Date(event.endAt).getTime() >= now.getTime())
@@ -848,9 +952,28 @@ export default function DashboardPage() {
         me: meJson?.user ?? meJson ?? null,
         unreadNotifications,
         notifications,
+        children: childrenCountJson?.docs ?? [],
+        parents: mappedParents,
         childCount:
           childrenCountJson?.totalDocs ??
           (Array.isArray(childrenCountJson?.docs) ? childrenCountJson.docs.length : 0),
+        currentCustody: activeCustody
+          ? {
+              id: activeCustody.id,
+              title: activeCustody.title || 'Omsorgsperiode',
+              childId: getRelId(activeCustody.child),
+              childName: getRelDisplayName(activeCustody.child),
+              currentParentName: getRelDisplayName(activeCustody.currentParent, localParentNameById),
+              nextParentName: getRelDisplayName(activeCustody.nextParent, localParentNameById),
+              currentParentId: getRelId(activeCustody.currentParent),
+              nextParentId: getRelId(activeCustody.nextParent),
+              startAt: activeCustody.startAt,
+              endAt: activeCustody.endAt,
+              status: activeCustody.status || 'active',
+              handoverStatus: activeCustody.handoverStatus || 'not-ready',
+              notes: activeCustody.notes || '',
+            }
+          : null,
         upcomingHandover: upcomingHandover
           ? {
               id: upcomingHandover.id,
@@ -892,21 +1015,53 @@ export default function DashboardPage() {
       setError(err?.message || t.dashboard.somethingWentWrong)
       setData(null)
     } finally {
-      setLoading(false)
-    }
+      if (showLoader) setLoading(false)
+        }
   }
 
   useEffect(() => {
-    loadDashboard()
-  }, [])
+    loadDashboard(true)
+
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        loadDashboard(false)
+      }
+    }, 3000)
+
+    const handleFocus = () => {
+      loadDashboard(false)
+    }
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        loadDashboard(false)
+      }
+    }
+
+    window.addEventListener('focus', handleFocus)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    return () => {
+      window.clearInterval(interval)
+      window.removeEventListener('focus', handleFocus)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+
+    }, [])
+
+    useEffect(() => {
+      const timer = window.setInterval(() => {
+        setNowTick(Date.now())
+      }, 1000)
+
+      return () => {
+        window.clearInterval(timer)
+      }
+    }, [])
 
   const greetingName = useMemo(() => getDisplayName(data?.me ?? null), [data?.me])
 
   const profileImageUrl = useMemo(() => getProfileImageUrl(data?.me ?? null), [data?.me])
-
-  const countdown = useMemo(() => {
-    return getCountdownParts(data?.upcomingHandover?.startAt)
-  }, [data?.upcomingHandover?.startAt])
 
   const todayEvents = useMemo(() => {
     if (!data) return []
@@ -919,26 +1074,120 @@ export default function DashboardPage() {
   }, [data])
 
   const currentUserId = String(data?.me?.id || '')
+  const renderDashboardHeader = (dashboardData: DashboardData) => (
+    <header className={styles.header}>
+      <div>
+        <h1 className={styles.title}>
+          {t.dashboard.goodMorning}, {greetingName}
+        </h1>
+        <p className={styles.subtitle}>{t.dashboard.structuredOverviewToday}</p>
+      </div>
 
-  const canConfirmUpcomingHandover =
-    data?.upcomingHandover?.confirmationStatus === 'pending' &&
-    data.upcomingHandover.createdById !== currentUserId
+      <div className={styles.headerActions}>
+        <div className={styles.joinIconWrap}>
+          <button
+            type="button"
+            className={styles.iconBtn}
+            onClick={() => {
+              setJoinOpen((prev) => !prev)
+              setNotifOpen(false)
+            }}
+            aria-label={t.dashboard.joinFamily}
+          >
+            <UserPlus size={20} />
+          </button>
 
-  const handoverHasStarted = hasStarted(data?.upcomingHandover?.startAt)
+          {joinOpen ? (
+            <div className={styles.joinPopover}>
+              <h3>{t.dashboard.joinFamily}</h3>
+              <p>{t.dashboard.joinFamilyDescription}</p>
 
-  const canMarkHandoverDelivered =
-    !!data?.upcomingHandover &&
-    handoverHasStarted &&
-    data.upcomingHandover.confirmationStatus !== 'declined' &&
-    data.upcomingHandover.handoverStatus === 'not-started' &&
-    data.upcomingHandover.handoverFromId === currentUserId
+              <div className={styles.joinPopoverForm}>
+                <input
+                  type="text"
+                  placeholder={t.dashboard.enterInviteCode}
+                  value={joinCode}
+                  onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                  maxLength={20}
+                />
 
-  const canMarkHandoverCompleted =
-    !!data?.upcomingHandover &&
-    handoverHasStarted &&
-    data.upcomingHandover.confirmationStatus !== 'declined' &&
-    data.upcomingHandover.handoverStatus === 'delivered' &&
-    data.upcomingHandover.handoverToId === currentUserId
+                <button
+                  type="button"
+                  onClick={previewJoinFamily}
+                  disabled={!joinCode.trim() || actionLoading === 'join-preview'}
+                >
+                  {actionLoading === 'join-preview' ? (
+                    <Loader2 size={16} className={styles.spin} />
+                  ) : (
+                    t.dashboard.joinFamily
+                  )}
+                </button>
+              </div>
+            </div>
+          ) : null}
+        </div>
+
+        <div className={styles.bellWrap}>
+          <button
+            type="button"
+            className={styles.iconBtn}
+            onClick={() => {
+              setNotifOpen((prev) => !prev)
+              setJoinOpen(false)
+            }}
+            aria-label={t.dashboard.openNotifications}
+          >
+            <Bell size={18} />
+
+            {dashboardData.unreadNotifications > 0 ? (
+              <span className={styles.bellCount}>
+                {dashboardData.unreadNotifications > 9 ? '9+' : dashboardData.unreadNotifications}
+              </span>
+            ) : null}
+          </button>
+
+          {notifOpen ? (
+            <div className={styles.notifDropdown}>
+              <div className={styles.notifHeader}>
+                <span>{t.dashboard.recentNotifications}</span>
+                <Link href="/notifications">{t.dashboard.viewAll}</Link>
+              </div>
+
+              {dashboardData.notifications.length === 0 ? (
+                <div className={styles.notifEmpty}>
+                  {t.dashboard.noNotificationsYet}
+                </div>
+              ) : (
+                <div className={styles.notifList}>
+                  {dashboardData.notifications.map((item) => (
+                    <a
+                      key={String(item.id)}
+                      href={item.link || '/notifications'}
+                      className={styles.notifItem}
+                      onClick={(e) => handleNotificationClick(e, item)}
+                    >
+                      <strong>{buildNotificationTitle(item)}</strong>
+                      <p>{buildNotificationMessage(item)}</p>
+                      <small>{formatNotificationTime(item.createdAt)}</small>
+                    </a>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : null}
+        </div>
+
+        <Link href="/profile" className={styles.profileAvatar} aria-label={t.dashboard.openProfile}>
+          {profileImageUrl ? (
+            <img src={profileImageUrl} alt="" className={styles.profileAvatarImage} />
+          ) : (
+            String(greetingName || '?').charAt(0).toUpperCase()
+          )}
+        </Link>
+      </div>
+    </header>
+  )
+
 
   async function markNotificationAsRead(id: string | number) {
     try {
@@ -949,7 +1198,7 @@ export default function DashboardPage() {
     } catch {}
   }
 
-  async function handleNotificationClick(e: React.MouseEvent<HTMLAnchorElement>, item: NotificationItem) {
+  async function handleNotificationClick(e: MouseEvent<HTMLAnchorElement>, item: NotificationItem) {
     e.preventDefault()
 
     const href = item.link || '/notifications'
@@ -985,44 +1234,6 @@ export default function DashboardPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           confirmationStatus: nextStatus,
-        }),
-      })
-
-      const raw = await res.text()
-      let json: any = null
-
-      try {
-        json = raw ? JSON.parse(raw) : null
-      } catch {
-        json = null
-      }
-
-      if (!res.ok) {
-        throw new Error(json?.message || json?.errors?.[0]?.message || raw || t.dashboard.couldNotUpdateConfirmation)
-      }
-
-      await loadDashboard()
-    } catch (err: any) {
-      setError(err?.message || t.dashboard.couldNotUpdateConfirmation)
-    } finally {
-      setActionLoading('')
-    }
-  }
-
-  async function handleHandoverStatus(
-    eventId: string | number,
-    nextStatus: 'delivered' | 'completed',
-  ) {
-    try {
-      setError('')
-      setActionLoading(`handover-${eventId}-${nextStatus}`)
-
-      const res = await fetch(`/api/calendar-events/${eventId}`, {
-        method: 'PATCH',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          handoverStatus: nextStatus,
         }),
       })
 
@@ -1123,6 +1334,303 @@ export default function DashboardPage() {
     }
   }
 
+  async function createCustodySchedule() {
+    try {
+      setError('')
+      setActionLoading('custody-create')
+
+      const childId = String(custodyChildId || '')
+      const nextParentId = String(custodyNextParentId || '')
+      const currentParentId = String(data?.me?.id || '')
+
+      if (!childId) throw new Error('Velg barn.')
+      if (!currentParentId) throw new Error('Mangler innlogget bruker.')
+      if (!nextParentId) throw new Error('Velg neste forelder.')
+      if (currentParentId === nextParentId) {
+        throw new Error('Neste forelder kan ikke være deg selv.')
+      }
+      if (!custodyStartAt) throw new Error('Velg startdato.')
+      if (!custodyEndAt) throw new Error('Velg sluttdato.')
+
+
+      const payload = {
+        child: Number(childId),
+        currentParent: Number(currentParentId),
+        nextParent: Number(nextParentId),
+        startAt: new Date(custodyStartAt).toISOString(),
+        endAt: new Date(custodyEndAt).toISOString(),
+        notes: custodyNotes,
+      }
+
+      console.log('Custody payload:', payload)
+
+      const res = await fetch('/api/custody-schedules', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+
+      const raw = await res.text()
+      let json: any = null
+
+      try {
+        json = raw ? JSON.parse(raw) : null
+      } catch {
+        json = null
+      }
+
+      if (!res.ok) {
+        console.log('Custody create error:', json || raw)
+
+        throw new Error(
+          json?.errors?.[0]?.message ||
+            json?.message ||
+            raw ||
+            'Kunne ikke opprette omsorgsperiode.',
+        )
+      }
+
+      setCustodyOpen(false)
+      setCustodyChildId('')
+      setCustodyNextParentId('')
+      setCustodyStartAt('')
+      setCustodyEndAt('')
+      setCustodyNotes('')
+
+      await loadDashboard()
+    } catch (err: any) {
+      setError(err?.message || 'Kunne ikke opprette omsorgsperiode.')
+    } finally {
+      setActionLoading('')
+    }
+  }
+
+  async function updateCustodySchedule() {
+    try {
+      if (!editingCustodyId) return
+
+      setError('')
+      setActionLoading('custody-create')
+
+      if (!custodyStartAt) throw new Error('Velg startdato.')
+      if (!custodyEndAt) throw new Error('Velg sluttdato.')
+
+      const payload = {
+        startAt: new Date(custodyStartAt).toISOString(),
+        endAt: new Date(custodyEndAt).toISOString(),
+        notes: custodyNotes,
+      }
+
+      const res = await fetch(`/api/custody-schedules/${editingCustodyId}`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+
+      const raw = await res.text()
+      let json: any = null
+
+      try {
+        json = raw ? JSON.parse(raw) : null
+      } catch {
+        json = null
+      }
+
+      if (!res.ok) {
+        throw new Error(json?.message || raw || 'Kunne ikke oppdatere omsorgsperiode.')
+      }
+
+      setCustodyOpen(false)
+      setEditingCustodyId(null)
+      setCustodyChildId('')
+      setCustodyNextParentId('')
+      setCustodyStartAt('')
+      setCustodyEndAt('')
+      setCustodyNotes('')
+
+      await loadDashboard()
+    } catch (err: any) {
+      setError(err?.message || 'Kunne ikke oppdatere omsorgsperiode.')
+    } finally {
+      setActionLoading('')
+    }
+  }
+
+  async function markCustodyReady(id: string | number) {
+    try {
+      setError('')
+      setActionLoading(`custody-ready-${id}`)
+
+      const res = await fetch(`/api/custody-schedules/${id}`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          handoverStatus: 'ready',
+        }),
+      })
+
+      if (!res.ok) {
+        const raw = await res.text()
+        throw new Error(raw || 'Kunne ikke sette klar for bytte.')
+      }
+
+      await loadDashboard()
+    } catch (err: any) {
+      setError(err?.message || 'Feil ved klar for bytte.')
+    } finally {
+      setActionLoading('')
+    }
+  }
+
+  async function requestEmergencyCustodyChange() {
+    try {
+      if (!emergencyCustodyId) return
+      if (!emergencyReason.trim()) throw new Error('Skriv hvorfor du trenger hastebytte.')
+      if (!emergencyPickupAt) throw new Error('Velg når barnet skal hentes.')
+      if (!emergencyReturnAt) throw new Error('Velg hvor lenge hastebyttet skal vare.')
+
+      const pickupDate = new Date(emergencyPickupAt)
+      const returnDate = new Date(emergencyReturnAt)
+
+      if (Number.isNaN(pickupDate.getTime())) {
+        throw new Error('Ugyldig hentetidspunkt.')
+      }
+
+      if (Number.isNaN(returnDate.getTime())) {
+        throw new Error('Ugyldig sluttidspunkt.')
+      }
+
+      if (returnDate <= pickupDate) {
+        throw new Error('Sluttidspunkt må være etter hentetidspunkt.')
+      }
+
+      const current = data?.currentCustody
+      if (!current) throw new Error('Fant ingen aktiv omsorgsperiode.')
+      if (!current.childId) throw new Error('Mangler barn for hastebytte.')
+
+      setError('')
+      setActionLoading(`custody-emergency-${emergencyCustodyId}`)
+
+      const res = await fetch('/api/notifications', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          recipient: Number(current.nextParentId),
+          title: 'Hastebytte forespurt',
+          message: emergencyReason.trim(),
+          type: 'calendar',
+          event: 'updated',
+          link: '/notifications',
+          meta: {
+            type: 'custody-emergency',
+            custodyId: emergencyCustodyId,
+            childId: current.childId,
+            actorId: data?.me?.id,
+            actorName: getDisplayName(data?.me ?? null),
+            childName: current.childName,
+            currentParentName: current.currentParentName,
+            nextParentName: current.nextParentName,
+            startAt: current.startAt,
+            endAt: current.endAt,
+            pickupAt: pickupDate.toISOString(),
+            returnAt: returnDate.toISOString(),
+            reason: emergencyReason.trim(),
+          },
+        }),
+      })
+
+      const raw = await res.text()
+
+      if (!res.ok) throw new Error(raw || 'Kunne ikke sende hastebytte.')
+
+      setEmergencyOpen(false)
+      setEmergencyReason('')
+      setEmergencyPickupAt('')
+      setEmergencyReturnAt('')
+      setEmergencyCustodyId(null)
+      window.alert('Hastebytte er sendt.')
+      await loadDashboard()
+    } catch (err: any) {
+      setError(err?.message || 'Feil ved hastebytte.')
+    } finally {
+      setActionLoading('')
+    }
+  }
+  
+  async function confirmCustodyReceived(id: string | number) {
+    try {
+      setError('')
+      setActionLoading(`custody-received-${id}`)
+
+      const res = await fetch(`/api/custody-schedules/${id}`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          handoverStatus: 'handed-over',
+          status: 'completed',
+        }),
+      })
+
+      if (!res.ok) {
+        const raw = await res.text()
+        throw new Error(raw || 'Kunne ikke bekrefte mottak.')
+      }
+
+      await loadDashboard()
+
+      const current = data?.currentCustody
+
+      setCustodyChildId(
+        data?.children.find(c => c.fullName === current?.childName)?.id?.toString() || ''
+      )
+
+      setCustodyNextParentId(current?.currentParentId || '') // 👈 swap parent
+
+      setCustodyStartAt(new Date().toISOString().slice(0, 16))
+      setCustodyEndAt('')
+      setCustodyNotes('')
+
+      setEditingCustodyId(null)
+      setCustodyOpen(true)
+
+    } catch (err: any) {
+      setError(err?.message || 'Feil ved mottak.')
+    } finally {
+      setActionLoading('')
+    }
+  }
+
+  async function deleteCustodySchedule(id: string | number) {
+    try {
+      const confirmed = window.confirm('Er du sikker på at du vil slette omsorgsperioden?')
+      if (!confirmed) return
+
+      setError('')
+      setActionLoading(`custody-delete-${id}`)
+
+      const res = await fetch(`/api/custody-schedules/${id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      })
+
+      const raw = await res.text()
+
+      if (!res.ok) {
+        throw new Error(raw || 'Kunne ikke slette omsorgsperiode.')
+      }
+
+      await loadDashboard()
+    } catch (err: any) {
+      setError(err?.message || 'Kunne ikke slette omsorgsperiode.')
+    } finally {
+      setActionLoading('')
+    }
+  }
   if (loading) {
     return <div className={styles.state}>{t.dashboard.loadingDashboard}</div>
   }
@@ -1138,24 +1646,7 @@ export default function DashboardPage() {
   if (data.childCount === 0) {
     return (
       <div className={styles.wrapper}>
-        <header className={styles.header}>
-          <div>
-            <h1 className={styles.title}>
-              {t.dashboard.goodMorning}, {greetingName}
-            </h1>
-            <p className={styles.subtitle}>{t.dashboard.structuredOverviewToday}</p>
-          </div>
-
-          <div className={styles.headerActions}>
-            <Link href="/profile" className={styles.profileAvatar} aria-label={t.dashboard.openProfile}>
-              {profileImageUrl ? (
-                <img src={profileImageUrl} alt="" className={styles.profileAvatarImage} />
-              ) : (
-                String(greetingName || '?').charAt(0).toUpperCase()
-              )}
-            </Link>
-          </div>
-        </header>
+        {renderDashboardHeader(data)}
 
         {error ? <div className={styles.inlineError}>{error}</div> : null}
 
@@ -1175,293 +1666,219 @@ export default function DashboardPage() {
       </div>
     )
   }
+  const isCurrentCustodyParent =
+    data.currentCustody?.currentParentId === currentUserId
 
-  const handoverTone = getStatusTone(
-    data.upcomingHandover?.confirmationStatus,
-    data.upcomingHandover?.confirmationStatus !== 'not-required',
-  )
+  const isNextCustodyParent =
+    data.currentCustody?.nextParentId === currentUserId
 
+  const custodyCountdown = getCountdownParts(data.currentCustody?.endAt, nowTick)
   return (
     <div className={styles.wrapper}>
-      <header className={styles.header}>
-        <div>
-          <h1 className={styles.title}>
-            {t.dashboard.goodMorning}, {greetingName}
-          </h1>
-          <p className={styles.subtitle}>{t.dashboard.structuredOverviewToday}</p>
-        </div>
-
-        <div className={styles.headerActions}>
-          <div className={styles.joinIconWrap}>
-            <button
-              type="button"
-              className={styles.iconBtn}
-              onClick={() => {
-                setJoinOpen((prev) => !prev)
-                setNotifOpen(false)
-              }}
-              aria-label={t.dashboard.joinFamily}
-            >
-              <UserPlus size={20} />
-            </button>
-
-            {joinOpen ? (
-              <div className={styles.joinPopover}>
-                <h3>{t.dashboard.joinFamily}</h3>
-                <p>{t.dashboard.joinFamilyDescription}</p>
-
-                <div className={styles.joinPopoverForm}>
-                  <input
-                    type="text"
-                    placeholder={t.dashboard.enterInviteCode}
-                    value={joinCode}
-                    onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-                    maxLength={20}
-                  />
-
-                  <button
-                    type="button"
-                    onClick={previewJoinFamily}
-                    disabled={!joinCode.trim() || actionLoading === 'join-preview'}
-                  >
-                    {actionLoading === 'join-preview' ? (
-                      <Loader2 size={16} className={styles.spin} />
-                    ) : (
-                      t.dashboard.joinFamily
-                    )}
-                  </button>
-                </div>
-              </div>
-            ) : null}
-          </div>
-
-          <div className={styles.bellWrap}>
-            <button
-              type="button"
-              className={styles.iconBtn}
-              onClick={() => {
-                setNotifOpen((prev) => !prev)
-                setJoinOpen(false)
-              }}
-              aria-label={t.dashboard.openNotifications}
-            >
-              <Bell size={18} />
-
-              {data.unreadNotifications > 0 ? (
-                <span className={styles.bellCount}>
-                  {data.unreadNotifications > 9 ? '9+' : data.unreadNotifications}
-                </span>
-              ) : null}
-            </button>
-
-            {notifOpen ? (
-              <div className={styles.notifDropdown}>
-                <div className={styles.notifHeader}>
-                  <span>{t.dashboard.recentNotifications}</span>
-                  <Link href="/notifications">{t.dashboard.viewAll}</Link>
-                </div>
-
-                {data.notifications.length === 0 ? (
-                  <div className={styles.notifEmpty}>{t.dashboard.noNotificationsYet}</div>
-                ) : (
-                  <div className={styles.notifList}>
-                    {data.notifications.map((item) => (
-                      <a
-                        key={String(item.id)}
-                        href={item.link || '/notifications'}
-                        className={styles.notifItem}
-                        onClick={(e) => handleNotificationClick(e, item)}
-                      >
-                        <strong>{buildNotificationTitle(item)}</strong>
-                        <p>{buildNotificationMessage(item)}</p>
-                        <small>{formatNotificationTime(item.createdAt)}</small>
-                      </a>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ) : null}
-          </div>
-
-          <Link href="/profile" className={styles.profileAvatar} aria-label={t.dashboard.openProfile}>
-            {profileImageUrl ? (
-              <img src={profileImageUrl} alt="" className={styles.profileAvatarImage} />
-            ) : (
-              String(greetingName || '?').charAt(0).toUpperCase()
-            )}
-          </Link>
-        </div>
-      </header>
+      {renderDashboardHeader(data)}
 
       {error ? <div className={styles.inlineError}>{error}</div> : null}
 
+
       <main className={styles.dashboardLayout}>
-        <section className={styles.handoverHero}>
-          {data.upcomingHandover ? (
+        <section className={styles.custodyCard}>
+          {data.currentCustody ? (
             <>
-              <div className={styles.handoverHeroText}>
-                <div className={styles.handoverTopRow}>
-                  <span className={styles.handoverEyebrow}>{t.dashboard.upcomingHandover}</span>
-                  <span className={`${styles.statusBadge} ${handoverTone.className}`}>
-                    {handoverTone.label}
-                  </span>
+              <div className={styles.custodyContent}>
+                <span className={styles.custodyEyebrow}>
+                  <Users size={13} />
+                  Omsorgsperiode nå
+                </span>
+
+                <h2>
+                  {data.currentCustody.childName || 'Barnet'} er hos{' '}
+                  {isCurrentCustodyParent ? 'deg' : data.currentCustody.currentParentName || 'forelder'}
+                </h2>
+
+                <p>
+                  Neste bytte er til <strong>{data.currentCustody.nextParentName || 'andre forelder'}</strong>
+                </p>
+
+                <div className={styles.custodyDates}>
+                  <div className={styles.custodyDateItem}>
+                    <CalendarDays size={18} />
+                    <span>{format(new Date(data.currentCustody.startAt), 'dd.MM.yyyy')}</span>
+                  </div>
+
+                  <div className={styles.custodyLine}>
+                    <span />
+                  </div>
+
+                  <div className={styles.custodyDateItem}>
+                    <span>{format(new Date(data.currentCustody.endAt), 'dd.MM.yyyy')}</span>
+                    <CalendarDays size={18} />
+                  </div>
                 </div>
 
-                <h2>{data.upcomingHandover.title}</h2>
-{/* 
-                <div className={styles.handoverSummary}>
-                  <div>
-                    <span>{t.dashboard.childLabel}</span>
-                    <strong>{data.upcomingHandover.childName || t.dashboard.notSet}</strong>
+                {data.currentCustody.notes ? (
+                  <div className={styles.custodyNoteBox}>
+                    <FileText size={16} />
+                    <span>Notat: {data.currentCustody.notes}</span>
                   </div>
-
-                  <div>
-                    <span>{t.dashboard.from}</span>
-                    <strong>{data.upcomingHandover.handoverFromName || t.dashboard.notSet}</strong>
-                  </div>
-
-                  <div>
-                    <span>{t.dashboard.to}</span>
-                    <strong>{data.upcomingHandover.handoverToName || t.dashboard.notSet}</strong>
-                  </div>
-
-                  <div>
-                    <span>{t.dashboard.responsible}</span>
-                    <strong>{data.upcomingHandover.responsibleParentName || t.dashboard.notAssigned}</strong>
-                  </div>
-                </div> */}
-                <div className={styles.handoverSummaryCompact}>
-  <span>
-    {t.dashboard.childLabel}: <strong>{data.upcomingHandover.childName || t.dashboard.notSet}</strong>
-  </span>
-
-  <span>
-    {t.dashboard.from}: <strong>{data.upcomingHandover.handoverFromName || t.dashboard.notSet}</strong>
-  </span>
-
-  <span>
-    {t.dashboard.to}: <strong>{data.upcomingHandover.handoverToName || t.dashboard.notSet}</strong>
-  </span>
-
-  <span>
-    {t.dashboard.responsible}: <strong>{data.upcomingHandover.responsibleParentName || t.dashboard.notAssigned}</strong>
-  </span>
-</div>
-
-                <div className={styles.handoverMeta}>
-                  <span>
-                    <Clock3 size={17} />
-                    {format(new Date(data.upcomingHandover.startAt), 'dd.MM.yyyy HH:mm')}
-                  </span>
-
-                  <span>
-                    <MapPin size={17} />
-                    {data.upcomingHandover.location || t.dashboard.noLocation}
-                  </span>
-
-                  <span>{getHandoverStatusLabel(data.upcomingHandover.handoverStatus)}</span>
-                </div>
+                ) : null}
               </div>
 
-              <div className={styles.countdownCard}>
-                <span>{t.dashboard.nextHandoverIn}</span>
+              <div className={styles.custodySide}>
+                <div className={styles.custodyCountdown}>
+                  <span className={styles.countdownLabel}>Slutter om</span>
 
-                <div className={styles.countdownGrid}>
-                  <div className={styles.countdownItem}>
-                    <strong>{String(countdown?.days ?? 0).padStart(2, '0')}</strong>
-                    <small>{t.dashboard.days}</small>
-                  </div>
+                  <strong className={styles.countdownDays}>
+                    {custodyCountdown?.days ?? 0}
+                  </strong>
 
-                  <div className={styles.countdownItem}>
-                    <strong>{String(countdown?.hours ?? 0).padStart(2, '0')}</strong>
-                    <small>{t.dashboard.hours}</small>
-                  </div>
+                  <small className={styles.countdownDaysText}>DAGER</small>
 
-                  <div className={styles.countdownItem}>
-                    <strong>{String(countdown?.minutes ?? 0).padStart(2, '0')}</strong>
-                    <small>{t.dashboard.mins}</small>
+                  <div className={styles.countdownDivider} />
+
+                  <div className={styles.custodyCountdownDetails}>
+                    <div className={styles.countdownBox}>
+                      <b>{String(custodyCountdown?.hours ?? 0).padStart(2, '0')}</b>
+                      <small>TIMER</small>
+                    </div>
+
+                    <div className={styles.countdownBox}>
+                      <b>{String(custodyCountdown?.minutes ?? 0).padStart(2, '0')}</b>
+                      <small>MIN</small>
+                    </div>
+
+                    <div className={styles.countdownBox}>
+                      <b>{String(custodyCountdown?.seconds ?? 0).padStart(2, '0')}</b>
+                      <small>SEK</small>
+                    </div>
                   </div>
                 </div>
 
-                {canConfirmUpcomingHandover ? (
-                  <div className={styles.heroActions}>
+                <>
+                  {isCurrentCustodyParent && data.currentCustody.handoverStatus === 'not-ready' ? (
                     <button
                       type="button"
-                      className={styles.acceptBtn}
-                      onClick={() => handleConfirmation(data.upcomingHandover!.id, 'confirmed')}
-                      disabled={actionLoading === `confirm-${data.upcomingHandover.id}-confirmed`}
+                      className={styles.completeBtn}
+                      onClick={() => markCustodyReady(data.currentCustody!.id)}
+                      disabled={actionLoading === `custody-ready-${data.currentCustody.id}`}
                     >
-                      {actionLoading === `confirm-${data.upcomingHandover.id}-confirmed` ? (
-                        <Loader2 size={16} className={styles.spin} />
-                      ) : (
-                        <>
-                          <Check size={16} />
-                          {t.dashboard.accept}
-                        </>
-                      )}
+                      <Check size={16} />
+                      {actionLoading === `custody-ready-${data.currentCustody.id}` ? 'Lagrer...' : 'Klar for bytte'}
                     </button>
+                  ) : null}
 
+                  {isNextCustodyParent && data.currentCustody.handoverStatus === 'ready' ? (
                     <button
                       type="button"
-                      className={styles.rejectBtn}
-                      onClick={() => handleConfirmation(data.upcomingHandover!.id, 'declined')}
-                      disabled={actionLoading === `confirm-${data.upcomingHandover.id}-declined`}
+                      className={styles.completeBtn}
+                      onClick={() => confirmCustodyReceived(data.currentCustody!.id)}
+                      disabled={actionLoading === `custody-received-${data.currentCustody.id}`}
                     >
-                      {actionLoading === `confirm-${data.upcomingHandover.id}-declined` ? (
-                        <Loader2 size={16} className={styles.spin} />
-                      ) : (
-                        <>
-                          <X size={16} />
-                          {t.dashboard.decline}
-                        </>
-                      )}
+                      <Check size={16} />
+                      {actionLoading === `custody-received-${data.currentCustody.id}` ? 'Bekrefter...' : 'Bekreft mottak'}
                     </button>
-                  </div>
-                ) : canMarkHandoverDelivered ? (
-                  <button
-                    type="button"
-                    className={styles.heroDetailsButton}
-                    onClick={() => handleHandoverStatus(data.upcomingHandover!.id, 'delivered')}
-                    disabled={actionLoading === `handover-${data.upcomingHandover.id}-delivered`}
-                  >
-                    {actionLoading === `handover-${data.upcomingHandover.id}-delivered` ? (
-                      <Loader2 size={16} className={styles.spin} />
-                    ) : (
-                      'Bekreft at barnet er levert'
-                    )}
-                  </button>
-                ) : canMarkHandoverCompleted ? (
-                  <button
-                    type="button"
-                    className={styles.heroDetailsButton}
-                    onClick={() => handleHandoverStatus(data.upcomingHandover!.id, 'completed')}
-                    disabled={actionLoading === `handover-${data.upcomingHandover.id}-completed`}
-                  >
-                    {actionLoading === `handover-${data.upcomingHandover.id}-completed` ? (
-                      <Loader2 size={16} className={styles.spin} />
-                    ) : (
-                      'Bekreft at barnet er mottatt'
-                    )}
-                  </button>
-                ) : (
-                  <Link href={`/calendar?event=${data.upcomingHandover.id}`} className={styles.heroDetailsLink}>
-                    {t.dashboard.viewDetails}
-                  </Link>
-                )}
+                  ) : null}
+
+                  {!isCurrentCustodyParent && !(isNextCustodyParent && data.currentCustody.handoverStatus === 'ready') ? (
+                    <div className={styles.custodyWaitingBox}>
+                      {isNextCustodyParent
+                        ? `Du får barnet om ${custodyCountdown?.days ?? 0} dager`
+                        : 'Du kan se denne omsorgsperioden'}
+                    </div>
+                  ) : null}
+
+                  {isCurrentCustodyParent ? (
+                    <div className={styles.custodyIconActions}>
+                      <button
+                        type="button"
+                        aria-label="Rediger omsorgsperiode"
+                        title="Rediger omsorgsperiode"
+                        className={styles.roundEditBtn}
+                        onClick={() => {
+                          setEditingCustodyId(data.currentCustody!.id)
+
+                          const currentChild = data.children.find(
+                            (child) => child.fullName === data.currentCustody!.childName,
+                          )
+
+                          const currentNextParent = data.parents.find(
+                            (parent) => parent.fullName === data.currentCustody!.nextParentName,
+                          )
+
+                          setCustodyChildId(currentChild ? String(currentChild.id) : '')
+                          setCustodyNextParentId(currentNextParent ? String(currentNextParent.id) : '')
+                          setCustodyStartAt(data.currentCustody!.startAt.slice(0, 16))
+                          setCustodyEndAt(data.currentCustody!.endAt.slice(0, 16))
+                          setCustodyNotes(data.currentCustody!.notes || '')
+                          setCustodyOpen(true)
+                        }}
+                      >
+                        <Pencil size={18} />
+                      </button>
+
+                      <button
+                        type="button"
+                        aria-label="Slett omsorgsperiode"
+                        title="Slett omsorgsperiode"
+                        className={styles.roundDeleteBtn}
+                        onClick={() => deleteCustodySchedule(data.currentCustody!.id)}
+                        disabled={actionLoading === `custody-delete-${data.currentCustody.id}`}
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                      <button
+                        type="button"
+                        className={styles.roundEditBtn}
+                        onClick={() => {
+                          setEmergencyCustodyId(data.currentCustody!.id)
+                          setEmergencyReason('')
+                          setEmergencyPickupAt('')
+                          setEmergencyReturnAt('')
+                          setEmergencyOpen(true)
+                        }}
+                        disabled={actionLoading === `custody-emergency-${data.currentCustody.id}`}
+                        aria-label="Be om hastebytte"
+                        title="Be om hastebytte"
+                      >
+                        !
+                      </button>
+                    </div>
+                  ) : null}
+                </>
               </div>
             </>
           ) : (
-            <div className={styles.handoverHeroText}>
-              <span className={styles.handoverEyebrow}>{t.dashboard.calendar}</span>
-              <h2>{t.dashboard.noUpcomingHandover}</h2>
-
-              <div className={styles.handoverMeta}>
-                <span>
-                  <CalendarDays size={17} />
-                  {t.dashboard.addHandoverToKeepAligned}
+            <>
+              <div className={styles.custodyContent}>
+                <span className={styles.custodyEyebrow}>
+                  <Users size={13} />
+                  Omsorgsperiode
                 </span>
+
+                <h2>Ingen aktiv omsorgsperiode</h2>
+
+                <p>
+                  Opprett en omsorgsperiode for å vise hvem barnet er hos akkurat nå,
+                  og når neste bytte skjer.
+                </p>
               </div>
-            </div>
+
+              <button
+                type="button"
+                className={styles.completeBtn}
+                onClick={() => {
+                  const firstChild = data.children?.[0]
+                  const otherParent = data.parents?.find(
+                    (parent) => String(parent.id) !== String(data.me?.id),
+                  )
+
+                  setCustodyChildId(firstChild ? String(firstChild.id) : '')
+                  setCustodyNextParentId(otherParent ? String(otherParent.id) : '')
+                  setCustodyOpen(true)
+                }}
+              >
+                Opprett omsorgsperiode
+              </button>
+            </>
           )}
         </section>
 
@@ -1533,31 +1950,6 @@ export default function DashboardPage() {
               </div>
             ) : (
               <div className={styles.empty}>{t.dashboard.allCaughtUp}</div>
-            )}
-          </section>
-
-          <section className={styles.card}>
-            <div className={styles.cardHeader}>
-              <h2>{t.dashboard.openFamilyFinance}</h2>
-              <Link href="/economy">{t.dashboard.viewAll}</Link>
-            </div>
-
-            {data.openFinanceItems.length ? (
-              <div className={styles.financeList}>
-                {data.openFinanceItems.slice(0, 4).map((item) => (
-                  <Link key={`${item.kind}-${item.id}`} href={item.href} className={styles.financeItem}>
-                    <div>
-                      <strong>{item.title}</strong>
-                      <span>{item.subtitle}</span>
-                      <small>{item.detail}</small>
-                    </div>
-
-                    <ChevronRight size={18} />
-                  </Link>
-                ))}
-              </div>
-            ) : (
-              <div className={styles.empty}>{t.dashboard.noOpenFamilyFinanceItems}</div>
             )}
           </section>
 
@@ -1686,6 +2078,190 @@ export default function DashboardPage() {
           </section>
         </aside>
       </main>
+      {custodyOpen ? (
+        <div className={styles.modalBackdrop} onMouseDown={() => setCustodyOpen(false)}>
+          <div className={styles.modalCard} onMouseDown={(e) => e.stopPropagation()}>
+            <div className={styles.modalHeader}>
+              <div className={styles.modalTitleRow}>
+                <Users size={18} />
+                <h3 className={styles.modalTitle}>
+                  {editingCustodyId ? 'Rediger omsorgsperiode' : 'Opprett omsorgsperiode'}
+                </h3>
+              </div>
+            </div>
+
+            <div className={styles.custodyForm}>
+              <label>
+                Barn
+                <select value={custodyChildId} onChange={(e) => setCustodyChildId(e.target.value)}>
+                  <option value="">Velg barn</option>
+                  {data.children.map((child) => (
+                    <option key={String(child.id)} value={String(child.id)}>
+                      {child.fullName || `Barn ${child.id}`}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label>
+                Neste forelder
+                <select value={custodyNextParentId} onChange={(e) => setCustodyNextParentId(e.target.value)}>
+                  <option value="">Velg forelder</option>
+                  {data.parents
+                    .filter((parent) => String(parent.id) !== String(data.me?.id))
+                    .map((parent) => (
+                      <option key={String(parent.id)} value={String(parent.id)}>
+                        {parent.fullName}
+                      </option>
+                    ))}
+                </select>
+              </label>
+
+              <label>
+                Start
+                <input
+                  type="datetime-local"
+                  value={custodyStartAt}
+                  onChange={(e) => setCustodyStartAt(e.target.value)}
+                />
+              </label>
+
+              <label>
+                Slutt
+                <input
+                  type="datetime-local"
+                  value={custodyEndAt}
+                  onChange={(e) => setCustodyEndAt(e.target.value)}
+                />
+              </label>
+
+              <label>
+                Notat
+                <textarea
+                  value={custodyNotes}
+                  onChange={(e) => setCustodyNotes(e.target.value)}
+                  placeholder="Valgfritt notat"
+                />
+              </label>
+            </div>
+
+            <div className={styles.modalActions}>
+              <button type="button" className={styles.secondaryBtn} onClick={() => setCustodyOpen(false)}>
+                Avbryt
+              </button>
+
+              <button
+                type="button"
+                className={styles.primaryBtn}
+                onClick={editingCustodyId ? updateCustodySchedule : createCustodySchedule}
+                disabled={actionLoading === 'custody-create'}
+              >
+                {actionLoading === 'custody-create' ? (
+                  <>
+                    <Loader2 size={16} className={styles.spin} />
+                    {editingCustodyId ? 'Lagrer' : 'Oppretter'}
+                  </>
+                ) : (
+                  editingCustodyId ? 'Lagre' : 'Opprett'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {emergencyOpen ? (
+        <div className={styles.modalBackdrop} onMouseDown={() => setEmergencyOpen(false)}>
+          <div className={styles.modalCard} onMouseDown={(e) => e.stopPropagation()}>
+            <div className={styles.modalHeader}>
+              <div className={styles.modalTitleRow}>
+                <AlertTriangle size={18} />
+                <h3 className={styles.modalTitle}>Be om hastebytte</h3>
+              </div>
+            </div>
+
+            <div className={styles.modalBody}>
+              <p className={styles.modalText}>
+                Send en forespørsel til den andre forelderen om å endre omsorgsperioden raskt.
+              </p>
+
+              <div className={styles.custodyForm}>
+                <label>
+                  Barn
+                  <input value={data.currentCustody?.childName || ''} disabled />
+                </label>
+
+                <label>
+                  Mottaker
+                  <input value={data.currentCustody?.nextParentName || ''} disabled />
+                </label>
+
+                <label>
+                  Når skal barnet hentes?
+                  <input
+                    type="datetime-local"
+                    value={emergencyPickupAt}
+                    onChange={(e) => setEmergencyPickupAt(e.target.value)}
+                  />
+                </label>
+
+                <label>
+                  Hvor lenge skal du ha barnet?
+                  <input
+                    type="datetime-local"
+                    value={emergencyReturnAt}
+                    onChange={(e) => setEmergencyReturnAt(e.target.value)}
+                  />
+                </label>
+
+                <label>
+                  Begrunnelse
+                  <textarea
+                    value={emergencyReason}
+                    onChange={(e) => setEmergencyReason(e.target.value)}
+                    placeholder="Skriv hvorfor du trenger hastebytte..."
+                  />
+                </label>
+              </div>
+            </div>
+
+            <div className={styles.modalActions}>
+              <button
+                type="button"
+                className={styles.secondaryBtn}
+                onClick={() => {
+                  setEmergencyOpen(false)
+                  setEmergencyReason('')
+                  setEmergencyCustodyId(null)
+                }}
+              >
+                Avbryt
+              </button>
+
+              <button
+                type="button"
+                className={styles.primaryBtn}
+                onClick={requestEmergencyCustodyChange}
+                disabled={
+                  !emergencyReason.trim() ||
+                  !emergencyPickupAt ||
+                  !emergencyReturnAt ||
+                  actionLoading === `custody-emergency-${emergencyCustodyId}`
+                }
+              >
+                {actionLoading === `custody-emergency-${emergencyCustodyId}` ? (
+                  <>
+                    <Loader2 size={16} className={styles.spin} />
+                    Sender
+                  </>
+                ) : (
+                  'Send forespørsel'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {joinModalOpen && joinPreview ? (
         <div className={styles.modalBackdrop} onMouseDown={() => setJoinModalOpen(false)}>

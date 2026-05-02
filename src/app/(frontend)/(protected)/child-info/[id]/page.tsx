@@ -22,6 +22,7 @@ import {
   School,
   IdCard,
   Shapes,
+  CircleCheck,
 } from 'lucide-react'
 
 const DOCS_SLUG = 'child_documents'
@@ -282,6 +283,12 @@ export default async function ChildDetailPage({
   const conditions = child?.medical?.conditions?.map((x) => x.value).filter(Boolean) ?? []
   const medications = child?.medical?.medications?.map((x) => x.value).filter(Boolean) ?? []
 
+  const hasMedicalAlert =
+    allergies.length > 0 ||
+    conditions.length > 0 ||
+    medications.length > 0 ||
+    Boolean(child.medical?.emergencyInstruction || child.medical?.notesShort)
+
   const emergency = Array.isArray(child.emergencyContacts) ? child.emergencyContacts : []
   const primary = emergency.find((c) => c.isPrimary) || emergency[0]
 
@@ -296,9 +303,9 @@ export default async function ChildDetailPage({
       <header className={styles.topbar}>
         <div className={styles.breadcrumb}>
           <Link href="/child-info" className={styles.backBtn}>
-            <ArrowLeft size={18} />
-            <span>{t.childDetail.back}</span>
-          </Link>
+          <ArrowLeft size={18} />
+          <span>{t.childDetail.back}</span>
+        </Link>
 
           <span className={styles.bcSep}>/</span>
           <span className={styles.bcStrong}>{child.fullName}</span>
@@ -345,25 +352,21 @@ export default async function ChildDetailPage({
             <div className={styles.profileName}>{child.fullName}</div>
 
             <div className={styles.profileStatusRow}>
-              <span className={`${styles.statusPill} ${styles[`profile_${profileStatus}`]}`}>
-                {profileLabel(profileStatus)}
-              </span>
+              <div className={styles.statusRow}>
+                <span className={`${styles.statusBadge} ${styles[`profile_${profileStatus}`]}`}>
+                  <span className={styles.statusDot} />
+                  {profileLabel(profileStatus)}
+                </span>
 
-              <span
-                className={`${styles.statusPill} ${
-                  status === 'confirmed' ? styles.statusOk : styles.statusWarn
-                }`}
-              >
-                {status === 'confirmed' ? (
-                  <>
-                    <ShieldCheck size={14} /> {t.childDetail.confirmed}
-                  </>
-                ) : (
-                  <>
-                    <AlertTriangle size={14} /> {t.childDetail.pending}
-                  </>
-                )}
-              </span>
+                <span
+                  className={`${styles.statusBadge} ${
+                    status === 'confirmed' ? styles.statusConfirmed : styles.statusPending
+                  }`}
+                >
+                  {status === 'confirmed' ? <CircleCheck size={13} /> : <AlertTriangle size={13} />}
+                  {status === 'confirmed' ? t.childDetail.confirmed : t.childDetail.pending}
+                </span>
+              </div>
 
               {child.confirmedAt ? (
                 <span className={styles.profileMetaDim}>
@@ -419,6 +422,7 @@ export default async function ChildDetailPage({
                 <UserRound size={18} />
                 <div className={styles.cardTitle}>{t.childDetail.primaryContact}</div>
               </div>
+
               {primary?.isPrimary ? (
                 <span className={styles.badgePrimary}>{t.childDetail.primary}</span>
               ) : null}
@@ -440,6 +444,7 @@ export default async function ChildDetailPage({
                   <button className={styles.smallActionBtn} type="button">
                     <Phone size={16} /> {t.childDetail.call}
                   </button>
+
                   <button className={styles.smallActionBtn} type="button">
                     <FileText size={16} /> {t.childDetail.sms}
                   </button>
@@ -452,45 +457,72 @@ export default async function ChildDetailPage({
         </aside>
 
         <main className={styles.rightCol}>
-          <section className={`${styles.card} ${styles.alertCard}`}>
-            <div className={styles.cardHeader}>
-              <div className={styles.cardTitleRow}>
-                <AlertTriangle size={18} />
-                <div className={styles.cardTitle}>{t.childDetail.medicalAlerts}</div>
+          <section
+            className={`${styles.card} ${
+              hasMedicalAlert ? styles.medicalAlertStrong : styles.medicalAlertSoft
+            }`}
+          >
+            <div className={styles.medicalAlertHeader}>
+              <div className={styles.medicalAlertIcon}>
+                <HeartPulse size={22} />
+              </div>
+
+              <div>
+                <div className={styles.medicalAlertTitle}>
+                  {hasMedicalAlert
+                    ? t.childDetail.importantMedicalInfo ?? 'Important medical information'
+                    : t.childDetail.medicalAlerts}
+                </div>
+
+                <div className={styles.medicalAlertSub}>
+                  {hasMedicalAlert
+                    ? t.childDetail.medicalAlertHint ?? 'Review before activities or emergencies.'
+                    : t.childDetail.noUrgentMedicalAlerts ?? 'No urgent medical alerts reported.'}
+                </div>
               </div>
             </div>
 
-            <div className={styles.alertGrid}>
-              <div className={styles.alertItem}>
-                <div className={styles.alertK}>{t.childDetail.bloodType}</div>
-                <div className={styles.alertV}>
+            <div className={styles.medicalChipGrid}>
+              <div className={styles.medicalChip}>
+                <div className={styles.medicalChipLabel}>{t.childDetail.bloodType}</div>
+                <div className={styles.medicalChipValue}>
                   {child.medical?.bloodType && child.medical.bloodType !== 'unknown'
                     ? child.medical.bloodType
                     : '—'}
                 </div>
               </div>
 
-              <div className={styles.alertItem}>
-                <div className={styles.alertK}>{t.childDetail.allergies}</div>
-                <div className={styles.alertV}>
+              <div className={styles.medicalChip}>
+                <div className={styles.medicalChipLabel}>{t.childDetail.allergies}</div>
+                <div className={styles.medicalChipValue}>
                   {allergies.length ? allergies.join(', ') : t.childDetail.noneReported}
                 </div>
               </div>
 
-              <div className={styles.alertItem}>
-                <div className={styles.alertK}>{t.childDetail.conditions}</div>
-                <div className={styles.alertV}>
+              <div className={styles.medicalChip}>
+                <div className={styles.medicalChipLabel}>{t.childDetail.conditions}</div>
+                <div className={styles.medicalChipValue}>
                   {conditions.length ? conditions.join(', ') : t.childDetail.noneReported}
                 </div>
               </div>
 
-              <div className={styles.alertItem}>
-                <div className={styles.alertK}>{t.childDetail.emergencyInstruction}</div>
-                <div className={styles.alertV}>
-                  {child.medical?.emergencyInstruction || child.medical?.notesShort || '—'}
+              <div className={styles.medicalChip}>
+                <div className={styles.medicalChipLabel}>{t.childDetail.medications}</div>
+                <div className={styles.medicalChipValue}>
+                  {medications.length ? medications.join(', ') : '—'}
                 </div>
               </div>
             </div>
+
+            {child.medical?.emergencyInstruction || child.medical?.notesShort ? (
+              <div className={styles.emergencyInstructionBox}>
+                <AlertTriangle size={16} />
+                <div>
+                  <strong>{t.childDetail.emergencyInstruction}</strong>
+                  <p>{child.medical?.emergencyInstruction || child.medical?.notesShort}</p>
+                </div>
+              </div>
+            ) : null}
           </section>
 
           <div className={styles.twoColRow}>
@@ -513,39 +545,46 @@ export default async function ChildDetailPage({
                   <div className={styles.kvK}>{t.childDetail.fullName}</div>
                   <div className={styles.kvV}>{child.fullName || '—'}</div>
                 </div>
+
                 <div className={styles.kvRow}>
                   <div className={styles.kvK}>{t.childDetail.dateOfBirth}</div>
                   <div className={styles.kvV}>{fmtDate(child.birthDate, locale)}</div>
                 </div>
+
                 <div className={styles.kvRow}>
                   <div className={styles.kvK}>{t.childDetail.gender}</div>
                   <div className={styles.kvV}>{child.gender || '—'}</div>
                 </div>
+
                 <div className={styles.kvRow}>
                   <div className={styles.kvK}>{t.childDetail.nationalId}</div>
                   <div className={styles.kvVMono}>{child.nationalId || '—'}</div>
                 </div>
+
                 <div className={styles.kvRow}>
                   <div className={styles.kvK}>{t.childDetail.status}</div>
                   <div className={styles.kvV}>
                     {status === 'confirmed' ? t.childDetail.confirmed : t.childDetail.pending}
                   </div>
                 </div>
+
                 <div className={styles.kvRow}>
-                  <div className={styles.kvK}>Profile status</div>
+                  <div className={styles.kvK}>{t.childDetail.profileStatus ?? 'Profile status'}</div>
                   <div className={styles.kvV}>{profileLabel(profileStatus)}</div>
                 </div>
 
                 {child.profileStatusReason ? (
                   <div className={styles.kvRow}>
-                    <div className={styles.kvK}>Status reason</div>
+                    <div className={styles.kvK}>{t.childDetail.statusReason ?? 'Status reason'}</div>
                     <div className={styles.kvV}>{child.profileStatusReason}</div>
                   </div>
                 ) : null}
 
                 {child.profileStatusChangedAt ? (
                   <div className={styles.kvRow}>
-                    <div className={styles.kvK}>Status changed</div>
+                    <div className={styles.kvK}>
+                      {t.childDetail.statusChanged ?? 'Status changed'}
+                    </div>
                     <div className={styles.kvV}>
                       {fmtDateTime(child.profileStatusChangedAt, locale)}
                     </div>
@@ -573,12 +612,14 @@ export default async function ChildDetailPage({
                   <div className={styles.kvK}>{t.childDetail.school}</div>
                   <div className={styles.kvV}>{child.school?.schoolName || '—'}</div>
                 </div>
+
                 <div className={styles.kvRow}>
                   <div className={styles.kvK}>{t.childDetail.className}</div>
                   <div className={styles.kvV}>{child.school?.className || '—'}</div>
                 </div>
+
                 <div className={styles.kvRow}>
-                  <div className={styles.kvK}>{t.childDetail.homeroom}</div>
+                  <div className={styles.kvK}>{t.childDetail.mainTeacher ?? 'Main Teacher'}</div>
                   <div className={styles.kvV}>{child.school?.mainTeacher || '—'}</div>
                 </div>
               </div>
@@ -615,7 +656,9 @@ export default async function ChildDetailPage({
 
               <div className={styles.kvRow}>
                 <div className={styles.kvK}>{t.childDetail.medications}</div>
-                <div className={styles.kvV}>{medications.length ? medications.join(', ') : '—'}</div>
+                <div className={styles.kvV}>
+                  {medications.length ? medications.join(', ') : '—'}
+                </div>
               </div>
 
               <div className={styles.kvRow}>
@@ -635,10 +678,12 @@ export default async function ChildDetailPage({
                 <div className={styles.kvK}>{t.childDetail.doctor}</div>
                 <div className={styles.kvV}>{child.medical?.gp?.name || '—'}</div>
               </div>
+
               <div className={styles.kvRow}>
                 <div className={styles.kvK}>{t.childDetail.clinic}</div>
                 <div className={styles.kvV}>{child.medical?.gp?.clinic || '—'}</div>
               </div>
+
               <div className={styles.kvRow}>
                 <div className={styles.kvK}>{t.childDetail.phones}</div>
                 <div className={styles.kvV}>{renderPhones(child.medical?.gp?.phones)}</div>
@@ -665,15 +710,19 @@ export default async function ChildDetailPage({
                   >
                     <div className={styles.emTop}>
                       <div className={styles.emName}>{c.name || '—'}</div>
+
                       {c.isPrimary ? (
                         <span className={styles.badgePrimary}>{t.childDetail.primary}</span>
                       ) : null}
                     </div>
+
                     <div className={styles.emSub}>{c.relation || '—'}</div>
+
                     <div className={styles.emPhoneRow}>
                       <Phone size={16} />
                       <span>{renderPhones(c.phones)}</span>
                     </div>
+
                     {c?.note ? <div className={styles.emNote}>{c.note}</div> : null}
                   </div>
                 ))}
@@ -687,6 +736,7 @@ export default async function ChildDetailPage({
                 <Calendar size={18} />
                 <div className={styles.cardTitle}>{t.childDetail.upcomingEvents}</div>
               </div>
+
               <Link className={styles.cardLink} href={`/calendar?child=${id}`}>
                 {t.childDetail.viewCalendar}
               </Link>
@@ -708,6 +758,7 @@ export default async function ChildDetailPage({
                       <div className={styles.eventMeta}>
                         {fmtDateTime(e.startAt, locale)} → {fmtDateTime(e.endAt, locale)}
                       </div>
+
                       {e.notes ? <div className={styles.eventNotes}>{e.notes}</div> : null}
                     </div>
                   </div>
@@ -727,54 +778,73 @@ export default async function ChildDetailPage({
                 <Link className={styles.cardLink} href={`/child-info/${id}/documents`}>
                   {t.childDetail.viewAll}
                 </Link>
-
-                {!isArchived ? (
-                  <Link className={styles.cardLink} href={`/child-info/${id}/documents/new`}>
-                    {t.childDetail.addNew}
-                  </Link>
-                ) : null}
               </div>
             </div>
 
             <div className={styles.docCats}>
-              <Link className={styles.docCatTile} href={`/child-info/${id}/documents?category=school`}>
+              <Link
+                className={styles.docCatTile}
+                href={`/child-info/${id}/documents?category=school`}
+              >
                 <div className={styles.docCatIcon}>
                   <School size={18} />
                 </div>
                 <div className={styles.docCatName}>{t.childDetail.academic}</div>
-                <div className={styles.docCatSub}>{counts.school} {t.childDetail.files}</div>
+                <div className={styles.docCatSub}>
+                  {counts.school} {t.childDetail.files}
+                </div>
               </Link>
 
-              <Link className={styles.docCatTile} href={`/child-info/${id}/documents?category=health`}>
+              <Link
+                className={styles.docCatTile}
+                href={`/child-info/${id}/documents?category=health`}
+              >
                 <div className={styles.docCatIcon}>
                   <HeartPulse size={18} />
                 </div>
                 <div className={styles.docCatName}>{t.childDetail.medical}</div>
-                <div className={styles.docCatSub}>{counts.health} {t.childDetail.files}</div>
+                <div className={styles.docCatSub}>
+                  {counts.health} {t.childDetail.files}
+                </div>
               </Link>
 
-              <Link className={styles.docCatTile} href={`/child-info/${id}/documents?category=agreement`}>
+              <Link
+                className={styles.docCatTile}
+                href={`/child-info/${id}/documents?category=agreement`}
+              >
                 <div className={styles.docCatIcon}>
                   <ShieldCheck size={18} />
                 </div>
                 <div className={styles.docCatName}>{t.childDetail.consent}</div>
-                <div className={styles.docCatSub}>{counts.agreement} {t.childDetail.files}</div>
+                <div className={styles.docCatSub}>
+                  {counts.agreement} {t.childDetail.files}
+                </div>
               </Link>
 
-              <Link className={styles.docCatTile} href={`/child-info/${id}/documents?category=id`}>
+              <Link
+                className={styles.docCatTile}
+                href={`/child-info/${id}/documents?category=id`}
+              >
                 <div className={styles.docCatIcon}>
                   <IdCard size={18} />
                 </div>
                 <div className={styles.docCatName}>{t.childDetail.id}</div>
-                <div className={styles.docCatSub}>{counts.id} {t.childDetail.files}</div>
+                <div className={styles.docCatSub}>
+                  {counts.id} {t.childDetail.files}
+                </div>
               </Link>
 
-              <Link className={styles.docCatTile} href={`/child-info/${id}/documents?category=other`}>
+              <Link
+                className={styles.docCatTile}
+                href={`/child-info/${id}/documents?category=other`}
+              >
                 <div className={styles.docCatIcon}>
                   <Shapes size={18} />
                 </div>
                 <div className={styles.docCatName}>{t.childDetail.other}</div>
-                <div className={styles.docCatSub}>{counts.other} {t.childDetail.files}</div>
+                <div className={styles.docCatSub}>
+                  {counts.other} {t.childDetail.files}
+                </div>
               </Link>
             </div>
 
@@ -784,7 +854,9 @@ export default async function ChildDetailPage({
                 : t.childDetail.selectCategoryHint}
             </div>
 
-            {docs.length === 0 ? <div className={styles.empty}>{t.childDetail.noDocumentsYet}</div> : null}
+            {docs.length === 0 ? (
+              <div className={styles.empty}>{t.childDetail.noDocumentsYet}</div>
+            ) : null}
           </section>
 
           <section className={styles.card}>

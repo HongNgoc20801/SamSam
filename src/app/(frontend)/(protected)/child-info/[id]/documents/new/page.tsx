@@ -1,8 +1,15 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeft, FileText, ShieldCheck, UploadCloud, X } from 'lucide-react'
+import {
+  ArrowLeft,
+  CheckCircle2,
+  FileText,
+  FolderOpen,
+  UploadCloud,
+  X,
+} from 'lucide-react'
 
 import styles from './UploadChildDoc.module.css'
 import { useTranslations } from '@/app/lib/i18n/useTranslations'
@@ -59,6 +66,7 @@ export default function UploadChildDocPage() {
   const t = useTranslations()
   const td = t.uploadChildDoc
 
+  const [childName, setChildName] = useState('')
   const [file, setFile] = useState<File | null>(null)
   const [title, setTitle] = useState('')
   const [category, setCategory] = useState<Category>('other')
@@ -69,6 +77,33 @@ export default function UploadChildDocPage() {
   const canSubmit = useMemo(() => {
     return Boolean(childId && file && title.trim() && !loading)
   }, [childId, file, title, loading])
+
+  useEffect(() => {
+    if (!childId) return
+
+    let ignore = false
+
+    ;(async () => {
+      try {
+        const res = await fetch(`/api/children/${childId}?depth=0`, {
+          credentials: 'include',
+          cache: 'no-store',
+        })
+
+        const data = await res.json().catch(() => null)
+
+        if (!ignore && res.ok) {
+          setChildName(data?.fullName || '')
+        }
+      } catch {
+        if (!ignore) setChildName('')
+      }
+    })()
+
+    return () => {
+      ignore = true
+    }
+  }, [childId])
 
   async function uploadToMedia(selectedFile: File) {
     const form = new FormData()
@@ -91,7 +126,6 @@ export default function UploadChildDocPage() {
     const mediaId = json?.id ?? json?.doc?.id
 
     if (mediaId === null || mediaId === undefined || mediaId === '') {
-      console.error('[uploadToMedia] unexpected response', { status: res.status, raw, json })
       throw new Error(td.uploadMediaNoId)
     }
 
@@ -123,30 +157,40 @@ export default function UploadChildDocPage() {
     return json
   }
 
+  function handleFileSelect(selectedFile?: File | null) {
+    setError('')
+
+    if (!selectedFile) {
+      setFile(null)
+      return
+    }
+
+    const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp']
+
+    if (!allowedTypes.includes(selectedFile.type)) {
+      setError(td.onlyAllowedTypes)
+      setFile(null)
+      return
+    }
+
+    if (selectedFile.size > MAX_FILE_SIZE) {
+      setError(td.fileTooLarge)
+      setFile(null)
+      return
+    }
+
+    setFile(selectedFile)
+
+    if (!title.trim()) {
+      setTitle(selectedFile.name.replace(/\.[^/.]+$/, ''))
+    }
+  }
+
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
-
     if (!canSubmit || !file || !childId) return
 
     setError('')
-
-    const allowedTypes = [
-      'application/pdf',
-      'image/jpeg',
-      'image/png',
-      'image/webp',
-    ]
-
-    if (!allowedTypes.includes(file.type)) {
-      setError(td.onlyAllowedTypes)
-      return
-    }
-
-    if (file.size > MAX_FILE_SIZE) {
-      setError(td.fileTooLarge)
-      return
-    }
-
     setLoading(true)
 
     try {
@@ -155,28 +199,20 @@ export default function UploadChildDocPage() {
       const normalizedChildId = normalizeId(childId)
       const normalizedMediaId = normalizeId(mediaId)
 
-      if (!normalizedChildId) {
-        throw new Error(td.invalidChildId)
-      }
+      if (!normalizedChildId) throw new Error(td.invalidChildId)
+      if (!normalizedMediaId) throw new Error(td.invalidMediaId)
 
-      if (!normalizedMediaId) {
-        throw new Error(td.invalidMediaId)
-      }
-
-      const payload = {
+      await createChildDocument({
         child: normalizedChildId,
         file: normalizedMediaId,
         title: title.trim(),
         category,
         noteShort: noteShort.trim() || undefined,
-      }
-
-      await createChildDocument(payload)
+      })
 
       router.push(`/child-info/${childId}`)
       router.refresh()
     } catch (err: any) {
-      console.error('[UploadChildDoc] ERROR', err)
       setError(err?.message || td.unknownError)
     } finally {
       setLoading(false)
@@ -185,72 +221,76 @@ export default function UploadChildDocPage() {
 
   return (
     <div className={styles.page}>
-      <div className={styles.shell}>
-        <div className={styles.header}>
-          <button
-            type="button"
-            className={styles.ghostBtn}
-            onClick={() => router.back()}
-            disabled={loading}
-          >
-            <ArrowLeft size={16} />
-            {td.back}
-          </button>
+      <main className={styles.shell}>
+      <div className={styles.breadcrumb}>
+      <button
+        type="button"
+        className={styles.breadcrumbBack}
+        onClick={() => router.back()}
+        disabled={loading}
+      >
+        <ArrowLeft size={14} />
+        Back to Profile
+      </button>
 
-          <div className={styles.headerText}>
-            <div className={styles.kicker}>{td.kicker}</div>
-            <h1 className={styles.title}>{td.pageTitle}</h1>
-            <p className={styles.sub}>{td.pageHint}</p>
-          </div>
-        </div>
+      <span className={styles.bcSep}>/</span>
+
+      <span>Children</span>
+      <span className={styles.bcChevron}>›</span>
+      <span>{childName || 'Child profile'}</span>
+      <span className={styles.bcChevron}>›</span>
+      <span>{td.kicker}</span>
+    </div>
+
+        <header className={styles.header}>
+          <h1 className={styles.title}>{td.pageTitle}</h1>
+          <p className={styles.sub}>{td.pageHint}</p>
+        </header>
 
         <form onSubmit={onSubmit} className={styles.card}>
-          <div className={styles.cardTop}>
-            <div className={styles.cardTopIcon}>
-              <ShieldCheck size={18} />
-            </div>
-
-            <div>
-              <div className={styles.cardTitle}>{td.detailsTitle}</div>
-              <div className={styles.cardSub}>{td.detailsHint}</div>
-            </div>
-          </div>
-
-          <div className={styles.field}>
-            <label className={styles.label}>{td.file}</label>
+          <section className={styles.uploadPane}>
+            <div className={styles.paneLabel}>{td.file}</div>
 
             <label className={`${styles.uploadBox} ${file ? styles.uploadBoxActive : ''}`}>
               <input
                 className={styles.fileInput}
                 type="file"
                 accept=".pdf,.jpg,.jpeg,.png,.webp"
-                onChange={(e) => {
-                  setError('')
-                  setFile(e.target.files?.[0] ?? null)
-                }}
+                onChange={(e) => handleFileSelect(e.target.files?.[0] ?? null)}
                 disabled={loading}
               />
 
               {!file ? (
                 <div className={styles.uploadEmpty}>
                   <div className={styles.uploadIcon}>
-                    <UploadCloud size={24} />
+                    <UploadCloud size={28} />
                   </div>
-                  <div className={styles.uploadTitle}>{td.chooseFile}</div>
-                  <div className={styles.uploadSub}>{td.browseDevice}</div>
+
+                  <div>
+                    <div className={styles.uploadTitle}>{td.chooseFile}</div>
+                    <div className={styles.uploadSub}>{td.browseDevice}</div>
+                  </div>
+
+                  <div className={styles.fileRulePill}>
+                    <FileText size={13} />
+                    PDF, JPG, PNG, WEBP
+                  </div>
+
+                  <div className={styles.fileRulePill}>
+                    <FolderOpen size={13} />
+                    Max 10MB
+                  </div>
                 </div>
               ) : (
                 <div className={styles.filePreview}>
-                  <div className={styles.filePreviewLeft}>
-                    <div className={styles.fileIcon}>
-                      <FileText size={20} />
-                    </div>
+                  <div className={styles.fileIcon}>
+                    <FileText size={22} />
+                  </div>
 
-                    <div className={styles.fileInfo}>
-                      <div className={styles.fileName}>{file.name}</div>
-                      <div className={styles.fileMeta}>
-                        {file.type || td.unknownType} • {prettyFileSize(file.size)}
-                      </div>
+                  <div className={styles.fileInfo}>
+                    <div className={styles.fileName}>{file.name}</div>
+                    <div className={styles.fileMeta}>
+                      {file.type || td.unknownType} • {prettyFileSize(file.size)}
                     </div>
                   </div>
 
@@ -269,11 +309,15 @@ export default function UploadChildDocPage() {
                 </div>
               )}
             </label>
-          </div>
 
-          <div className={styles.gridTwo}>
+            <p className={styles.securityHint}>
+              Your privacy is our priority. Files are scanned for security.
+            </p>
+          </section>
+
+          <section className={styles.formPane}>
             <div className={styles.field}>
-              <label className={styles.label}>{td.title}</label>
+              <label>{td.title}</label>
               <input
                 className={styles.input}
                 value={title}
@@ -283,8 +327,8 @@ export default function UploadChildDocPage() {
               />
             </div>
 
-            <div className={styles.field}>
-              <label className={styles.label}>{td.category}</label>
+            <div className={`${styles.field} ${styles.categoryRow}`}>
+              <label>{td.category}</label>
               <select
                 className={styles.input}
                 value={category}
@@ -298,26 +342,26 @@ export default function UploadChildDocPage() {
                 <option value="other">{td.categoryOther}</option>
               </select>
             </div>
-          </div>
 
-          <div className={styles.field}>
-            <label className={styles.label}>{td.noteShort}</label>
-            <input
-              className={styles.input}
+            <div className={`${styles.field} ${styles.noteRow}`}>
+              <label>{td.noteShort}</label>
+              <textarea
+              className={styles.textarea}
               value={noteShort}
               onChange={(e) => setNoteShort(e.target.value)}
               disabled={loading}
               maxLength={160}
               placeholder={td.notePlaceholder}
             />
-            <div className={styles.hint}>
-              {noteShort.length}/160 {td.characters}
+              <div className={styles.hint}>
+                {noteShort.length}/160 {td.characters}
+              </div>
             </div>
-          </div>
 
-          {error ? <div className={styles.error}>⚠ {error}</div> : null}
+            {error ? <div className={styles.error}>⚠ {error}</div> : null}
+          </section>
 
-          <div className={styles.actions}>
+          <footer className={styles.actions}>
             <button
               type="button"
               className={styles.secondaryBtn}
@@ -327,16 +371,13 @@ export default function UploadChildDocPage() {
               {td.cancel}
             </button>
 
-            <button
-              type="submit"
-              className={styles.primaryBtn}
-              disabled={!canSubmit}
-            >
+            <button type="submit" className={styles.primaryBtn} disabled={!canSubmit}>
+              <CheckCircle2 size={16} />
               {loading ? td.uploading : td.upload}
             </button>
-          </div>
+          </footer>
         </form>
-      </div>
+      </main>
     </div>
   )
 }

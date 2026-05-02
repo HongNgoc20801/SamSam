@@ -449,12 +449,12 @@ missingEmergencyText: 'Nødkontakt er ikke registrert.',
 reason: 'Årsak',
 },
     newChild: {
-      /* PAGE */
+      back: 'Tilbake til profil',
       pageTitle: 'Opprett barneprofil',
       pageHint: 'Delt med familiegruppen din.',
       backAriaLabel: 'Gå tilbake',
 
-      /* BASIC */
+     
       basicTitle: 'Grunnleggende informasjon',
       basicHint: 'Viktig informasjon om barnet.',
 
@@ -478,7 +478,6 @@ reason: 'Årsak',
       removePhoto: 'Fjern bilde',
       avatarHelp: 'Valgfritt bilde (PNG/JPG).',
 
-      /* SCHOOL */
       schoolTitle: 'Skole / Barnehage',
       schoolHint: 'Valgfri skoleinformasjon.',
 
@@ -491,7 +490,6 @@ reason: 'Årsak',
       mainTeacher: 'Hovedlærer',
       mainTeacherPlaceholder: 'Skriv inn lærer',
 
-      /* MEDICAL */
       medicalTitle: 'Medisinsk informasjon',
       medicalHint: 'Kun viktig nødinformasjon.',
 
@@ -511,7 +509,6 @@ reason: 'Årsak',
       tagsHelpComma: 'Skill med komma.',
       tagsHelpShort: 'Bruk korte nøkkelord.',
 
-      /* DOCTOR */
       gpTitle: 'Fastlege',
       doctorName: 'Legens navn',
       doctorNamePlaceholder: 'Skriv inn navn',
@@ -523,7 +520,6 @@ reason: 'Årsak',
       phoneNumbersPlaceholder: '+47 123 45 678',
       addPhone: 'Legg til nummer',
 
-      /* EMERGENCY */
       emergencyTitle: 'Nødkontakter',
       emergencyHint: 'Legg til minst én primærkontakt.',
 
@@ -571,7 +567,7 @@ reason: 'Årsak',
       validationGpInvalid: 'Ugyldig telefonnummer for lege.',
     },
      childDetail: {
-      back: 'Tilbake',
+      back: ' Alle barn',
       edit: 'Rediger',
       uploadDocument: 'Last opp dokument',
       confirmed: 'Bekreftet',
@@ -718,8 +714,16 @@ reason: 'Årsak',
     note: 'Notat',
     avatarAlt: 'Barn avatar',
     backToChildInfo: 'Tilbake til barn-info',
+    importantMedicalInfo: 'Viktig medisinsk informasjon',
+medicalAlertHint: 'Gå gjennom før aktiviteter eller nødsituasjoner.',
+noUrgentMedicalAlerts: 'Ingen akutte medisinske varsler rapportert.',
+profileStatus: 'Profilstatus',
+statusReason: 'Årsak til status',
+statusChanged: 'Status endret',
+
     },
 editChild: {
+  back: 'Tilbake til profil',
   backAriaLabel: 'Tilbake',
 avatarAriaLabel: 'Avatar',
 avatarAlt: 'Barn avatar', // en: 'Child avatar'
@@ -798,9 +802,17 @@ avatarAlt: 'Barn avatar', // en: 'Child avatar'
   validationGpInvalid: 'Telefonnummer for fastlege er ugyldig.',
 },
 documentsPage: {
+  children: 'Barn',
   backToChildInfo: 'Tilbake til barn-info',
   documents: 'Dokumenter',
   addNew: 'Legg til ny',
+
+  pageHint:
+    'Administrer og vis alle lagrede rapporter, skjemaer og dokumenter som er relevante for {childName}.',
+
+  archived: 'Arkivert',
+  archivedNotice:
+    'Denne barneprofilen er arkivert. Dokumenter kan vises, men nye opplastinger og redigeringer er deaktivert.',
 
   all: 'Alle',
   academic: 'Skole',
@@ -820,7 +832,9 @@ documentsPage: {
   unknownUser: 'Ukjent bruker',
   familyMember: 'Familiemedlem',
   by: 'Av',
+  download: 'Last ned',
   editDocument: 'Rediger dokument',
+  deleteDocument: 'Slett dokument',
   untitledFile: 'fil',
   version: 'v',
 },
@@ -926,53 +940,45 @@ documentDetail: {
     },
 replaceChildDoc: {
   back: 'Tilbake',
-  kicker: 'Barnedokumenter',
+  documents: 'Dokumenter',
   pageTitle: 'Erstatt dokument',
   pageHint:
     'Last opp en ny fil for å opprette en ny dokumentversjon. Det nåværende dokumentet beholdes i historikken.',
 
-  currentDocumentTitle: 'Gjeldende dokument',
+  currentDocument: 'Gjeldende dokument',
   currentDocumentHint:
     'Erstatt oppretter en ny versjon. Den gamle filen blir ikke overskrevet.',
+  documentInfo: 'Dokumentinformasjon',
+  loadingDocument: 'Laster dokument...',
+  noFile: 'Ingen fil',
+  unknownFileType: 'Ukjent filtype',
+  noValue: '—',
 
-  loadingDocument: 'Laster dokument…',
-  documentNotFound: 'Dokument ikke funnet.',
-
-  documentInformation: 'Dokumentinformasjon',
   title: 'Tittel',
   category: 'Kategori',
   version: 'Versjon',
-  currentFile: 'Gjeldende fil',
-  note: 'Notat',
 
   categoryAgreement: 'Samtykke',
   categorySchool: 'Skole',
-  categoryHealth: 'Helse',
+  categoryHealth: 'Medisinsk',
   categoryId: 'ID',
   categoryOther: 'Annet',
 
+  versionNotice:
+    'Erstatt oppretter en ny versjon. Den gamle filen blir ikke overskrevet.',
+
   newFile: 'Ny fil',
+  allowedFileTypes: 'PDF, JPG, PNG eller WEBP opptil 10MB',
   chooseReplacementFile: 'Velg erstatningsfil',
-  uploadHelp: 'PDF, JPG, PNG eller WEBP opptil 10MB',
-  unknownType: 'Ukjent filtype',
-  removeFile: 'Fjern fil',
 
   cancel: 'Avbryt',
-  replace: 'Erstatt dokument',
-  replacing: 'Erstatter…',
+  saving: 'Lagrer...',
+  replaceDocument: 'Erstatt dokument',
 
-  onlyAllowedTypes: 'Kun PDF, JPG, PNG eller WEBP er tillatt.',
-  fileTooLarge: 'Filen er for stor. Maksimal størrelse er 10MB.',
-  failedToLoadDocument: 'Kunne ikke laste dokument.',
-  uploadMediaFailed: 'Opplasting av media mislyktes.',
-  uploadMediaNoId: 'Media ble lastet opp, men ingen media-id ble returnert.',
-  missingChildId: 'Mangler barn-id i gjeldende dokument.',
-  missingOriginalDocumentId: 'Mangler original dokument-id.',
-  missingUploadedMediaId: 'Mangler opplastet media-id.',
-  createDocumentFailed: 'Kunne ikke opprette erstatningsdokument.',
-  untitledDocument: 'Dokument uten tittel',
+  failedToLoadDocument: 'Kunne ikke laste dokumentet.',
+  failedToUploadFile: 'Kunne ikke laste opp filen.',
+  failedToReplaceDocument: 'Kunne ikke erstatte dokumentet.',
   unknownError: 'Noe gikk galt.',
-  noValue: '—',
 },
 editChildDoc: {
   back: 'Tilbake',
@@ -1010,6 +1016,12 @@ editChildDoc: {
 
   updateDocumentFailed: 'Kunne ikke oppdatere dokument.',
   unknownError: 'Noe gikk galt.',
+  editDocument: 'Rediger dokument',
+  documents: 'Dokumenter',
+  backToProfile: 'Tilbake til profil',
+  replace: 'Erstatt',
+  noValue: '—',
+  unknownType: 'Ukjent type',
 },
 childAuditLogsPage: {
   back: 'Tilbake til barneprofil',
@@ -2052,12 +2064,13 @@ missingEmergencyText: 'Emergency contact is not registered.',
 reason: 'Reason',
 },
         newChild: {
-      /* PAGE */
+      back: 'Back to Profile',
+      
       pageTitle: 'Create child profile',
       pageHint: 'Shared with your family group.',
       backAriaLabel: 'Go back',
 
-      /* BASIC */
+   
       basicTitle: 'Basic information',
       basicHint: 'Basic details for this child.',
 
@@ -2081,7 +2094,7 @@ reason: 'Reason',
       removePhoto: 'Remove photo',
       avatarHelp: 'Optional photo (PNG/JPG).',
 
-      /* SCHOOL */
+      
       schoolTitle: 'School / Kindergarten',
       schoolHint: 'Optional school details.',
 
@@ -2094,7 +2107,7 @@ reason: 'Reason',
       mainTeacher: 'Main teacher',
       mainTeacherPlaceholder: 'Enter teacher name',
 
-      /* MEDICAL */
+    
       medicalTitle: 'Medical information',
       medicalHint: 'Important emergency details only.',
 
@@ -2152,20 +2165,20 @@ reason: 'Reason',
 
       addEmergencyContact: '+ Add contact',
 
-      /* ACTIONS */
+
       agreeText: 'I understand this information is shared with my family group.',
 
       cancel: 'Cancel',
       saveProfile: 'Save profile',
       saving: 'Saving...',
 
-      /* ERRORS */
+
       uploadImageError: 'Failed to upload image.',
       createError: 'Failed to create profile.',
       unknownError: 'Something went wrong.',
       networkError: 'Network error.',
 
-      /* VALIDATION */
+
       validationNationalId: 'National ID must contain 11 digits.',
       validationEmergencyRequired: 'Add at least one emergency contact.',
       validationEmergencyInvalid:
@@ -2175,7 +2188,7 @@ reason: 'Reason',
     },
 
     childDetail: {
-      back: 'Back',
+      back: ' All Children ',
       edit: 'Edit',
       uploadDocument: 'Upload document',
       confirmed: 'Confirmed',
@@ -2208,7 +2221,7 @@ reason: 'Reason',
       schoolDetails: 'School Details',
       school: 'School',
       className: 'Class',
-      homeroom: 'Homeroom',
+      homeroom: 'Main teacher',
 
       medicalDetails: 'Medical Details',
       medications: 'Medications',
@@ -2322,8 +2335,16 @@ reason: 'Reason',
     note: 'Note',
     avatarAlt: 'Child avatar',
     backToChildInfo: 'Back to child info',
+    importantMedicalInfo: 'Important medical information',
+medicalAlertHint: 'Review before activities or emergencies.',
+noUrgentMedicalAlerts: 'No urgent medical alerts reported.',
+profileStatus: 'Profile status',
+statusReason: 'Status reason',
+statusChanged: 'Status changed',
+    
     },
   editChild: {
+    back: 'Tilbake til profil',
   backAriaLabel: 'Back',
 avatarAriaLabel: 'Avatar',
 avatarAlt: 'Child avatar',
@@ -2402,9 +2423,17 @@ avatarAlt: 'Child avatar',
   validationGpInvalid: 'Primary doctor phone number is invalid.',
 },
 documentsPage: {
+  children: 'Children',
   backToChildInfo: 'Back to child info',
   documents: 'Documents',
   addNew: 'Add New',
+
+  pageHint:
+    'Manage and view all stored reports, forms, and certificates relevant to {childName}.',
+
+  archived: 'Archived',
+  archivedNotice:
+    'This child profile is archived. Documents can be viewed, but new uploads and edits are disabled.',
 
   all: 'All',
   academic: 'Academic',
@@ -2424,7 +2453,9 @@ documentsPage: {
   unknownUser: 'Unknown user',
   familyMember: 'Family member',
   by: 'By',
+  download: 'Download',
   editDocument: 'Edit document',
+  deleteDocument: 'Delete document',
   untitledFile: 'file',
   version: 'v',
 },
@@ -2533,53 +2564,45 @@ documentDetail: {
 
 replaceChildDoc: {
   back: 'Back',
-  kicker: 'Child documents',
+  documents: 'Documents',
   pageTitle: 'Replace document',
   pageHint:
-    'Upload a new file to create a new document version. The current document will remain in history.',
+    'Upload a new file to create a new document version. The current document will be kept in the history.',
 
-  currentDocumentTitle: 'Current document',
+  currentDocument: 'Current document',
   currentDocumentHint:
-    'Replace creates a new version. It does not overwrite the old file.',
+    'Replacing creates a new version. The old file will not be overwritten.',
+  documentInfo: 'Document information',
+  loadingDocument: 'Loading document...',
+  noFile: 'No file',
+  unknownFileType: 'Unknown file type',
+  noValue: '—',
 
-  loadingDocument: 'Loading document…',
-  documentNotFound: 'Document not found.',
-
-  documentInformation: 'Document information',
   title: 'Title',
   category: 'Category',
   version: 'Version',
-  currentFile: 'Current file',
-  note: 'Note',
 
-  categoryAgreement: 'Agreements',
+  categoryAgreement: 'Consent',
   categorySchool: 'School',
-  categoryHealth: 'Health',
+  categoryHealth: 'Medical',
   categoryId: 'ID',
   categoryOther: 'Other',
 
+  versionNotice:
+    'Replacing creates a new version. The old file will not be overwritten.',
+
   newFile: 'New file',
+  allowedFileTypes: 'PDF, JPG, PNG or WEBP up to 10MB',
   chooseReplacementFile: 'Choose replacement file',
-  uploadHelp: 'PDF, JPG, PNG or WEBP up to 10MB',
-  unknownType: 'Unknown type',
-  removeFile: 'Remove file',
 
   cancel: 'Cancel',
-  replace: 'Replace document',
-  replacing: 'Replacing…',
+  saving: 'Saving...',
+  replaceDocument: 'Replace document',
 
-  onlyAllowedTypes: 'Only PDF, JPG, PNG, or WEBP files are allowed.',
-  fileTooLarge: 'File is too large. Maximum size is 10MB.',
-  failedToLoadDocument: 'Failed to load document.',
-  uploadMediaFailed: 'Media upload failed.',
-  uploadMediaNoId: 'Media upload succeeded, but no media id was returned.',
-  missingChildId: 'Missing child id from current document.',
-  missingOriginalDocumentId: 'Missing original document id.',
-  missingUploadedMediaId: 'Missing uploaded media id.',
-  createDocumentFailed: 'Could not create replacement document.',
-  untitledDocument: 'Untitled document',
+  failedToLoadDocument: 'Could not load the document.',
+  failedToUploadFile: 'Could not upload the file.',
+  failedToReplaceDocument: 'Could not replace the document.',
   unknownError: 'Something went wrong.',
-  noValue: '—',
 },
 editChildDoc: {
   back: 'Back',
@@ -2617,6 +2640,12 @@ editChildDoc: {
 
   updateDocumentFailed: 'Could not update document.',
   unknownError: 'Something went wrong.',
+  editDocument: 'Edit Document',
+  documents: 'Documents',
+  backToProfile: 'Back to Profile',
+  replace: 'Replace',
+  noValue: '—',
+  unknownType: 'Unknown type',
 },
 childAuditLogsPage: {
   back: 'Back to child profile',

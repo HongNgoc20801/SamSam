@@ -3,7 +3,15 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import styles from './newChild.module.css'
-import { ArrowLeft, Contact, GraduationCap, HeartPulse, Plus, Trash2, User } from 'lucide-react'
+import {
+  ArrowLeft,
+  Contact,
+  GraduationCap,
+  HeartPulse,
+  Plus,
+  Trash2,
+  User,
+} from 'lucide-react'
 import { useTranslations } from '@/app/lib/i18n/useTranslations'
 
 const BLOOD_MAIN = ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'] as const
@@ -183,6 +191,14 @@ export default function NewChildPage() {
 
   function getSectionClass(step: StepId) {
     return `${styles.formBlock} ${activeStep === step ? styles.formBlockActive : ''}`
+  }
+
+  function goBack() {
+    if (window.history.length > 1) {
+      router.back()
+    } else {
+      router.push('/child-info')
+    }
   }
 
   async function uploadToMedia(file: File) {
@@ -412,28 +428,29 @@ export default function NewChildPage() {
 
   return (
     <div className={styles.page}>
-       <button
+      <div className={styles.breadcrumb}>
+        <button
           type="button"
-          onClick={() => router.back()}
-          className={styles.mobileBackBtn}
+          onClick={goBack}
+          className={styles.backBtn}
           aria-label={t.newChild.backAriaLabel}
         >
-          <ArrowLeft size={20} />
+          <ArrowLeft size={15} />
+          <span>{t.newChild.back ?? 'Back to Profile'}</span>
         </button>
 
-        <div className={styles.pageHero}>
-          <h1>{t.newChild.pageTitle}</h1>
-          <p>{t.newChild.pageHint}</p>
-        </div>
+        <span className={styles.breadcrumbSlash}>/</span>
+        <span className={styles.breadcrumbItem}>Children</span>
+        <span className={styles.breadcrumbSep}>›</span>
+        <strong className={styles.breadcrumbCurrent}>{t.newChild.pageTitle}</strong>
+      </div>
+
+      <div className={styles.pageHero}>
+        <h1>{t.newChild.pageTitle}</h1>
+        <p>{t.newChild.pageHint}</p>
+      </div>
+
       <aside className={styles.sidePanel}>
-        <button
-    type="button"
-    onClick={() => router.back()}
-    className={styles.backBtn}
-    aria-label={t.newChild.backAriaLabel}
-  >
-    <ArrowLeft size={20} />
-  </button>
         <div className={styles.quickCard}>
           <div className={styles.quickTitle}>Profile progress</div>
 
@@ -470,7 +487,6 @@ export default function NewChildPage() {
       </aside>
 
       <form onSubmit={onSubmit} className={styles.content}>
-      
         <section id="basic" className={getSectionClass('basic')}>
           <div className={styles.blockHead}>
             <User size={18} />
@@ -687,11 +703,7 @@ export default function NewChildPage() {
             <div className={styles.grid3}>
               <div className={styles.field}>
                 <label>{t.newChild.doctorName}</label>
-                <input
-                  value={gpName}
-                  onChange={(e) => setGpName(e.target.value)}
-                  disabled={loading}
-                />
+                <input value={gpName} onChange={(e) => setGpName(e.target.value)} disabled={loading} />
               </div>
 
               <div className={styles.field}>
@@ -885,8 +897,6 @@ export default function NewChildPage() {
           </div>
         </section>
 
-        <div className={styles.bottomSpacer} />
-
         <footer className={styles.stickyFooter}>
           <div className={styles.footerLeft}>
             <label className={styles.agree}>
@@ -910,7 +920,7 @@ export default function NewChildPage() {
             <button
               type="button"
               className={styles.secondary}
-              onClick={() => router.back()}
+              onClick={goBack}
               disabled={loading}
             >
               {t.newChild.cancel}

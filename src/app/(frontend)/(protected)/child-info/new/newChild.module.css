@@ -3,80 +3,74 @@
   display: grid;
   grid-template-columns: 300px minmax(0, 1fr);
   color: #0f172a;
-
 }
 
-/* ===== Mobile back + hero ===== */
-
-.mobileBackBtn {
-  display: none;
-}
-
-.pageHero {
-  grid-column: 2;
-  text-align: center;
-  padding: 28px 32px 0;
-}
-
-.pageHero h1 {
-  margin: 0;
-  font-size: 32px;
-  font-weight: 950;
-  line-height: 1.08;
-  letter-spacing: -0.04em;
-  color: #020617;
-}
-
-.pageHero p {
-  margin: 7px 0 0;
-  font-size: 15px;
-  line-height: 1.45;
+.breadcrumb {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 28px 24px 0;
+  width: min(1380px, calc(100% - 42px));
+  margin: 0 auto;
+  white-space: nowrap;
+  overflow: visible;
   color: #64748b;
-}
-
-/* ===== Aside ===== */
-
-.sidePanel {
-  grid-column: 1;
-  grid-row: 1 / span 2;
-  position: sticky;
-  top: 0;
-  height: 100vh;
-  padding: 34px 24px;
-  border-right: 1px solid #e2e8f0;
-  backdrop-filter: blur(18px);
-  display: grid;
-  align-content: start;
-  gap: 18px;
+  font-size: 13px;
+  font-weight: 850;
 }
 
 .backBtn {
-  width: 40px;
-  height: 40px;
+  width: fit-content;
+  height: 34px;
+  padding: 0 4px;
   border: none;
-  border-radius: 999px;
-  background: #ffffff;
-  color: #0f172a;
-  display: grid;
-  place-items: center;
+  border-radius: 8px;
+  background: transparent;
+  color: #1d4ed8;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
   cursor: pointer;
-  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
-  transition: transform 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+  font-size: 13px;
+  font-weight: 950;
+  box-shadow: none;
 }
 
 .backBtn:hover {
-  transform: translateX(-2px);
   color: #2563eb;
-  box-shadow: 0 10px 22px rgba(37, 99, 235, 0.12);
-}
-.quickCard {
-  padding: 18px;
-  border-radius: 22px;
-  border: 1px solid #e2e8f0;
-  background: #ffffff;
-  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.045);
+  background: #eff6ff;
+  transform: translateX(-1px);
 }
 
+.breadcrumbSlash,
+.breadcrumbSep,
+.breadcrumbItem {
+  color: #64748b;
+  flex-shrink: 0;
+}
+
+.breadcrumbCurrent {
+  color: #1d4ed8;
+  font-weight: 950;
+  flex-shrink: 0;
+}
+
+.sidePanel {
+  grid-column: 1;
+  grid-row: 2 / span 2;
+  position: sticky;
+  top: 34px;
+  height: calc(100vh - 34px);
+  padding: 78px 24px 34px;
+  border-right: none;
+  display: grid;
+  align-content: start;
+}
+
+.quickCard {
+  margin-top: 0;
+}
 .quickTitle {
   margin-bottom: 14px;
   font-size: 13px;
@@ -119,10 +113,7 @@
   color: #64748b;
   display: grid;
   place-items: center;
-  transition:
-    background 0.15s ease,
-    color 0.15s ease,
-    border-color 0.15s ease,
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease,
     box-shadow 0.15s ease;
 }
 
@@ -711,7 +702,7 @@
   cursor: not-allowed;
 }
 
-/* ===== iPad + Mobile ===== */
+/* ===== Tablet + Mobile ===== */
 
 @media (max-width: 1180px) {
   .page {
@@ -723,21 +714,28 @@
   }
 
   .mobileBackBtn {
-    width: 42px;
-    height: 42px;
+    width: fit-content;
+    height: 34px;
     margin: 18px 18px 0;
+    padding: 0 4px;
     border: none;
-    border-radius: 999px;
-    background: #ffffff;
-    color: #0f172a;
-    display: grid;
-    place-items: center;
+    border-radius: 8px;
+    background: transparent;
+    color: #1d4ed8;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
     cursor: pointer;
-    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
+    font-size: 13px;
+    font-weight: 950;
+    box-shadow: none;
+    transition: color 0.15s ease, background 0.15s ease, transform 0.15s ease;
   }
 
   .mobileBackBtn:hover {
     color: #2563eb;
+    background: #eff6ff;
+    transform: translateX(-1px);
   }
 
   .pageHero {
@@ -828,5 +826,39 @@
 
   .bloodMore {
     width: 100%;
+  }
+}
+@media (max-width: 1180px) {
+  .page {
+    grid-template-columns: 1fr;
+  }
+
+  .breadcrumb {
+    grid-column: 1;
+    width: auto;
+    margin: 0;
+    padding: 18px 18px 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .breadcrumb::-webkit-scrollbar {
+    display: none;
+  }
+
+  .sidePanel {
+    display: none;
+  }
+
+  .pageHero {
+    grid-column: 1;
+    text-align: left;
+    padding: 12px 18px 0;
+  }
+
+  .content {
+    grid-column: 1;
+    max-width: 100%;
+    padding: 24px 18px 0;
   }
 }

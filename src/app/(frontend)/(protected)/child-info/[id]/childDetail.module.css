@@ -12,23 +12,27 @@
   gap: 12px;
   margin-bottom: 14px;
 }
-
 .backBtn {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  font-weight: 700;
-  font-size: 14px;
+  gap: 8px;
+  height: 38px;
+  padding: 0 14px;
+  border-radius: 12px;
   text-decoration: none;
-  color: #334155;
-  padding: 6px 10px;
-  border-radius: 8px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  color: #111827;
+  font-size: 14px;
+  font-weight: 800;
   transition: all 0.15s ease;
 }
 
 .backBtn:hover {
-  background: #f1f5f9;
+  background: #f8fafc;
+  border-color: #d1d5db;
   transform: translateY(-1px);
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
 }
 
 .breadcrumb {
@@ -971,4 +975,150 @@
   font-size: 13px;
   font-weight: 900;
   cursor: not-allowed;
+}
+.statusRow {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+.statusBadge {
+  height: 24px;
+  padding: 0 9px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.statusDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.statusConfirmed {
+  background: #e0e7ff;
+  color: #4338ca;
+  border-color: #c7d2fe;
+}
+
+.statusPending {
+  background: #fff7ed;
+  color: #c2410c;
+  border-color: #fed7aa;
+}
+
+.medicalAlertStrong {
+  background: linear-gradient(135deg, #fee2e2 0%, #fff7f7 100%);
+  border-color: #fecaca;
+}
+
+.medicalAlertSoft {
+  background: linear-gradient(135deg, #fff7ed 0%, #ffffff 100%);
+  border-color: #fed7aa;
+}
+
+.medicalAlertHeader {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.medicalAlertIcon {
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  background: #ffffff;
+  color: #dc2626;
+  border: 1px solid rgba(252, 165, 165, 0.65);
+}
+
+.medicalAlertTitle {
+  font-size: 15px;
+  font-weight: 1000;
+  color: #991b1b;
+}
+
+.medicalAlertSub {
+  margin-top: 4px;
+  font-size: 12px;
+  color: #7f1d1d;
+  line-height: 1.45;
+}
+
+.medicalChipGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.medicalChip {
+  min-height: 66px;
+  padding: 11px 12px;
+  border-radius: 13px;
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+}
+
+.medicalChipLabel {
+  font-size: 10px;
+  font-weight: 900;
+  color: #7f1d1d;
+  text-transform: uppercase;
+  letter-spacing: 0.035em;
+}
+
+.medicalChipValue {
+  margin-top: 6px;
+  font-size: 13px;
+  font-weight: 900;
+  color: #111827;
+  line-height: 1.35;
+}
+
+.emergencyInstructionBox {
+  margin-top: 12px;
+  display: flex;
+  gap: 10px;
+  padding: 12px 13px;
+  border-radius: 14px;
+  background: #dc2626;
+  color: #ffffff;
+}
+
+.emergencyInstructionBox strong {
+  display: block;
+  font-size: 12px;
+  font-weight: 1000;
+  text-transform: uppercase;
+}
+
+.emergencyInstructionBox p {
+  margin: 4px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+@media (max-width: 1100px) {
+  .medicalChipGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .medicalChipGrid {
+    grid-template-columns: 1fr;
+  }
 }

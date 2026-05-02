@@ -20,7 +20,7 @@ export default function Brand({
   return (
     <div className={`${styles.brand} ${styles[size]} ${className}`}>
         <Image
-          src="/SamSamlogo.png"
+          src="/images/SamSamlogo (3).png"
           alt={alt}
           width={w}
           height={h}

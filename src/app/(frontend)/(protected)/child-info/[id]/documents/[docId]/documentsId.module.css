@@ -1,9 +1,8 @@
 .page {
-  max-width: 1280px;
+  max-width: 1140px;
   margin: 0 auto;
   padding: 16px 20px 24px;
   min-height: 100vh;
-  background: #f5f7fb;
   color: #0f172a;
 }
 
@@ -12,106 +11,104 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 14px;
-  padding-right: 6px;
+  gap: 18px;
+  margin-bottom: 22px;
+  padding: 22px 0 4px;
 }
 
 .headerLeft {
-  display: flex;
-  align-items: center;
-  gap: 8px;
   min-width: 0;
   flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .backBtn {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  font-size: 13px;
-  font-weight: 600;
+  gap: 7px;
   color: #64748b;
   text-decoration: none;
-  padding: 3px 4px;
-  border-radius: 8px;
-  transition: color 0.15s ease, background 0.15s ease;
+  font-size: 14px;
+  font-weight: 900;
+  white-space: nowrap;
 }
 
 .backBtn:hover {
-  color: #0f172a;
-  background: #eef2f7;
+  color: #1d4ed8;
 }
 
 .breadcrumbSep {
   color: #cbd5e1;
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 15px;
+  font-weight: 900;
 }
 
 .title {
   min-width: 0;
   margin: 0;
-  font-size: 17px;
-  line-height: 1.2;
-  font-weight: 800;
-  color: #0f172a;
+  color: #020617;
+  font-size: 20px;
+  line-height: 1.15;
+  font-weight: 1000;
+  letter-spacing: -0.035em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
 .headerActions {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   flex-shrink: 0;
 }
 
 .editBtn {
-  height: 38px;
-  padding: 0 15px;
-  border-radius: 12px;
+  height: 48px;
+  padding: 0 20px;
+  border-radius: 14px;
   border: 1px solid #0f172a;
   background: #0f172a;
-  color: #fff;
+  color: #ffffff;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  font-size: 13px;
-  font-weight: 800;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 950;
   text-decoration: none;
-  transition: all 0.15s ease;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
 .editBtn:hover {
   transform: translateY(-1px);
-  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.12);
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.16);
 }
 
 .replaceBtn {
-  height: 38px;
-  padding: 0 15px;
-  border-radius: 12px;
+  height: 48px;
+  padding: 0 20px;
+  border-radius: 14px;
   border: 1px solid #c7d2fe;
   background: #eef2ff;
   color: #3730a3;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  font-size: 13px;
-  font-weight: 800;
+  font-size: 14px;
+  font-weight: 950;
   text-decoration: none;
-  transition: all 0.15s ease;
-}  
+  transition: transform 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
 
 .replaceBtn:hover {
   transform: translateY(-1px);
   background: #e0e7ff;
-  border-color: #a5b4fc;
-  box-shadow: 0 8px 18px rgba(99, 102, 241, 0.14);
+  box-shadow: 0 12px 24px rgba(99, 102, 241, 0.14);
 }
+
 /* ===== Layout ===== */
 .contentLayout {
   display: grid;
@@ -313,6 +310,7 @@
   word-break: break-word;
 }
 
+/* ===== Empty ===== */
 .empty {
   padding: 14px;
   border-radius: 14px;
@@ -322,6 +320,7 @@
   color: #64748b;
 }
 
+/* ===== Danger ===== */
 .dangerCard {
   border-color: #fecaca;
   background: linear-gradient(180deg, #fffefe 0%, #fff7f7 100%);
@@ -384,11 +383,11 @@
 
   .header {
     gap: 12px;
-    margin-bottom: 12px;
+    margin-bottom: 16px;
   }
 
   .title {
-    font-size: 16px;
+    font-size: 18px;
   }
 
   .contentLayout {
@@ -436,37 +435,44 @@
   .header {
     flex-direction: column;
     align-items: stretch;
-    gap: 10px;
+    gap: 12px;
+    padding-top: 12px;
   }
 
   .headerLeft {
     width: 100%;
-    min-width: 0;
-    gap: 6px;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
   }
 
   .backBtn {
-    font-size: 12px;
+    font-size: 13px;
   }
 
   .breadcrumbSep {
-    font-size: 11px;
+    font-size: 13px;
   }
 
   .title {
-    width: 100%;
-    font-size: 15px;
-    white-space: normal;
-    overflow: visible;
-    text-overflow: initial;
+    width: auto;
+    flex: 1;
+    font-size: 17px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
-  .editBtn {
-    width: fit-content;
-    height: 36px;
+  .headerActions {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .editBtn,
+  .replaceBtn {
+    width: 100%;
+    height: 42px;
     padding: 0 12px;
-    font-size: 12px;
+    font-size: 13px;
   }
 
   .previewCard,

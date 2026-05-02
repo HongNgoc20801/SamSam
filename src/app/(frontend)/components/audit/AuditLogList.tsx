@@ -1,11 +1,11 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type CSSProperties } from 'react'
 import styles from './auditLogList.module.css'
 import type { AuditLog } from './auditTypes'
 import { useTranslations } from '@/app/lib/i18n/useTranslations'
 import { useSettings } from '@/app/(frontend)/components/providers/SettingsProvider'
-
+import { Search } from 'lucide-react'
 import {
   actionLabel,
   actionTone,
@@ -14,6 +14,7 @@ import {
   entityLabel,
   fieldLabel,
   fmtDateTime,
+  fmtTimeOnly,
   groupAuditLogsByDay,
   isImportantAudit,
   renderChangeValue,
@@ -25,15 +26,43 @@ type ChildOption = {
   id: string | number
   fullName: string
 }
+type MediaValue =
+  | string
+  | {
+      id?: string
+      url?: string
+      filename?: string
+      alt?: string
+    }
 
+type FamilyMemberOption = {
+  id?: string | number
+  firstName?: string
+  lastName?: string
+  email?: string
+  avatar?: MediaValue
+}
 type Props = {
   audits: AuditLog[]
-  children?: ChildOption[]
+  childOptions?: ChildOption[]
+  familyMembers?: FamilyMemberOption[]
   title?: string
   subtitle?: string
   compact?: boolean
   allowFilter?: boolean
   defaultImportantOnly?: boolean
+}
+function getMediaUrl(media?: MediaValue) {
+  if (!media || typeof media === 'string') return ''
+  return media.url || ''
+}
+
+function getMemberFullName(member: FamilyMemberOption) {
+  return `${member.firstName || ''} ${member.lastName || ''}`.trim()
+}
+
+function normalizeLookupKey(value?: string | number | null) {
+  return String(value || '').trim().toLowerCase()
 }
 
 function getAuditChildId(a: AuditLog) {
@@ -109,10 +138,42 @@ function matchesSearch(a: AuditLog, q: string) {
 
   return haystack.includes(query)
 }
+const ACTOR_COLORS = [
+  '#8B4513', 
+  '#6B5B95', 
+  '#2F4F4F', 
+  '#9A3412', 
+  '#7C2D12', 
+  '#854D0E', 
+  '#713F12',
+  '#831843', 
+  '#365314', 
+  '#44403C', 
+]
 
+function getActorColor(value: string) {
+  const text = value.trim().toLowerCase() || 'unknown'
+  let hash = 0
+
+  for (let i = 0; i < text.length; i++) {
+    hash = text.charCodeAt(i) + ((hash << 5) - hash)
+  }
+
+  return ACTOR_COLORS[Math.abs(hash) % ACTOR_COLORS.length]
+}
+
+function getInitials(name: string) {
+  const parts = name.trim().split(/\s+/).filter(Boolean)
+
+  if (parts.length === 0) return '?'
+  if (parts.length === 1) return parts[0].charAt(0).toUpperCase()
+
+  return `${parts[0].charAt(0)}${parts[parts.length - 1].charAt(0)}`.toUpperCase()
+}
 export default function AuditLogList({
   audits,
-  children = [],
+  childOptions = [],
+  familyMembers = [],
   title,
   subtitle,
   compact = false,
@@ -135,17 +196,50 @@ export default function AuditLogList({
   const [importantOnly, setImportantOnly] = useState(defaultImportantOnly)
   const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({})
 
-  const showChildFilter = children.length > 1
+  const actorProfileMap = useMemo(() => {
+    const map = new Map<
+      string,
+      {
+        fullName: string
+        avatarUrl: string
+      }
+    >()
+
+    familyMembers.forEach((member) => {
+      const fullName = getMemberFullName(member)
+      const avatarUrl = getMediaUrl(member.avatar)
+
+      const profile = {
+        fullName,
+        avatarUrl,
+      }
+
+      const keys = [member.id, member.email, fullName]
+        .map((value) => normalizeLookupKey(value))
+        .filter(Boolean)
+
+      keys.forEach((key) => {
+        if (!map.has(key)) {
+          map.set(key, profile)
+        }
+      })
+    })
+
+    return map
+  }, [familyMembers])
+  
+
+  const showChildFilter = childOptions.length > 1
 
   const selectedChildName = useMemo(() => {
     if (childFilter === 'all') return ''
 
-    const found = children.find(
+    const found = childOptions.find(
       (child) => String(child.id) === String(childFilter),
     )
 
     return String(found?.fullName || '').trim().toLowerCase()
-  }, [childFilter, children])
+  }, [childFilter, childOptions])
 
   const filtered = useMemo(() => {
     let next = [...audits]
@@ -210,7 +304,7 @@ export default function AuditLogList({
   const resolvedTitle = title || td.defaultTitle
   const resolvedSubtitle = subtitle || td.subtitle
 
-  return (
+    return (
     <div className={styles.wrapper}>
       {!compact && (
         <div className={styles.topbar}>
@@ -219,88 +313,88 @@ export default function AuditLogList({
             <p className={styles.subtitle}>{resolvedSubtitle}</p>
           </div>
 
-          <div className={styles.countBadge}>
-            <span>{filtered.length}</span>
-            <small>{td.activities}</small>
-          </div>
-        </div>
-      )}
+          {allowFilter ? (
+            <div className={styles.filterBar}>
+              <label className={styles.searchField}>
+                <span className={styles.srOnly}>{td.search}</span>
 
-      {allowFilter && !compact && (
-        <div className={styles.filterCard}>
-          <div className={styles.searchRow}>
-            <label className={styles.searchField}>
-              <span className={styles.filterLabel}>{td.search}</span>
-              <input
-                className={styles.input}
-                type="text"
-                placeholder={td.searchPlaceholder}
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </label>
-          </div>
+                <span className={styles.searchBox}>
+                  <Search
+                    className={styles.searchIcon}
+                    size={18}
+                    strokeWidth={2.4}
+                  />
 
-          <div className={styles.filterRow}>
-            <label className={styles.filterItem}>
-              <span className={styles.filterLabel}>{td.type}</span>
-              <select
-                className={styles.select}
-                value={entityFilter}
-                onChange={(e) =>
-                  setEntityFilter(
-                    e.target.value as
-                      | 'all'
-                      | 'document'
-                      | 'event'
-                      | 'post'
-                      | 'economy'
-                      | 'confirmation'
-                      | 'other',
-                  )
-                }
-              >
-                <option value="all">{td.all}</option>
-                <option value="document">{td.document}</option>
-                <option value="event">{td.event}</option>
-                <option value="post">{td.post}</option>
-                <option value="economy">{td.economy}</option>
-                <option value="confirmation">{td.confirmation}</option>
-                <option value="other">{td.other}</option>
-              </select>
-            </label>
+                  <input
+                    className={styles.input}
+                    type="text"
+                    placeholder={td.searchPlaceholder}
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                  />
+                </span>
+              </label>
 
-            {showChildFilter ? (
               <label className={styles.filterItem}>
-                <span className={styles.filterLabel}>{td.child}</span>
+                <span className={styles.srOnly}>{td.type}</span>
+
                 <select
                   className={styles.select}
-                  value={childFilter}
-                  onChange={(e) => setChildFilter(e.target.value)}
+                  value={entityFilter}
+                  onChange={(e) =>
+                    setEntityFilter(
+                      e.target.value as
+                        | 'all'
+                        | 'document'
+                        | 'event'
+                        | 'post'
+                        | 'economy'
+                        | 'confirmation'
+                        | 'other',
+                    )
+                  }
                 >
-                  <option value="all">{td.allChildren}</option>
-                  {children.map((child) => (
-                    <option key={String(child.id)} value={String(child.id)}>
-                      {child.fullName}
-                    </option>
-                  ))}
+                  <option value="all">
+                    {settings?.language === 'en' ? 'All types' : 'Alle typer'}
+                  </option>
+                  <option value="document">{td.document}</option>
+                  <option value="event">{td.event}</option>
+                  <option value="post">{td.post}</option>
+                  <option value="economy">{td.economy}</option>
+                  <option value="confirmation">{td.confirmation}</option>
+                  <option value="other">{td.other}</option>
                 </select>
               </label>
-            ) : null}
 
-            <label className={styles.checkCard}>
-              <input
-                type="checkbox"
-                checked={importantOnly}
-                onChange={(e) => setImportantOnly(e.target.checked)}
-              />
-              <span>{td.importantOnly}</span>
-            </label>
-          </div>
+              {showChildFilter ? (
+                <label className={styles.filterItem}>
+                  <span className={styles.srOnly}>{td.child}</span>
 
-          <div className={styles.resultCount}>
-            {td.showing} <strong>{filtered.length}</strong> {td.matchingActivities}
-          </div>
+                  <select
+                    className={styles.select}
+                    value={childFilter}
+                    onChange={(e) => setChildFilter(e.target.value)}
+                  >
+                    <option value="all">{td.allChildren}</option>
+                    {childOptions.map((child) => (
+                      <option key={String(child.id)} value={String(child.id)}>
+                        {child.fullName}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
+
+              <label className={styles.checkCard}>
+                <input
+                  type="checkbox"
+                  checked={importantOnly}
+                  onChange={(e) => setImportantOnly(e.target.checked)}
+                />
+                <span>{td.importantOnly}</span>
+              </label>
+            </div>
+          ) : null}
         </div>
       )}
 
@@ -325,7 +419,18 @@ export default function AuditLogList({
                 {group.items.map((a) => {
                   const Icon = getActionIcon(a.action)
                   const who = actorDisplayName(a, td)
+                  const actorColor = getActorColor(String(a.actorId || a.actorName || who))
+                  const actorStyle = {
+                    '--actor-color': actorColor,
+                  } as CSSProperties
                   const pretty = auditPretty(a, td, locale, timeZone)
+                  const actorProfile =
+                    actorProfileMap.get(normalizeLookupKey(a.actorId)) ||
+                    actorProfileMap.get(normalizeLookupKey((a as any).actorEmail)) ||
+                    actorProfileMap.get(normalizeLookupKey(a.actorName)) ||
+                    actorProfileMap.get(normalizeLookupKey(who))
+
+                  const actorAvatar = actorProfile?.avatarUrl || ''
                   const changes = Array.isArray(a.changes) ? a.changes : []
 
                   const expanded = !!expandedIds[String(a.id)]
@@ -343,41 +448,55 @@ export default function AuditLogList({
                       </div>
 
                       <div className={styles.auditBody}>
-                        <div className={styles.auditHeader}>
-                          <div className={styles.auditSentence}>
-                            <strong>{who}</strong> {pretty.sentence}
-                            {pretty.target ? (
-                              <>
-                                {' '}
-                                <strong>{pretty.target}</strong>
-                              </>
-                            ) : null}
+                        <div className={styles.auditTopLine}>
+                          <div className={styles.auditMainLine}>
+                            <span className={styles.actorWrap} style={actorStyle}>
+                              <span className={`${styles.actorDot} ${actorAvatar ? styles.actorDotImage : ''}`}>
+                                {actorAvatar ? (
+                                  <img src={actorAvatar} alt="" className={styles.actorAvatar} />
+                                ) : (
+                                  getInitials(who)
+                                )}
+                              </span>
+                              <strong className={styles.actorName}>{who}</strong>
+                            </span>
+
+                            <span
+                              className={`${styles.actionBadge} ${
+                                styles[`actionBadge--${actionTone(a.action)}`] || ''
+                              }`}
+                            >
+                              {actionLabel(a.action, td)}
+                            </span>
+
+                            <span className={styles.auditMessage}>
+                              {pretty.sentence}
+                              {pretty.target ? (
+                                <>
+                                  {' '}
+                                  <strong>{pretty.target}</strong>
+                                </>
+                              ) : null}
+                            </span>
                           </div>
 
-                          <span
-                            className={`${styles.actionBadge} ${
-                              styles[`actionBadge--${actionTone(a.action)}`] || ''
-                            }`}
-                          >
-                            {actionLabel(a.action, td)}
+                          <span className={styles.auditTime}>
+                            {fmtTimeOnly(a.createdAt, locale, timeZone, td.noValue)}
                           </span>
                         </div>
 
-                        <div className={styles.auditMeta}>
-                          <span>
-                            {fmtDateTime(a.createdAt, locale, timeZone, td.noValue)}
-                          </span>
+                        {pretty.sub || a.entityType ? (
+                          <div className={styles.auditMeta}>
+                            {pretty.sub ? <span>{pretty.sub}</span> : null}
 
-                          <span className={styles.dot}>•</span>
-                          <span>{entityLabel(a.entityType, td)}</span>
+                            {pretty.sub && a.entityType ? <span className={styles.dot}>•</span> : null}
 
-                          {pretty.sub ? (
-                            <>
-                              <span className={styles.dot}>•</span>
-                              <span>{pretty.sub}</span>
-                            </>
-                          ) : null}
-                        </div>
+                            {a.entityType ? <span>{entityLabel(a.entityType, td)}</span> : null}
+
+                            <span className={styles.dot}>•</span>
+                            <span>{fmtDateTime(a.createdAt, locale, timeZone, td.noValue)}</span>
+                          </div>
+                        ) : null}
 
                         {showExpandButton ? (
                           <button

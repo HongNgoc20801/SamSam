@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { format } from 'date-fns'
-import { Bell, CheckCheck, ChevronRight } from 'lucide-react'
+import { CheckCheck, ChevronRight } from 'lucide-react'
 import styles from './notificationsPage.module.css'
 
 type NotificationEventType =
@@ -18,6 +18,7 @@ type NotificationEventType =
   | 'replaced'
   | 'approved'
   | 'rejected'
+  | 'paid'
 
 type NotificationItem = {
   id: string | number
@@ -27,7 +28,7 @@ type NotificationItem = {
   link?: string
   readAt?: string | null
   isRead?: boolean
-  type?: 'calendar' | 'expense' | 'status' | 'documents' | 'post'
+  type?: 'calendar' | 'expense' | 'request' | 'bank' | 'status' | 'documents' | 'post'  
   event?: NotificationEventType
   meta?: Record<string, any>
 }
@@ -45,6 +46,10 @@ function getTypeLabel(type?: NotificationItem['type']) {
       return 'Calendar'
     case 'expense':
       return 'Expense'
+    case 'request':
+      return 'Request'
+    case 'bank':
+      return 'Bank'
     case 'status':
       return 'Status'
     case 'documents':
@@ -81,6 +86,230 @@ function shorten(text?: string, max = 80) {
   const value = String(text || '').trim()
   if (!value) return ''
   return value.length > max ? `${value.slice(0, max)}…` : value
+}
+
+function getMediaUrl(value: any) {
+  if (!value) return ''
+
+  if (typeof value === 'string') return value
+
+  return (
+    value?.url ||
+    value?.sizes?.thumbnail?.url ||
+    value?.sizes?.card?.url ||
+    value?.sizes?.small?.url ||
+    ''
+  )
+}
+
+function getInitials(name?: string) {
+  const value = String(name || '').trim()
+  if (!value) return 'N'
+
+  const parts = value.split(' ').filter(Boolean)
+
+  if (parts.length === 1) {
+    return parts[0].charAt(0).toUpperCase()
+  }
+
+  return `${parts[0].charAt(0)}${parts[1].charAt(0)}`.toUpperCase()
+}
+
+function getAvatarUrl(item: NotificationItem) {
+  const meta = item.meta || {}
+
+  const possibleAvatar =
+    meta.actorAvatar ||
+    meta.actor?.avatar ||
+    meta.actor?.profileImage ||
+    meta.author?.avatar ||
+    meta.author?.profileImage ||
+    meta.user?.avatar ||
+    meta.user?.profileImage ||
+    meta.customer?.avatar ||
+    meta.customer?.profileImage
+
+  const avatarFromObject = getMediaUrl(possibleAvatar)
+
+  if (avatarFromObject) {
+    return avatarFromObject
+  }
+
+  if (typeof meta.actorAvatarUrl === 'string' && meta.actorAvatarUrl.trim()) {
+    return meta.actorAvatarUrl
+  }
+
+  if (typeof meta.avatarUrl === 'string' && meta.avatarUrl.trim()) {
+    return meta.avatarUrl
+  }
+
+  if (typeof meta.profileImageUrl === 'string' && meta.profileImageUrl.trim()) {
+    return meta.profileImageUrl
+  }
+
+  if (typeof meta.imageUrl === 'string' && meta.imageUrl.trim()) {
+    return meta.imageUrl
+  }
+
+  return ''
+}
+
+function getActorName(item: NotificationItem) {
+  const meta = item.meta || {}
+
+  const directName =
+    meta.actorName ||
+    meta.actor?.fullName ||
+    meta.author?.fullName ||
+    meta.user?.fullName ||
+    meta.customer?.fullName
+
+  if (directName) {
+    return String(directName).trim()
+  }
+
+  const actionWords = [
+    ' ber om ',
+    ' updated ',
+    ' created ',
+    ' commented ',
+    ' liked ',
+    ' uploaded ',
+    ' replaced ',
+    ' deleted ',
+    ' accepted ',
+    ' declined ',
+    ' paid ',
+    ' asked ',
+  ]
+
+  function extractName(text?: string) {
+    const value = String(text || '').trim()
+    const lowerValue = value.toLowerCase()
+
+    for (const action of actionWords) {
+      const index = lowerValue.indexOf(action)
+
+      if (index > 0) {
+        return value.slice(0, index).trim()
+      }
+    }
+
+    return ''
+  }
+
+  const nameFromMessage = extractName(item.message)
+
+  if (nameFromMessage) {
+    return nameFromMessage
+  }
+
+  const nameFromTitle = extractName(item.title)
+
+  if (nameFromTitle) {
+    return nameFromTitle
+  }
+
+  return String(item.title || 'Notification').trim()
+}
+
+function NotificationTypeIcon({ type }: { type?: NotificationItem['type'] }) {
+  const common = {
+    className: styles.typeIcon,
+    viewBox: '0 0 24 24',
+    fill: 'none' as const,
+  }
+
+  switch (type) {
+    case 'calendar':
+      return (
+        <svg {...common}>
+          <path
+            d="M7 3v3M17 3v3M4 8h16M6 6h12a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+          />
+        </svg>
+      )
+
+    case 'expense':
+      return (
+        <svg {...common}>
+          <path d="M3 7h18v10H3V7z" stroke="currentColor" strokeWidth="1.8" />
+          <path
+            d="M12 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"
+            stroke="currentColor"
+            strokeWidth="1.8"
+          />
+        </svg>
+      )
+
+    case 'request':
+      return (
+        <svg {...common}>
+          <path
+            d="M12 3v18M3 12h18"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+          />
+        </svg>
+      )
+
+    case 'bank':
+      return (
+        <svg {...common}>
+          <path
+            d="M4 10h16M6 10V7h12v3M6 10v7M10 10v7M14 10v7M18 10v7M4 17h16"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+          />
+        </svg>
+      )
+
+    case 'documents':
+      return (
+        <svg {...common}>
+          <path
+            d="M8 3h6l5 5v11a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinejoin="round"
+          />
+          <path d="M14 3v5h5" stroke="currentColor" strokeWidth="1.8" />
+        </svg>
+      )
+
+    case 'post':
+      return (
+        <svg {...common}>
+          <path
+            d="M5 6.5A2.5 2.5 0 0 1 7.5 4h9A2.5 2.5 0 0 1 19 6.5v11a2.5 2.5 0 0 1-2.5 2.5h-9A2.5 2.5 0 0 1 5 17.5v-11z"
+            stroke="currentColor"
+            strokeWidth="1.8"
+          />
+          <path
+            d="M8 9h8M8 12h8M8 15h5"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+          />
+        </svg>
+      )
+
+    default:
+      return (
+        <svg {...common}>
+          <path
+            d="M12 21s7-4.35 7-10a7 7 0 1 0-14 0c0 5.65 7 10 7 10z"
+            stroke="currentColor"
+            strokeWidth="1.8"
+          />
+        </svg>
+      )
+  }
 }
 
 function buildNotificationTitle(item: NotificationItem) {
@@ -326,6 +555,7 @@ export default function NotificationsPage() {
   const [error, setError] = useState('')
   const [selectedEmergency, setSelectedEmergency] = useState<NotificationItem | null>(null)
   const [actionLoading, setActionLoading] = useState('')
+  const [activeTab, setActiveTab] = useState<'all' | 'unread'>('all')
   async function loadNotifications() {
     try {
       setLoading(true)
@@ -420,6 +650,35 @@ export default function NotificationsPage() {
         throw new Error('Mangler mottaker for svar på hastebytte.')
       }
 
+      const meRes = await fetch('/api/customers/me', {
+        credentials: 'include',
+        cache: 'no-store',
+      })
+
+      const meJson = await meRes.json().catch(() => null)
+
+      if (!meRes.ok) {
+        throw new Error(meJson?.message || 'Kunne ikke hente innlogget bruker.')
+      }
+
+      const meUser = meJson?.user || meJson
+      const meId = meUser?.id
+
+      if (!meId) {
+        throw new Error('Mangler innlogget bruker.')
+      }
+
+      const meName =
+        meUser?.fullName ||
+        `${meUser?.firstName || ''} ${meUser?.lastName || ''}`.trim() ||
+        meUser?.email ||
+        'A parent'
+
+      const meAvatarUrl =
+        getMediaUrl(meUser?.avatar) ||
+        getMediaUrl(meUser?.profileImage) ||
+        getMediaUrl(meUser?.image)
+
       if (nextStatus === 'approved') {
         const custodyId = meta.custodyId
         const childId = meta.childId
@@ -455,23 +714,6 @@ export default function NotificationsPage() {
 
         if (returnDate <= pickupDate) {
           throw new Error('Sluttidspunkt må være etter hentetidspunkt.')
-        }
-
-        const meRes = await fetch('/api/customers/me', {
-          credentials: 'include',
-          cache: 'no-store',
-        })
-
-        const meJson = await meRes.json().catch(() => null)
-
-        if (!meRes.ok) {
-          throw new Error(meJson?.message || 'Kunne ikke hente innlogget bruker.')
-        }
-
-        const meId = meJson?.user?.id || meJson?.id
-
-        if (!meId) {
-          throw new Error('Mangler innlogget bruker.')
         }
 
         const updateOldRes = await fetch(`/api/custody-schedules/${custodyId}`, {
@@ -531,6 +773,11 @@ export default function NotificationsPage() {
             type: 'custody-emergency-response',
             custodyId: meta.custodyId,
             childId: meta.childId,
+
+            actorId: meId,
+            actorName: meName,
+            actorAvatarUrl: meAvatarUrl,
+
             childName: meta.childName,
             reason: meta.reason,
             pickupAt: meta.pickupAt,
@@ -566,6 +813,27 @@ export default function NotificationsPage() {
     () => items.filter((item) => !item.isRead && !item.readAt).length,
     [items],
   )
+  const visibleItems = useMemo(() => {
+  if (activeTab === 'unread') {
+    return items.filter((item) => !item.isRead && !item.readAt)
+  }
+
+  return items
+}, [activeTab, items])
+const actorAvatarMap = useMemo(() => {
+  const map = new Map<string, string>()
+
+  items.forEach((item) => {
+    const actorName = getActorName(item).toLowerCase()
+    const avatarUrl = getAvatarUrl(item)
+
+    if (actorName && avatarUrl && !map.has(actorName)) {
+      map.set(actorName, avatarUrl)
+    }
+  })
+
+  return map
+}, [items])
 
   return (
     <div className={styles.page}>
@@ -600,47 +868,97 @@ export default function NotificationsPage() {
         </div>
       </div>
 
+      <div className={styles.filterRow}>
+        <div className={styles.tabs}>
+          <button
+            type="button"
+            className={`${styles.tab} ${activeTab === 'all' ? styles.activeTab : ''}`}
+            onClick={() => setActiveTab('all')}
+          >
+            All
+          </button>
+
+          <button
+            type="button"
+            className={`${styles.tab} ${activeTab === 'unread' ? styles.activeTab : ''}`}
+            onClick={() => setActiveTab('unread')}
+          >
+            Unread
+          </button>
+        </div>
+      </div>
+
+      
+
       {loading ? (
         <div className={styles.state}>Loading notifications...</div>
       ) : error ? (
         <div className={styles.stateError}>{error}</div>
-      ) : items.length === 0 ? (
+      ) : visibleItems.length === 0 ? (
         <div className={styles.state}>No notifications yet.</div>
       ) : (
         <div className={styles.list}>
-          {items.map((item) => (
-            <button
-              key={String(item.id)}
-              type="button"
-              className={`${styles.item} ${
-                !item.isRead && !item.readAt ? styles.unread : styles.read
-              }`}
-              onClick={() => handleItemClick(item)}
-            >
-              <div className={styles.iconWrap}>
-                <Bell size={18} />
-              </div>
+          {visibleItems.map((item) => {
+            const actorName = getActorName(item)
+            const avatarUrl =
+              getAvatarUrl(item) || actorAvatarMap.get(actorName.toLowerCase()) || ''
+            const fallbackInitials = getInitials(actorName)
 
-              <div className={styles.content}>
-                <div className={styles.itemTop}>
-                  <div>
-                    <div className={styles.itemTitle}>{buildNotificationTitle(item)}</div>
-                    <div className={styles.itemMessage}>{buildNotificationMessage(item)}</div>
+            return (
+              <button
+                key={String(item.id)}
+                type="button"
+                className={`${styles.item} ${
+                  !item.isRead && !item.readAt ? styles.unread : styles.read
+                }`}
+                onClick={() => handleItemClick(item)}
+              >
+                <div className={styles.avatarWrap}>
+                  <div className={styles.avatar}>
+                    {avatarUrl ? (
+                      <img
+                        className={styles.avatarImg}
+                        src={avatarUrl}
+                        alt={actorName}
+                      />
+                    ) : (
+                      fallbackInitials
+                    )}
                   </div>
 
-                  {!item.isRead && !item.readAt ? <span className={styles.dot} /> : null}
+                  <div className={styles.smallTypeIcon}>
+                    <NotificationTypeIcon type={item.type || 'calendar'} />
+                  </div>
                 </div>
 
-                <div className={styles.meta}>
-                  <span>{getTypeLabel(item.type)}</span>
-                  <span>•</span>
-                  <span>{formatDateTime(item.createdAt)}</span>
-                </div>
-              </div>
+                <div className={styles.content}>
+                  <div className={styles.itemTop}>
+                    <div>
+                      <div className={styles.itemTitle}>
+                        {buildNotificationTitle(item)}
+                      </div>
 
-              <ChevronRight size={18} className={styles.arrow} />
-            </button>
-          ))}
+                      <div className={styles.itemMessage}>
+                        {buildNotificationMessage(item)}
+                      </div>
+                    </div>
+
+                    {!item.isRead && !item.readAt ? (
+                      <span className={styles.dot} />
+                    ) : null}
+                  </div>
+
+                  <div className={styles.meta}>
+                    <span>{getTypeLabel(item.type)}</span>
+                    <span>•</span>
+                    <span>{formatDateTime(item.createdAt)}</span>
+                  </div>
+                </div>
+
+                <ChevronRight size={18} className={styles.arrow} />
+              </button>
+            )
+          })}
         </div>
       )}
 

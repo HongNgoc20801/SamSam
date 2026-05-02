@@ -22,7 +22,6 @@ function isCustomer(req: any) {
 
 function normalizeRelId(v: any): string | number | null {
   if (v === null || v === undefined || v === '') return null
-
   if (typeof v === 'number') return v
 
   if (typeof v === 'string') {
@@ -131,9 +130,7 @@ export const Families: CollectionConfig = {
           }
 
           const body = await req.json().catch(() => ({} as any))
-          const code = String(body?.code || '')
-            .trim()
-            .toUpperCase()
+          const code = String(body?.code || '').trim().toUpperCase()
 
           if (!code) {
             return Response.json({ message: 'Missing invite code.' }, { status: 400 })
@@ -152,18 +149,20 @@ export const Families: CollectionConfig = {
           })
 
           const targetFamily = found.docs?.[0]
+
           if (!targetFamily) {
             return Response.json({ message: 'Invalid invite code.' }, { status: 404 })
           }
 
-          const currentUserId = normalizeRelId(req.user.id)
-          if (!currentUserId) {
+          const userId = normalizeRelId(req.user.id)
+
+          if (!userId) {
             return Response.json({ message: 'Invalid current user.' }, { status: 400 })
           }
 
           const customer = await req.payload.findByID({
             collection: 'customers',
-            id: currentUserId,
+            id: userId,
             overrideAccess: true,
             depth: 0,
           })
@@ -171,33 +170,29 @@ export const Families: CollectionConfig = {
           const currentFamilyId = normalizeRelId((customer as any)?.family)
           const targetFamilyId = normalizeRelId(targetFamily.id)
 
+          if (!targetFamilyId) {
+            return Response.json({ message: 'Invalid target family.' }, { status: 400 })
+          }
+
           const currentSummary = await getFamilySummary(req, currentFamilyId)
           const targetSummary = await getFamilySummary(req, targetFamilyId)
 
           const isSameFamily =
-            !!currentSummary &&
-            !!targetSummary &&
-            String(currentSummary.id) === String(targetSummary.id)
+            !!currentFamilyId && String(currentFamilyId) === String(targetFamilyId)
 
-          const targetMembers = normalizeMembers((targetFamily as any).members)
-          const alreadyMember = targetMembers.some(
-            (memberId) => String(memberId) === String(currentUserId),
-          )
-
-          const willLeaveCurrentFamily =
-            !!currentSummary && !isSameFamily && !alreadyMember
+          const willLeaveCurrentFamily = !!currentFamilyId && !isSameFamily
 
           return Response.json(
             {
               ok: true,
               code,
-              alreadyMember,
+              alreadyMember: isSameFamily,
               isSameFamily,
               willLeaveCurrentFamily,
               currentFamily: currentSummary,
               targetFamily: targetSummary,
               warning: willLeaveCurrentFamily
-                ? 'If you continue, you will leave your current family and may lose access to its shared children, calendar events, notifications, handovers, and economy data.'
+                ? 'If you continue, you will leave your current family and join this family.'
                 : '',
             },
             { status: 200 },
@@ -228,9 +223,7 @@ export const Families: CollectionConfig = {
           }
 
           const body = await req.json().catch(() => ({} as any))
-          const code = String(body?.code || '')
-            .trim()
-            .toUpperCase()
+          const code = String(body?.code || '').trim().toUpperCase()
           const confirmJoin = body?.confirmJoin === true
 
           if (!code) {
@@ -250,14 +243,15 @@ export const Families: CollectionConfig = {
           })
 
           const targetFamily = found.docs?.[0]
+
           if (!targetFamily) {
             return Response.json({ message: 'Invalid invite code.' }, { status: 404 })
           }
 
           const userId = normalizeRelId(req.user.id)
-          const targetId = normalizeRelId(targetFamily.id)
+          const targetFamilyId = normalizeRelId(targetFamily.id)
 
-          if (!userId || !targetId) {
+          if (!userId || !targetFamilyId) {
             return Response.json({ message: 'Invalid user or family id.' }, { status: 400 })
           }
 
@@ -268,9 +262,25 @@ export const Families: CollectionConfig = {
             depth: 0,
           })
 
-          const oldFamilyId = normalizeRelId((customer as any).family)
+          const oldFamilyId = normalizeRelId((customer as any)?.family)
+
+          const isSameFamily =
+            !!oldFamilyId && String(oldFamilyId) === String(targetFamilyId)
+
+          if (isSameFamily) {
+            return Response.json(
+              {
+                ok: true,
+                familyId: targetFamilyId,
+                alreadyMember: true,
+                message: 'You are already in this family.',
+              },
+              { status: 200 },
+            )
+          }
+
           const isSwitchingFamily =
-            !!oldFamilyId && String(oldFamilyId) !== String(targetId)
+            !!oldFamilyId && String(oldFamilyId) !== String(targetFamilyId)
 
           if (isSwitchingFamily && !confirmJoin) {
             return Response.json(
@@ -283,32 +293,7 @@ export const Families: CollectionConfig = {
             )
           }
 
-          const targetMembers = normalizeMembers((targetFamily as any).members)
-          const nextTargetMembers = targetMembers.some(
-            (memberId) => String(memberId) === String(userId),
-          )
-            ? targetMembers
-            : [...targetMembers, userId]
-
-          await req.payload.update({
-            collection: 'families',
-            id: targetId,
-            data: {
-              members: nextTargetMembers,
-            } as any,
-            overrideAccess: true,
-          })
-
-          await req.payload.update({
-            collection: 'customers',
-            id: userId,
-            data: {
-              family: targetId,
-            } as any,
-            overrideAccess: true,
-          })
-
-          if (oldFamilyId && String(oldFamilyId) !== String(targetId)) {
+          if (oldFamilyId) {
             const oldFamily = await req.payload
               .findByID({
                 collection: 'families',
@@ -343,10 +328,43 @@ export const Families: CollectionConfig = {
             }
           }
 
+          const freshTargetFamily = await req.payload.findByID({
+            collection: 'families',
+            id: targetFamilyId,
+            overrideAccess: true,
+            depth: 0,
+          })
+
+          const targetMembers = normalizeMembers((freshTargetFamily as any).members)
+
+          const nextTargetMembers = targetMembers.some(
+            (memberId) => String(memberId) === String(userId),
+          )
+            ? targetMembers
+            : [...targetMembers, userId]
+
+          await req.payload.update({
+            collection: 'families',
+            id: targetFamilyId,
+            data: {
+              members: nextTargetMembers,
+            } as any,
+            overrideAccess: true,
+          })
+
+          await req.payload.update({
+            collection: 'customers',
+            id: userId,
+            data: {
+              family: targetFamilyId,
+            } as any,
+            overrideAccess: true,
+          })
+
           return Response.json(
             {
               ok: true,
-              familyId: targetId,
+              familyId: targetFamilyId,
             },
             { status: 200 },
           )
@@ -372,7 +390,21 @@ export const Families: CollectionConfig = {
             return Response.json({ message: 'Forbidden' }, { status: 403 })
           }
 
-          const familyId = normalizeRelId(req.user.family)
+          const userId = normalizeRelId(req.user.id)
+
+          if (!userId) {
+            return Response.json({ docs: [] }, { status: 200 })
+          }
+
+          const customer = await req.payload.findByID({
+            collection: 'customers',
+            id: userId,
+            overrideAccess: true,
+            depth: 0,
+          })
+
+          const familyId = normalizeRelId((customer as any)?.family)
+
           if (!familyId) {
             return Response.json({ docs: [] }, { status: 200 })
           }

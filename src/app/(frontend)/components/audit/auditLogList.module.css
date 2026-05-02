@@ -1,259 +1,329 @@
+
 .wrapper {
   display: grid;
-  gap: 22px;
+  gap: 28px;
 }
 
 .topbar {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: 16px;
+  gap: 28px;
 }
 
 .topbarText {
   display: grid;
-  gap: 8px;
+  gap: 7px;
+  min-width: 0;
 }
 
 .title {
   margin: 0;
-  font-size: 30px;
-  font-weight: 800;
-  line-height: 1.1;
-  letter-spacing: -0.02em;
-  color: #0f172a;
+  font-size: 31px;
+  font-weight: 900;
+  line-height: 1.05;
+  letter-spacing: -0.04em;
+  color: #111827;
 }
 
 .subtitle {
   margin: 0;
-  color: #64748b;
+  color: #7a8496;
   font-size: 14px;
-  line-height: 1.6;
+  font-weight: 600;
+  line-height: 1.55;
 }
 
-.countBadge {
-  display: grid;
-  place-items: center;
-  min-width: 92px;
-  padding: 12px 14px;
-  border: 1px solid rgba(148, 163, 184, 0.18);
-  border-radius: 18px;
-  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
-}
-
-.countBadge span {
-  font-size: 22px;
-  font-weight: 800;
-  color: #0f172a;
-  line-height: 1;
-}
-
-.countBadge small {
-  margin-top: 4px;
-  color: #64748b;
-  font-size: 12px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.filterCard {
-  display: grid;
+.filterBar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
   gap: 14px;
-  padding: 18px;
-  border: 1px solid rgba(226, 232, 240, 0.9);
-  border-radius: 24px;
-  background:
-    radial-gradient(circle at top right, rgba(59, 130, 246, 0.06), transparent 28%),
-    linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-  box-shadow: 0 12px 34px rgba(15, 23, 42, 0.06);
-}
-
-.searchRow {
-  display: grid;
+  flex-wrap: wrap;
+  padding-top: 4px;
 }
 
 .searchField {
-  display: grid;
-  gap: 8px;
+  width: 220px;
+  min-width: 220px;
 }
 
-.filterRow {
+.searchBox {
+  min-height: 40px;
   display: flex;
-  flex-wrap: wrap;
-  gap: 14px;
-  align-items: end;
-}
-
-.filterItem {
-  display: grid;
-  gap: 8px;
-  min-width: 180px;
-}
-
-.filterLabel {
-  font-size: 12px;
-  font-weight: 800;
-  color: #334155;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-}
-
-.input,
-.select {
-  width: 100%;
-  min-height: 48px;
+  align-items: center;
+  gap: 10px;
   padding: 0 14px;
-  border: 1px solid #dbe1ea;
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.03);
+}
+
+.searchIcon {
+  flex-shrink: 0;
+  color: #a3adc2;
+}
+
+.input {
+  width: 100%;
+  border: 0;
+  outline: 0;
+  background: transparent;
   font: inherit;
+  font-size: 13px;
+  font-weight: 600;
   color: #111827;
-  outline: none;
-  transition:
-    border-color 0.2s ease,
-    box-shadow 0.2s ease,
-    transform 0.2s ease,
-    background 0.2s ease;
 }
 
 .input::placeholder {
-  color: #94a3b8;
+  color: #a3adc2;
+}
+
+.filterItem {
+  width: 168px;
+  min-width: 168px;
+}
+
+.select {
+  width: 100%;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #ffffff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  color: #7a8496;
+  outline: none;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.03);
 }
 
 .input:focus,
 .select:focus {
-  border-color: #93c5fd;
-  background: #fff;
-  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+  border-color: #c7d2fe;
+  box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.08);
 }
 
 .checkCard {
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  min-height: 48px;
-  padding: 0 14px;
-  border: 1px solid #dbe1ea;
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.8);
-  font-size: 14px;
-  font-weight: 700;
-  color: #0f172a;
+  min-height: 40px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 800;
+  color: #7a8496;
   white-space: nowrap;
-  transition:
-    border-color 0.2s ease,
-    box-shadow 0.2s ease,
-    background 0.2s ease;
-}
-
-.checkCard:hover {
-  border-color: #cbd5e1;
-  background: #fff;
+  cursor: pointer;
 }
 
 .checkCard input {
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: #27357b;
+  cursor: pointer;
 }
 
-.resultCount {
-  font-size: 14px;
-  color: #64748b;
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
-
 .groupList {
   display: grid;
-  gap: 22px;
+  gap: 26px;
 }
 
 .group {
   display: grid;
-  gap: 12px;
+  gap: 10px;
 }
 
 .groupTitleWrap {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  pointer-events: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 2px 0 2px;
 }
-
-.groupTitle {
-  width: fit-content;
-  padding: 8px 12px;
-  border: 1px solid rgba(226, 232, 240, 0.9);
+.groupTitleWrap::before {
+  content: '';
+  width: 6px;
+  height: 6px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.88);
-  backdrop-filter: blur(10px);
+  background: #cbd5e1;
+  flex-shrink: 0;
+}
+.groupTitle {
+  width: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  backdrop-filter: none;
   font-size: 12px;
-  font-weight: 800;
-  color: #334155;
+  font-weight: 900;
+  color: #4b5563;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.05);
+  letter-spacing: 0.08em;
+  box-shadow: none;
 }
 
 .auditList {
   display: grid;
-  gap: 14px;
+  gap: 6px;
+  margin-left: 3px;
+  padding-left: 18px;
+  border-left: 1px solid #edf1f6;
 }
 
 .auditRow {
   display: grid;
-  grid-template-columns: 56px 1fr;
-  gap: 16px;
-  padding: 18px;
-  border: 1px solid rgba(226, 232, 240, 0.95);
-  border-left-width: 5px;
-  border-radius: 22px;
-  background: linear-gradient(180deg, #ffffff 0%, #fcfdff 100%);
-  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.05);
-  transition:
-    transform 0.22s ease,
-    box-shadow 0.22s ease,
-    border-color 0.22s ease;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 14px;
+  align-items: flex-start;
+  padding: 12px 0 14px 14px;
+  border: 0;
+  border-left: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  transition: none;
 }
 
 .auditRow:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 16px 34px rgba(15, 23, 42, 0.09);
-  border-color: #dbeafe;
+  transform: none;
+  box-shadow: none;
+  border-color: transparent;
 }
 
-.auditRow--create {
-  border-left-color: #60a5fa;
+.auditRow--create .auditIcon {
+  color: #7bc4a1;
 }
 
-.auditRow--update {
-  border-left-color: #f59e0b;
+.auditRow--update .auditIcon {
+  color: #d7a44b;
 }
 
-.auditRow--delete {
-  border-left-color: #f87171;
+.auditRow--delete .auditIcon {
+  color: #d88484;
 }
 
-.auditRow--confirm {
-  border-left-color: #34d399;
+.auditRow--confirm .auditIcon {
+  color: #7bc4a1;
 }
 
-.auditRow--upload {
-  border-left-color: #a78bfa;
+.auditRow--upload .auditIcon {
+  color: #8f95d6;
 }
 
-.auditRow--replace {
-  border-left-color: #fb923c;
+.auditRow--replace .auditIcon {
+  color: #d7a44b;
+}
+.auditBody {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
 }
 
+.auditTopLine {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.auditMainLine {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.actorName {
+  font-size: 15px;
+  font-weight: 750;
+  color: var(--actor-color);
+  opacity: 0.92;
+}
+
+.auditMessage {
+  font-size: 15px;
+  line-height: 1.55;
+  color: #4b5563;
+}
+
+.auditMessage strong {
+  color: inherit;
+  font-weight: inherit;
+}
+.actorWrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.actorDot {
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--actor-color) 8%, white);
+  border: 1px solid color-mix(in srgb, var(--actor-color) 35%, white);
+  color: var(--actor-color);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  overflow: hidden;
+}
+.actorDotImage {
+  background: #ffffff;
+  border-color: #e5e7eb;
+}
+
+.actorAvatar {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.actorName {
+  font-size: 15px;
+  font-weight: 750;
+  color: var(--actor-color);
+}
+
+.auditTime {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: #c0c5cf;
+  white-space: nowrap;
+  padding-top: 2px;
+}
 .auditIcon {
   display: grid;
   place-items: center;
-  width: 56px;
-  height: 56px;
-  border-radius: 18px;
-  background: linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
-  border: 1px solid rgba(226, 232, 240, 0.9);
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: transparent;
+  border: 0;
 }
 
 .auditRow--create .auditIcon {
@@ -301,10 +371,10 @@
 
 .actionBadge {
   flex-shrink: 0;
-  padding: 7px 10px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 800;
+  padding: 4px 8px;
+  border-radius: 7px;
+  font-size: 10px;
+  font-weight: 900;
   line-height: 1;
   border: 1px solid transparent;
   text-transform: uppercase;
@@ -312,51 +382,52 @@
 }
 
 .actionBadge--create {
-  color: #1d4ed8;
-  background: #dbeafe;
-  border-color: #bfdbfe;
+  color: #5fa985;
+  background: #eef9f2;
+  border-color: #d7efdf;
 }
 
+
 .actionBadge--update {
-  color: #b45309;
-  background: #fef3c7;
-  border-color: #fde68a;
+  color: #c29034;
+  background: #fcf6e8;
+  border-color: #efdfb5;
 }
 
 .actionBadge--delete {
-  color: #b91c1c;
-  background: #fee2e2;
-  border-color: #fecaca;
+  color: #c26b6b;
+  background: #fdf0f0;
+  border-color: #f2d2d2;
 }
 
 .actionBadge--confirm {
-  color: #047857;
-  background: #d1fae5;
-  border-color: #a7f3d0;
+  color: #5fa985;
+  background: #eef9f2;
+  border-color: #d7efdf;
 }
 
 .actionBadge--upload {
-  color: #6d28d9;
-  background: #ede9fe;
-  border-color: #ddd6fe;
+  color: #6e76c7;
+  background: #f2f3ff;
+  border-color: #dfe2ff;
 }
 
 .actionBadge--replace {
-  color: #c2410c;
-  background: #ffedd5;
-  border-color: #fed7aa;
+  color: #c29034;
+  background: #fcf6e8;
+  border-color: #efdfb5;
 }
-
 .auditMeta {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  color: #64748b;
-  font-size: 13px;
+  color: #98a2b3;
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .dot {
-  color: #cbd5e1;
+  color: #d1d5db;
 }
 
 .expandBtn {
@@ -364,33 +435,33 @@
   padding: 0;
   border: 0;
   background: transparent;
-  color: #2563eb;
-  font-size: 14px;
+  color: #27357b;
+  font-size: 13px;
   font-weight: 800;
   cursor: pointer;
   transition: color 0.2s ease;
 }
 
 .expandBtn:hover {
-  color: #1d4ed8;
+  color: #1f2a63;
 }
 
 .auditChanges {
   display: grid;
   gap: 10px;
-  margin-top: 6px;
-  padding-top: 14px;
-  border-top: 1px dashed #dbe1ea;
+  margin-top: 8px;
+  padding-top: 12px;
+  border-top: 1px dashed #e5e7eb;
 }
 
 .auditChangeRow {
   display: grid;
-  grid-template-columns: 180px 1fr;
+  grid-template-columns: 160px 1fr;
   gap: 12px;
   padding: 10px 12px;
-  border-radius: 14px;
-  background: #f8fafc;
-  border: 1px solid #eef2f7;
+  border-radius: 12px;
+  background: #fafbfc;
+  border: 1px solid #eef2f6;
 }
 
 .auditChangeField {
@@ -448,38 +519,47 @@
     align-items: stretch;
   }
 
-  .countBadge {
-    width: fit-content;
+  .filterBar {
+    width: 100%;
+    justify-content: flex-start;
   }
 
-  .filterRow {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .filterItem,
-  .select,
-  .input {
+  .searchField,
+  .filterItem {
     width: 100%;
     min-width: 100%;
+  }
+
+  .searchBox,
+  .select {
+    width: 100%;
   }
 
   .checkCard {
     width: fit-content;
   }
 
-  .auditRow {
+    .auditRow {
     grid-template-columns: 1fr;
+    padding-left: 0;
+  }
+
+  .auditTopLine {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .auditMainLine {
+    width: 100%;
+  }
+
+  .auditTime {
+    padding-top: 0;
   }
 
   .auditIcon {
-    width: 48px;
-    height: 48px;
-  }
-
-  .auditHeader {
-    flex-direction: column;
-    align-items: flex-start;
+    width: 24px;
+    height: 24px;
   }
 
   .auditChangeRow {

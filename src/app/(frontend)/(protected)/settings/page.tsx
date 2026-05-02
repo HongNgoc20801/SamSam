@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { ArrowLeft, ShieldCheck } from 'lucide-react'
+
 import styles from './settings.module.css'
 import { useSettings } from '../../components/providers/SettingsProvider'
 import { useTranslations } from '@/app/lib/i18n/useTranslations'
@@ -34,7 +36,7 @@ function SettingTile({
           disabled={disabled}
           onChange={(e) => onChange(e.target.checked)}
         />
-        <span className={styles.toggleTrack}></span>
+        <span className={styles.toggleTrack} />
       </label>
     </div>
   )
@@ -70,6 +72,7 @@ export default function SettingsPage() {
   const router = useRouter()
   const { settings, setSettings } = useSettings()
   const t = useTranslations()
+  const td = t.settings
 
   const [language, setLanguage] = useState<AppLanguage>('no')
 
@@ -132,13 +135,13 @@ export default function SettingsPage() {
       const data = await res.json().catch(() => null)
 
       if (!res.ok) {
-        throw new Error(data?.message || t.settings.saveError)
+        throw new Error(data?.message || td.saveError)
       }
 
       setSettings(nextSettings)
-      setSuccess(t.settings.saved)
+      setSuccess(td.saved)
     } catch (err: any) {
-      setError(err?.message || t.settings.saveError)
+      setError(err?.message || td.saveError)
     } finally {
       setSaving(false)
     }
@@ -160,7 +163,7 @@ export default function SettingsPage() {
       <main className={styles.page}>
         <div className={styles.container}>
           <section className={styles.panel}>
-            <p className={styles.loading}>{t.settings.loading}</p>
+            <p className={styles.loading}>{td.loading}</p>
           </section>
         </div>
       </main>
@@ -170,39 +173,36 @@ export default function SettingsPage() {
   return (
     <main className={styles.page}>
       <div className={styles.container}>
-        <div className={styles.headerBlock}>
-          <p className={styles.eyebrow}>{t.settings.pageKicker}</p>
-          <h1 className={styles.pageTitle}>{t.settings.title}</h1>
+        <header className={styles.headerBlock}>
+
+          <h1 className={styles.pageTitle}>{td.title}</h1>
+
           <p className={styles.pageIntro}>
-            {t.settings.pageDescription ??
+            {td.pageDescription ??
               'Manage language, privacy, and in-app notification preferences.'}
           </p>
-        </div>
+        </header>
 
         <div className={styles.layout}>
           <div className={styles.mainColumn}>
             <section className={styles.section}>
               <div className={styles.sectionTop}>
                 <div>
-                  <h2 className={styles.sectionTitle}>{t.settings.notifications}</h2>
+                  <h2 className={styles.sectionTitle}>{td.notifications}</h2>
                   <p className={styles.sectionDescription}>
-                    {t.settings.notificationsDescription ??
+                    {td.notificationsDescription ??
                       'Choose which in-app updates you want to receive.'}
                   </p>
                 </div>
-
-                <span className={styles.gridLabel}>
-                  {t.settings.gridLabel ?? 'GRID'}
-                </span>
               </div>
 
               <div className={styles.masterTile}>
                 <div className={styles.masterTileContent}>
                   <h3 className={styles.masterTitle}>
-                    {t.settings.allNotifications ?? 'All notifications'}
+                    {td.allNotifications ?? 'All notifications'}
                   </h3>
                   <p className={styles.masterDescription}>
-                    {t.settings.allNotificationsDescription ??
+                    {td.allNotificationsDescription ??
                       'Turn all in-app notifications on or off.'}
                   </p>
                 </div>
@@ -213,39 +213,39 @@ export default function SettingsPage() {
                     checked={notificationsEnabled}
                     onChange={(e) => setNotificationsEnabled(e.target.checked)}
                   />
-                  <span className={styles.toggleTrack}></span>
+                  <span className={styles.toggleTrack} />
                 </label>
               </div>
 
               <div className={styles.tileGrid}>
                 <SettingTile
-                  title={t.settings.calendar}
-                  description={t.settings.calendarDescription}
+                  title={td.calendar}
+                  description={td.calendarDescription}
                   checked={notifyCalendarChanges}
                   onChange={setNotifyCalendarChanges}
                   disabled={!notificationsEnabled}
                 />
 
                 <SettingTile
-                  title={t.settings.expenses}
-                  description={t.settings.expensesDescription}
+                  title={td.expenses}
+                  description={td.expensesDescription}
                   checked={notifyExpenseUpdates}
                   onChange={setNotifyExpenseUpdates}
                   disabled={!notificationsEnabled}
                 />
 
                 <SettingTile
-                  title={t.settings.status}
-                  description={t.settings.statusDescription}
+                  title={td.status}
+                  description={td.statusDescription}
                   checked={notifyStatusUpdates}
                   onChange={setNotifyStatusUpdates}
                   disabled={!notificationsEnabled}
                 />
 
                 <SettingTile
-                  title={t.settings.documents ?? 'Documents'}
+                  title={td.documents ?? 'Documents'}
                   description={
-                    t.settings.documentsDescription ??
+                    td.documentsDescription ??
                     'Get notified when documents are uploaded, replaced, or changed.'
                   }
                   checked={notifyDocumentUpdates}
@@ -258,9 +258,9 @@ export default function SettingsPage() {
             <section className={styles.section}>
               <div className={styles.sectionTop}>
                 <div>
-                  <h2 className={styles.sectionTitle}>{t.settings.privacy}</h2>
+                  <h2 className={styles.sectionTitle}>{td.privacy}</h2>
                   <p className={styles.sectionDescription}>
-                    {t.settings.privacyDescription ??
+                    {td.privacyDescription ??
                       'Control what other family members can see.'}
                   </p>
                 </div>
@@ -268,39 +268,32 @@ export default function SettingsPage() {
 
               <div className={styles.privacyStack}>
                 <PrivacyRow
-                  title={t.settings.phoneVisibility}
-                  description={t.settings.phoneVisibilityDescription}
-                  value={
-                    sharePhoneWithFamily
-                      ? t.settings.phoneVisible
-                      : t.settings.phoneHidden
-                  }
+                  title={td.phoneVisibility}
+                  description={td.phoneVisibilityDescription}
+                  value={sharePhoneWithFamily ? td.phoneVisible : td.phoneHidden}
                   onClick={() => setSharePhoneWithFamily((prev) => !prev)}
                 />
 
                 <PrivacyRow
-                  title={t.settings.addressPrivacy}
-                  description={t.settings.addressPrivacyDescription}
-                  value={
-                    shareAddressWithFamily
-                      ? t.settings.addressShared
-                      : t.settings.addressPrivate
-                  }
+                  title={td.addressPrivacy}
+                  description={td.addressPrivacyDescription}
+                  value={shareAddressWithFamily ? td.addressShared : td.addressPrivate}
                   onClick={() => setShareAddressWithFamily((prev) => !prev)}
                 />
               </div>
             </section>
 
-            {success ? <p className={styles.success}>{success}</p> : null}
-            {error ? <p className={styles.error}>{error}</p> : null}
+            {success ? <p className={styles.success}>✓ {success}</p> : null}
+            {error ? <p className={styles.error}>⚠ {error}</p> : null}
 
             <div className={styles.bottomActions}>
               <button
                 className={styles.secondaryButton}
                 type="button"
                 onClick={() => router.push('/profile')}
+                disabled={saving}
               >
-                {t.settings.backToProfile}
+                {td.backToProfile}
               </button>
 
               <button
@@ -309,16 +302,20 @@ export default function SettingsPage() {
                 onClick={handleSave}
                 disabled={saving}
               >
-                {saving ? t.settings.saving : t.settings.save}
+                {saving ? td.saving : td.save}
               </button>
             </div>
           </div>
 
           <aside className={styles.sideColumn}>
             <section className={styles.securityPanel}>
-              <p className={styles.sideEyebrowDark}>{t.settings.securityEyebrow}</p>
-              <h3 className={styles.securityTitle}>{t.settings.security}</h3>
-              <p className={styles.securityText}>{t.settings.securityDescription}</p>
+              <div className={styles.securityIcon}>
+                <ShieldCheck size={22} />
+              </div>
+
+              <p className={styles.sideEyebrowDark}>{td.securityEyebrow}</p>
+              <h3 className={styles.securityTitle}>{td.security}</h3>
+              <p className={styles.securityText}>{td.securityDescription}</p>
 
               <div className={styles.securityActions}>
                 <button
@@ -326,21 +323,17 @@ export default function SettingsPage() {
                   type="button"
                   onClick={() => router.push('/settings/change-password')}
                 >
-                  {t.settings.updatePassword}
+                  {td.updatePassword}
                 </button>
 
-                <button
-                  className={styles.darkButton}
-                  type="button"
-                  onClick={handleLogout}
-                >
-                  {t.settings.logout}
+                <button className={styles.darkButton} type="button" onClick={handleLogout}>
+                  {td.logout}
                 </button>
               </div>
             </section>
 
             <section className={styles.sidePanel}>
-              <p className={styles.sideEyebrow}>{t.settings.systemLanguage}</p>
+              <p className={styles.sideEyebrow}>{td.systemLanguage}</p>
 
               <select
                 className={styles.select}
@@ -353,14 +346,15 @@ export default function SettingsPage() {
             </section>
 
             <section className={styles.sidePanel}>
-              <p className={styles.sideEyebrow}>{t.settings.helpSupport}</p>
+              <p className={styles.sideEyebrow}>{td.helpSupport}</p>
 
               <div className={styles.linkList}>
                 <button type="button" className={styles.inlineLink}>
-                  {t.settings.helpCenter}
+                  {td.helpCenter}
                 </button>
+
                 <button type="button" className={styles.inlineLink}>
-                  {t.settings.contactSupport}
+                  {td.contactSupport}
                 </button>
               </div>
             </section>

@@ -1,5 +1,7 @@
 .page {
-  padding: 28px;
+  min-height: 100vh;
+  padding: 34px 28px 48px;
+  color: #0f172a;
 }
 
 .topbar {

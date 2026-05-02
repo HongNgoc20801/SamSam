@@ -2,6 +2,7 @@
   min-height: 100vh;
   background: #f5f7fb;
   color: #0f172a;
+  overflow-x: clip;
 }
 
 .loadingScreen {
@@ -15,13 +16,28 @@
 }
 
 .pageShell {
-  width: min(1140px, calc(100% - 42px));
+  width: min(1180px, calc(100% - 32px));
   margin: 0 auto;
-  padding: 34px 0 36px;
+  padding: 34px 0 40px;
   display: grid;
-  grid-template-columns: 280px minmax(0, 1fr);
-  gap: 42px;
+  grid-template-columns: minmax(240px, 280px) minmax(0, 1fr);
+  gap: clamp(18px, 3vw, 42px);
   align-items: start;
+}
+
+.progressPanel,
+.mainCol,
+.form,
+.section,
+.footerCard,
+.warningBox,
+.identityGrid,
+.fieldsCol,
+.row2,
+.field,
+.cardInner,
+.phoneRow {
+  min-width: 0;
 }
 
 .progressPanel {
@@ -29,16 +45,18 @@
   top: 34px;
   align-self: start;
   display: grid;
-  gap: 0;
+  max-height: calc(100vh - 68px);
+  overflow-y: auto;
 }
+
 .progressOffset {
   margin-top: 78px;
 }
+
 .breadcrumb {
   display: flex;
   align-items: center;
   gap: 8px;
-  flex-wrap: nowrap;
   white-space: nowrap;
   overflow: hidden;
   margin-bottom: 18px;
@@ -48,10 +66,8 @@
 }
 
 .backBtn {
-  flex-shrink: 0;
-  width: fit-content;
-  height: 34px;
-  padding: 0 4px;
+  flex: 0 0 auto;
+  min-height: 34px;
   border: none;
   background: transparent;
   color: #1d4ed8;
@@ -61,20 +77,22 @@
   cursor: pointer;
   font-size: 13px;
   font-weight: 950;
+  padding: 0;
 }
 
 .breadcrumbSlash,
 .breadcrumbSep,
 .breadcrumbItem {
-  flex-shrink: 0;
   color: #64748b;
+  flex: 0 0 auto;
 }
 
 .breadcrumbCurrent {
-  flex-shrink: 0;
   color: #1d4ed8;
   font-weight: 950;
+  flex: 0 0 auto;
 }
+
 .progressCard {
   background: #fff;
   border: 1px solid #e6eaf2;
@@ -93,17 +111,23 @@
 }
 
 .progressItem {
-  height: 52px;
-  padding: 0 14px;
+  min-height: 52px;
+  padding: 10px 14px;
   display: flex;
   align-items: center;
   gap: 12px;
   border-radius: 16px;
-  color: #64748b;
   text-decoration: none;
+  color: #64748b;
   font-size: 14px;
   font-weight: 900;
+  line-height: 1.35;
   transition: 0.16s ease;
+}
+
+.progressItem span {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .progressItem:hover,
@@ -117,7 +141,6 @@
 }
 
 .mainCol {
-  min-width: 0;
   display: grid;
   gap: 20px;
 }
@@ -125,14 +148,11 @@
 .pageHeader {
   padding: 0 20px 24px;
   text-align: center;
-  min-height: 50px;
-  display: grid;
-  align-content: start;
 }
 
 .pageTitle {
   margin: 0;
-  font-size: 34px;
+  font-size: clamp(24px, 3vw, 34px);
   font-weight: 1000;
   line-height: 1.08;
   letter-spacing: -0.04em;
@@ -140,7 +160,7 @@
 
 .pageHint {
   margin: 8px 0 0;
-  font-size: 16px;
+  font-size: clamp(14px, 1.5vw, 16px);
   color: #64748b;
   line-height: 1.4;
 }
@@ -160,7 +180,7 @@
 }
 
 .section {
-  padding: 24px;
+  padding: clamp(16px, 2vw, 24px);
   display: grid;
   gap: 20px;
   scroll-margin-top: 24px;
@@ -175,16 +195,21 @@
 
 .sectionTop {
   display: flex;
-  align-items: flex-start;
   justify-content: space-between;
+  align-items: flex-start;
   gap: 14px;
 }
 
+.sectionTop > div {
+  min-width: 0;
+}
+
 .sectionTitle {
-  font-size: 20px;
+  font-size: clamp(18px, 2vw, 20px);
   font-weight: 1000;
   letter-spacing: -0.025em;
   color: #0f172a;
+  overflow-wrap: anywhere;
 }
 
 .sectionHint {
@@ -193,6 +218,7 @@
   font-size: 14px;
   color: #64748b;
   line-height: 1.5;
+  overflow-wrap: anywhere;
 }
 
 .sectionSubTitle {
@@ -209,8 +235,8 @@
 
 .identityGrid {
   display: grid;
-  grid-template-columns: 230px minmax(0, 1fr);
-  gap: 28px;
+  grid-template-columns: minmax(180px, 230px) minmax(0, 1fr);
+  gap: clamp(18px, 3vw, 28px);
   align-items: center;
 }
 
@@ -236,8 +262,8 @@
 }
 
 .avatarCircle {
-  width: 144px;
-  height: 144px;
+  width: clamp(118px, 13vw, 144px);
+  height: clamp(118px, 13vw, 144px);
   border-radius: 999px;
   overflow: hidden;
   border: 1px dashed #bcd2f3;
@@ -304,6 +330,7 @@
   font-size: 12px;
   color: #64748b;
   line-height: 1.45;
+  overflow-wrap: anywhere;
 }
 
 .avatarText {
@@ -319,6 +346,8 @@
   font-size: 13px;
   font-weight: 900;
   color: #334155;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
 }
 
 .field input,
@@ -327,6 +356,8 @@
 .textarea,
 .bloodMore {
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
   border: 1px solid #e2e8f0;
   background: #f8fafc;
   color: #0f172a;
@@ -342,6 +373,11 @@
 .bloodMore {
   height: 48px;
   padding: 0 14px;
+}
+
+.field select,
+.bloodMore {
+  appearance: auto;
 }
 
 .textarea {
@@ -422,6 +458,7 @@
 .iconCircleBtn {
   width: 38px;
   height: 38px;
+  flex: 0 0 38px;
   border-radius: 999px;
   display: inline-grid;
   place-items: center;
@@ -451,7 +488,7 @@
 .cardInner {
   border: 1px solid #e2e8f0;
   border-radius: 20px;
-  padding: 18px;
+  padding: clamp(14px, 2vw, 18px);
   background: linear-gradient(180deg, #fff 0%, #f8fafc 100%);
   display: grid;
   gap: 16px;
@@ -462,6 +499,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  flex-wrap: wrap;
 }
 
 .primaryPick {
@@ -519,10 +557,16 @@
   font-weight: 1000;
 }
 
+.warningTop strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .warningText {
   margin-top: 8px;
   font-size: 13px;
   line-height: 1.55;
+  overflow-wrap: anywhere;
 }
 
 .footerCard {
@@ -540,11 +584,12 @@
   color: #be123c;
   font-size: 13px;
   line-height: 1.45;
+  overflow-wrap: anywhere;
 }
 
 .actions {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
 }
 
@@ -559,8 +604,13 @@
   transition: 0.15s ease;
 }
 
+.primary,
+.secondary {
+  min-height: 50px;
+  padding: 10px 14px;
+}
+
 .primary {
-  height: 50px;
   border: none;
   background: linear-gradient(135deg, #2563eb, #1d4ed8);
   color: #fff;
@@ -578,7 +628,6 @@
 }
 
 .secondary {
-  height: 50px;
   border: 1px solid #e2e8f0;
   background: #fff;
   color: #0f172a;
@@ -609,11 +658,11 @@
 }
 
 .smallBtnAdd {
-  height: 46px;
+  min-height: 46px;
   border: 1px solid #dbeafe;
   background: #eff6ff;
   color: #2563eb;
-  padding: 0 14px;
+  padding: 10px 14px;
   text-align: left;
 }
 
@@ -623,62 +672,78 @@
 }
 
 .smallDanger {
-  height: 38px;
+  min-height: 38px;
   border: 1px solid #fecdd3;
   background: #fff1f2;
   color: #be123c;
-  padding: 0 12px;
+  padding: 8px 12px;
 }
 
 .smallDanger:hover {
   background: #ffe4e6;
 }
 
-@media (max-width: 980px) {
+/* Màn hình hẹp kiểu laptop chia đôi / có sidebar: bỏ cột progress để form rộng hơn */
+@media (max-width: 1250px) {
   .pageShell {
+    width: calc(100% - 28px);
     grid-template-columns: 1fr;
     gap: 18px;
   }
 
   .progressPanel {
     position: static;
+    max-height: none;
+    overflow: visible;
   }
 
   .progressOffset {
-    margin-top: 14px;
+    margin-top: 12px;
   }
 
   .progressCard {
     display: none;
   }
-}
 
-@media (max-width: 900px) {
   .identityGrid {
     grid-template-columns: 1fr;
+    gap: 22px;
+  }
+
+  .avatarBlock {
+    order: -1;
+    justify-items: center;
+  }
+
+  .fieldsCol {
+    width: 100%;
+  }
+}
+
+/* Khi form vẫn còn rộng thì giữ row2 hai cột, chỉ xuống một cột khi thật sự hẹp */
+@media (max-width: 760px) {
+  .row2 {
+    grid-template-columns: 1fr;
+  }
+
+  .sectionTop {
+    flex-direction: column;
+  }
+
+  .bloodMore {
+    max-width: 100%;
+    flex: 1 1 180px;
   }
 }
 
 @media (max-width: 720px) {
   .pageShell {
-    width: calc(100% - 28px);
+    width: calc(100% - 24px);
     padding-top: 18px;
   }
 
-  .pageTitle {
-    font-size: 24px;
-  }
-
-  .pageHint {
-    font-size: 14px;
-  }
-
-  .row2 {
-    grid-template-columns: 1fr;
-  }
-
-  .actions {
-    grid-template-columns: 1fr;
+  .pageHeader {
+    padding: 0 4px 14px;
   }
 
   .section,
@@ -690,5 +755,86 @@
   .section,
   .footerCard {
     padding: 16px;
+  }
+
+  .actions {
+    grid-template-columns: 1fr;
+  }
+
+  .breadcrumb {
+    margin-bottom: 12px;
+  }
+
+  .breadcrumbItem,
+  .breadcrumbSep,
+  .breadcrumbCurrent,
+  .breadcrumbSlash {
+    display: none;
+  }
+
+  .backBtn {
+    min-height: 38px;
+  }
+
+  .avatarCircle {
+    width: 118px;
+    height: 118px;
+  }
+
+  .field input,
+  .field select,
+  .phoneRow input,
+  .bloodMore {
+    height: 46px;
+  }
+
+  .phoneRow {
+    grid-template-columns: minmax(0, 1fr) 42px;
+  }
+
+  .smallBtn {
+    width: 42px;
+    height: 46px;
+  }
+}
+
+@media (max-width: 420px) {
+  .pageShell {
+    width: calc(100% - 18px);
+  }
+
+  .section,
+  .footerCard,
+  .warningBox {
+    border-radius: 16px;
+    padding: 14px;
+  }
+
+  .bloodRow {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .bloodBtn,
+  .bloodMore {
+    width: 100%;
+    max-width: none;
+  }
+
+  .phoneRow {
+    grid-template-columns: 1fr;
+  }
+
+  .smallBtn {
+    width: 100%;
+  }
+
+  .rowBetween {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .smallDanger {
+    width: 100%;
   }
 }

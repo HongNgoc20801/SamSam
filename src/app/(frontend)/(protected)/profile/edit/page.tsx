@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { ArrowLeft } from 'lucide-react'
+
 import styles from './editProfile.module.css'
 import { useTranslations } from '@/app/lib/i18n/useTranslations'
 
@@ -83,6 +85,7 @@ function SectionCard({
         {icon ? <span className={styles.sectionIcon}>{icon}</span> : null}
         <h2 className={styles.sectionTitle}>{title}</h2>
       </div>
+
       {children}
     </section>
   )
@@ -308,9 +311,7 @@ export default function EditProfilePage() {
       const data = await res.json().catch(() => null)
 
       if (!res.ok) {
-        throw new Error(
-          data?.message || data?.errors?.[0]?.message || td.updateProfileError,
-        )
+        throw new Error(data?.message || data?.errors?.[0]?.message || td.updateProfileError)
       }
 
       setSuccess(td.profileUpdatedSuccess)
@@ -343,29 +344,25 @@ export default function EditProfilePage() {
     <main className={styles.page}>
       <div className={styles.container}>
         <div className={styles.topBar}>
-          <div>
-            <p className={styles.breadcrumb}>{td.breadcrumb}</p>
+          <div className={styles.headerText}>
+            <div className={styles.breadcrumb}>
+              <button
+                type="button"
+                className={styles.backLink}
+                onClick={() => router.push('/profile')}
+              >
+                <ArrowLeft size={16} />
+                Profil
+              </button>
+
+              <span className={styles.breadcrumbSep}>/</span>
+
+              <span className={styles.breadcrumbCurrent}>{td.pageTitle}</span>
+            </div>
+
             <h1 className={styles.pageTitle}>{td.pageTitle}</h1>
           </div>
 
-          <div className={styles.topActions}>
-            <button
-              className={styles.cancelTopBtn}
-              type="button"
-              onClick={() => router.push('/profile')}
-            >
-              {td.cancel}
-            </button>
-
-            <button
-              className={styles.saveTopBtn}
-              type="submit"
-              form="edit-profile-form"
-              disabled={saving}
-            >
-              {saving ? td.saving : td.saveChanges}
-            </button>
-          </div>
         </div>
 
         <form id="edit-profile-form" className={styles.formLayout} onSubmit={handleSubmit}>
@@ -509,6 +506,7 @@ export default function EditProfilePage() {
               className={styles.secondaryBtn}
               type="button"
               onClick={() => router.push('/profile')}
+              disabled={saving}
             >
               {td.cancel}
             </button>

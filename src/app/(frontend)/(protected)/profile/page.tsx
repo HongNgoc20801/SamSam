@@ -299,10 +299,9 @@ export default function ProfilePage() {
     <main className={styles.page}>
       <div className={styles.container}>
         <div className={styles.headerBlock}>
-          <p className={styles.eyebrow}>{td.pageKicker}</p>
-          <h1 className={styles.pageTitle}>{td.pageTitle}</h1>
-        </div>
+  <h1 className={styles.pageTitle}>Profil</h1>
 
+</div>
         <div className={styles.layout}>
           <div className={styles.mainColumn}>
             <section className={styles.heroSection}>

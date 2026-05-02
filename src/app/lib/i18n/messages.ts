@@ -1163,21 +1163,28 @@ editProfilePage: {
 },
 changePassword: {
   title: 'Bytt passord',
+  cardTitle: 'Sikkerhet',
+  subtitle: 'Oppdater passordet ditt for å holde kontoen trygg.',
+  helpText: 'Bruk et sterkt passord som følger sikkerhetskravene.',
+  passwordHint:
+    'Passordet må ha minst 8 tegn, minst én stor bokstav, én liten bokstav og ett tall.',
+
   currentPassword: 'Nåværende passord',
   newPassword: 'Nytt passord',
   confirmPassword: 'Bekreft nytt passord',
 
-  fillAllFields: 'Vennligst fyll inn alle feltene.',
-  passwordMinLength: 'Nytt passord må være minst 6 tegn.',
-  passwordMismatch: 'Nytt passord og bekreftelse matcher ikke.',
-  passwordUpdated: 'Passordet ble oppdatert.',
-  genericError: 'Noe gikk galt.',
-
-  requestFailed: 'Forespørselen mislyktes med status {status}.',
-
-  back: 'Tilbake',
-  saving: 'Lagrer…',
+  back: 'Profil',
+  cancel: 'Avbryt',
+  saving: 'Lagrer...',
   updatePassword: 'Oppdater passord',
+
+  fillAllFields: 'Fyll ut alle feltene.',
+  passwordRequirement:
+    'Passordet må ha minst 8 tegn, minst én stor bokstav, én liten bokstav og ett tall.',
+  passwordMismatch: 'Passordene er ikke like.',
+  requestFailed: 'Kunne ikke oppdatere passordet. Status: {status}',
+  passwordUpdated: 'Passordet ble oppdatert.',
+  genericError: 'Noe gikk galt. Prøv igjen.',
 },
 economy: {
   title: 'Økonomi',
@@ -2788,21 +2795,28 @@ editProfilePage: {
 },
 changePassword: {
   title: 'Change password',
+  cardTitle: 'Security',
+  subtitle: 'Update your password to keep your account secure.',
+  helpText: 'Use a strong password that meets the security requirements.',
+  passwordHint:
+    'Password must be at least 8 characters and include at least one uppercase letter, one lowercase letter, and one number.',
+
   currentPassword: 'Current password',
   newPassword: 'New password',
   confirmPassword: 'Confirm new password',
 
-  fillAllFields: 'Please fill in all fields.',
-  passwordMinLength: 'New password must be at least 6 characters.',
-  passwordMismatch: 'New password and confirmation do not match.',
-  passwordUpdated: 'Password was updated.',
-  genericError: 'Something went wrong.',
-
-  requestFailed: 'Request failed with status {status}.',
-
-  back: 'Back',
-  saving: 'Saving…',
+  back: 'Profile',
+  cancel: 'Cancel',
+  saving: 'Saving...',
   updatePassword: 'Update password',
+
+  fillAllFields: 'Please fill in all fields.',
+  passwordRequirement:
+    'Password must be at least 8 characters and include at least one uppercase letter, one lowercase letter, and one number.',
+  passwordMismatch: 'The passwords do not match.',
+  requestFailed: 'Could not update password. Status: {status}',
+  passwordUpdated: 'Password updated successfully.',
+  genericError: 'Something went wrong. Please try again.',
 },
 economy: {
   title: 'Economy',

@@ -21,18 +21,30 @@ function isCustomer(req: any) {
   return false
 }
 
-function getRelId(v: any) {
-  if (v == null) return null
-  if (typeof v === 'string' || typeof v === 'number') return v
-  return v?.id ?? null
+function normalizeRelId(v: any): string | number | null {
+  if (v === null || v === undefined || v === '') return null
+
+  if (typeof v === 'number') return v
+
+  if (typeof v === 'string') {
+    const trimmed = v.trim()
+    if (!trimmed) return null
+    return /^\d+$/.test(trimmed) ? Number(trimmed) : trimmed
+  }
+
+  if (typeof v === 'object' && v?.id !== undefined && v?.id !== null) {
+    return normalizeRelId(v.id)
+  }
+
+  return null
 }
 
 function getFamilyIdFromUser(req: any) {
-  return getRelId(req?.user?.family)
+  return normalizeRelId(req?.user?.family)
 }
 
 function getUserId(req: any) {
-  return getRelId(req?.user?.id)
+  return normalizeRelId(req?.user?.id)
 }
 
 function getActorName(req: any) {
@@ -43,18 +55,52 @@ function getActorName(req: any) {
   return full || u.fullName || u.name || u.email || 'A parent'
 }
 
+function getDisplayName(doc: any) {
+  if (!doc) return ''
+
+  if (typeof doc === 'string' || typeof doc === 'number') return String(doc)
+
+  const full = `${String(doc.firstName || '').trim()} ${String(doc.lastName || '').trim()}`.trim()
+  return doc.fullName || doc.name || full || doc.email || ''
+}
+
+async function findCustomerName(req: any, id: any) {
+  const normalizedId = normalizeRelId(id)
+  if (!normalizedId) return ''
+
+  const customer = await req.payload
+    .findByID({
+      collection: 'customers',
+      id: normalizedId,
+      req,
+      overrideAccess: true,
+      depth: 0,
+    })
+    .catch(() => null)
+
+  return getDisplayName(customer)
+}
+
+async function findChild(req: any, childId: any) {
+  const normalizedId = normalizeRelId(childId)
+  if (!normalizedId) return null
+
+  return req.payload
+    .findByID({
+      collection: 'children',
+      id: normalizedId,
+      req,
+      overrideAccess: true,
+      depth: 0,
+    })
+    .catch(() => null)
+}
+
 async function validateChildBelongsToFamily(req: any, childId: any, familyId: any) {
   if (!childId) throw new Error('Child is required.')
 
-  const child = await req.payload.findByID({
-    collection: 'children',
-    id: childId,
-    req,
-    overrideAccess: true,
-    depth: 0,
-  })
-
-  const childFamilyId = getRelId(child?.family)
+  const child = await findChild(req, childId)
+  const childFamilyId = normalizeRelId(child?.family)
 
   if (!childFamilyId || String(childFamilyId) !== String(familyId)) {
     throw new Error('This child does not belong to your family.')
@@ -63,12 +109,130 @@ async function validateChildBelongsToFamily(req: any, childId: any, familyId: an
   return child
 }
 
+async function buildCustodyMeta(req: any, doc: any, actorName: string) {
+  const childId = normalizeRelId(doc?.child)
+  const currentParentId = normalizeRelId(doc?.currentParent)
+  const nextParentId = normalizeRelId(doc?.nextParent)
+
+  const child = await findChild(req, childId)
+
+  const childName =
+    getDisplayName(child) ||
+    String((doc?.child as any)?.fullName || (doc?.child as any)?.name || '').trim()
+
+  const currentParentName =
+    getDisplayName(doc?.currentParent) || (await findCustomerName(req, currentParentId))
+
+  const nextParentName =
+    getDisplayName(doc?.nextParent) || (await findCustomerName(req, nextParentId))
+
+  return {
+    type: 'custody-schedule',
+    eventType: 'custody',
+    actorName,
+    custodyId: doc.id,
+    childId,
+    childName,
+    currentParentId,
+    nextParentId,
+    currentParentName,
+    nextParentName,
+    startAt: doc.startAt,
+    endAt: doc.endAt,
+    status: doc.status,
+    handoverStatus: doc.handoverStatus,
+    notes: doc.notes || '',
+  }
+}
+
+async function notifyAndAuditCustody(
+  req: any,
+  input: {
+    doc: any
+    operation: 'create' | 'update' | 'delete'
+  },
+) {
+  const { doc, operation } = input
+
+  if (!req?.user || !doc) return
+
+  const familyId = normalizeRelId(doc.family)
+  const childId = normalizeRelId(doc.child)
+  const actorUserId = getUserId(req)
+  const actorName = getActorName(req)
+
+  if (!familyId) return
+
+  const meta = await buildCustodyMeta(req, doc, actorName)
+
+  const action =
+    operation === 'create'
+      ? 'custody.create'
+      : operation === 'delete'
+        ? 'custody.delete'
+        : 'custody.update'
+
+  const event =
+    operation === 'create'
+      ? 'created'
+      : operation === 'delete'
+        ? 'deleted'
+        : 'updated'
+
+  const summary =
+    operation === 'create'
+      ? 'Created custody schedule'
+      : operation === 'delete'
+        ? 'Deleted custody schedule'
+        : 'Updated custody schedule'
+
+  const title =
+    operation === 'create'
+      ? `Custody period created${meta.childName ? ` for ${meta.childName}` : ''}`
+      : operation === 'delete'
+        ? `Custody period deleted${meta.childName ? ` for ${meta.childName}` : ''}`
+        : `Custody period updated${meta.childName ? ` for ${meta.childName}` : ''}`
+
+  const message =
+    operation === 'create'
+      ? `${actorName} created a custody period.`
+      : operation === 'delete'
+        ? `${actorName} deleted a custody period.`
+        : `${actorName} updated a custody period.`
+
+  await logAudit(req, {
+    familyId,
+    childId,
+    childName: meta.childName,
+    action,
+    entityType: 'event',
+    scope: 'calendar',
+    entityId: String(doc.id),
+    summary,
+    targetLabel: meta.childName || doc.title || 'Custody period',
+    severity: operation === 'delete' ? 'important' : 'info',
+    meta,
+  })
+
+  await notifyFamily(req, {
+    familyId,
+    actorUserId,
+    childId,
+    type: 'calendar',
+    event,
+    title,
+    message,
+    link: '/notifications',
+    meta,
+  })
+}
+
 export const CustodySchedules: CollectionConfig = {
   slug: 'custody-schedules',
 
   admin: {
     useAsTitle: 'title',
-    defaultColumns: ['title', 'child', 'currentParent', 'startAt', 'endAt', 'status'],
+    defaultColumns: ['title', 'child', 'currentParent', 'nextParent', 'startAt', 'endAt', 'status'],
   },
 
   access: {
@@ -82,7 +246,9 @@ export const CustodySchedules: CollectionConfig = {
       if (!familyId) return false
 
       const where: Where = {
-        family: { equals: familyId },
+        family: {
+          equals: familyId,
+        },
       }
 
       return where
@@ -96,11 +262,25 @@ export const CustodySchedules: CollectionConfig = {
       if (!familyId) return false
 
       return {
-        family: { equals: familyId },
+        family: {
+          equals: familyId,
+        },
       }
     },
 
-    delete: ({ req }) => Boolean(req.user),
+    delete: ({ req }) => {
+      if (!req.user) return false
+      if (isAdmin(req)) return true
+
+      const familyId = getFamilyIdFromUser(req)
+      if (!familyId) return false
+
+      return {
+        family: {
+          equals: familyId,
+        },
+      }
+    },
   },
 
   hooks: {
@@ -121,9 +301,9 @@ export const CustodySchedules: CollectionConfig = {
 
         const merged = { ...(originalDoc ?? {}), ...next }
 
-        const childId = getRelId(merged.child)
-        const currentParentId = getRelId(merged.currentParent)
-        const nextParentId = getRelId(merged.nextParent)
+        const childId = normalizeRelId(merged.child)
+        const currentParentId = normalizeRelId(merged.currentParent)
+        const nextParentId = normalizeRelId(merged.nextParent)
 
         if (!childId) throw new Error('Child is required.')
         if (!currentParentId) throw new Error('Current parent is required.')
@@ -133,7 +313,7 @@ export const CustodySchedules: CollectionConfig = {
           throw new Error('Current parent and next parent cannot be the same.')
         }
 
-        await validateChildBelongsToFamily(req, childId, familyId)
+        const child = await validateChildBelongsToFamily(req, childId, familyId)
 
         const startAt = new Date(merged.startAt)
         const endAt = new Date(merged.endAt)
@@ -151,14 +331,17 @@ export const CustodySchedules: CollectionConfig = {
         }
 
         if (operation === 'create') {
+          const childName = getDisplayName(child)
+
           return {
             ...next,
             family: familyId,
             createdBy: userId,
-            status: 'active',
+            status: next.status || 'active',
+            handoverStatus: next.handoverStatus || 'not-ready',
             title:
               String(next.title || '').trim() ||
-              `Custody period ${startAt.toLocaleDateString()} - ${endAt.toLocaleDateString()}`,
+              `Custody period${childName ? ` for ${childName}` : ''}`,
           }
         }
 
@@ -168,47 +351,32 @@ export const CustodySchedules: CollectionConfig = {
 
     afterChange: [
       async ({ doc, operation, req }: any) => {
-        if (!req?.user || !doc) return
+        if (operation !== 'create' && operation !== 'update') return
 
-        const familyId = getRelId(doc.family)
-        const childId = getRelId(doc.child)
-        const actorUserId = getUserId(req)
-        const actorName = getActorName(req)
-
-        if (!familyId) return
-
-        await logAudit(req, {
-          familyId,
-          childId,
-          action: operation === 'create' ? 'custody.create' : 'custody.update',
-          entityType: 'event',
-          scope: 'calendar',
-          entityId: String(doc.id),
-          summary: operation === 'create' ? 'Created custody schedule' : 'Updated custody schedule',
-          meta: {
-            title: doc.title,
-            startAt: doc.startAt,
-            endAt: doc.endAt,
-            status: doc.status,
-          },
+        await notifyAndAuditCustody(req, {
+          doc,
+          operation: operation === 'create' ? 'create' : 'update',
         })
+      },
+    ],
 
-        await notifyFamily(req, {
-          familyId,
-          actorUserId,
-          childId,
-          type: 'calendar',
-          event: operation === 'create' ? 'created' : 'updated',
-          title: doc.title || 'Custody schedule updated',
-          message: `${actorName} ${operation === 'create' ? 'created' : 'updated'} a custody schedule.`,
-          link: '/dashboard',
-          meta: {
-            actorName,
-            custodyId: doc.id,
-            startAt: doc.startAt,
-            endAt: doc.endAt,
-            status: doc.status,
-          },
+    beforeDelete: [
+      async ({ req, id }: any) => {
+        const doc = await req.payload
+          .findByID({
+            collection: 'custody-schedules',
+            id,
+            req,
+            overrideAccess: true,
+            depth: 1,
+          })
+          .catch(() => null)
+
+        if (!doc) return
+
+        await notifyAndAuditCustody(req, {
+          doc,
+          operation: 'delete',
         })
       },
     ],
@@ -221,8 +389,11 @@ export const CustodySchedules: CollectionConfig = {
       relationTo: 'families',
       required: true,
       index: true,
-      admin: { readOnly: true },
+      admin: {
+        readOnly: true,
+      },
     },
+
     {
       name: 'child',
       type: 'relationship',
@@ -230,11 +401,13 @@ export const CustodySchedules: CollectionConfig = {
       required: true,
       index: true,
     },
+
     {
       name: 'title',
       type: 'text',
       required: true,
     },
+
     {
       name: 'currentParent',
       type: 'relationship',
@@ -242,6 +415,7 @@ export const CustodySchedules: CollectionConfig = {
       required: true,
       index: true,
     },
+
     {
       name: 'nextParent',
       type: 'relationship',
@@ -249,31 +423,35 @@ export const CustodySchedules: CollectionConfig = {
       required: true,
       index: true,
     },
+
     {
       name: 'startAt',
       type: 'date',
       required: true,
       index: true,
     },
+
     {
       name: 'endAt',
       type: 'date',
       required: true,
       index: true,
     },
+
     {
       name: 'status',
       type: 'select',
       required: true,
       defaultValue: 'active',
+      index: true,
       options: [
         { label: 'Active', value: 'active' },
         { label: 'Completed', value: 'completed' },
         { label: 'Changed', value: 'changed' },
         { label: 'Cancelled', value: 'cancelled' },
       ],
-      index: true,
     },
+
     {
       name: 'handoverStatus',
       type: 'select',
@@ -284,15 +462,19 @@ export const CustodySchedules: CollectionConfig = {
         { label: 'Handed over', value: 'handed-over' },
       ],
     },
+
     {
       name: 'notes',
       type: 'textarea',
     },
+
     {
       name: 'createdBy',
       type: 'relationship',
       relationTo: 'customers',
-      admin: { readOnly: true },
+      admin: {
+        readOnly: true,
+      },
     },
   ],
 }

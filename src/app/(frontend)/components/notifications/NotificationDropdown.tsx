@@ -47,9 +47,7 @@ function formatRelativeTime(value?: string) {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return ''
 
-  const now = Date.now()
-  const diffMs = now - date.getTime()
-
+  const diffMs = Date.now() - date.getTime()
   const minute = 60 * 1000
   const hour = 60 * minute
   const day = 24 * hour
@@ -67,6 +65,7 @@ function formatRelativeTime(value?: string) {
 
 function fmtTime(value?: string) {
   if (!value) return ''
+
   const d = new Date(value)
   if (Number.isNaN(d.getTime())) return ''
 
@@ -92,31 +91,31 @@ function fmtMoney(amount?: number, currency = 'NOK') {
   }
 }
 
-function getEventTypeLabel(type?: string) {
-  switch (String(type || 'other')) {
-    case 'handover':
-      return 'Handover'
-    case 'pickup':
-      return 'Pickup'
-    case 'dropoff':
-      return 'Drop-off'
-    case 'school':
-      return 'School'
-    case 'activity':
-      return 'Activity'
-    case 'medical':
-      return 'Medical'
-    case 'payment':
-      return 'Payment'
-    default:
-      return 'Other'
-  }
-}
-
 function shorten(text?: string, max = 80) {
   const value = String(text || '').trim()
   if (!value) return ''
   return value.length > max ? `${value.slice(0, max)}…` : value
+}
+
+function getEventTypeLabel(type?: string) {
+  switch (String(type || 'other')) {
+    case 'handover':
+      return 'Levering'
+    case 'pickup':
+      return 'Henting'
+    case 'dropoff':
+      return 'Levering'
+    case 'school':
+      return 'Skole'
+    case 'activity':
+      return 'Aktivitet'
+    case 'medical':
+      return 'Medisinsk'
+    case 'payment':
+      return 'Betaling'
+    default:
+      return 'Kalender'
+  }
 }
 
 function getInitials(name?: string) {
@@ -127,193 +126,6 @@ function getInitials(name?: string) {
   if (parts.length === 1) return parts[0].charAt(0).toUpperCase()
 
   return `${parts[0].charAt(0)}${parts[1].charAt(0)}`.toUpperCase()
-}
-
-function buildNotificationTitle(item: NotificationItem) {
-  const meta = item.meta || {}
-  const childName = String(meta.childName || '').trim()
-  const eventType = getEventTypeLabel(meta.eventType)
-  const rawTitle = String(item.title || 'Notification').trim()
-  const isChildUpdate = !!meta.isChildUpdate
-  const documentName = String(meta.documentName || item.title || '').trim()
-  const actorName = String(meta.actorName || 'A parent').trim()
-
-  if (item.type === 'calendar') {
-    if (item.event === 'created') return `${actorName}`
-    if (item.event === 'updated') return `${actorName}`
-    if (item.event === 'deleted') return `${actorName}`
-    if (item.event === 'confirmed') return `${actorName}`
-    if (item.event === 'declined') return `${actorName}`
-  }
-
-  if (item.type === 'expense') {
-    return actorName
-  }
-
-  if (item.type === 'request') {
-    return actorName
-  }
-
-  if (item.type === 'bank') {
-    return 'Bank'
-  }
-
-  if (item.type === 'status') {
-    if (childName) return actorName
-  }
-
-  if (item.type === 'documents') {
-    if (childName || documentName) return actorName
-  }
-
-  if (item.type === 'post') {
-    return actorName
-  }
-
-  return rawTitle || 'Notification'
-}
-
-function buildNotificationMessage(item: NotificationItem) {
-  const meta = item.meta || {}
-  const actorName = String(meta.actorName || 'A parent').trim()
-  const childName = String(meta.childName || '').trim()
-  const documentName = shorten(meta.documentName || item.title || '')
-  const postTitle = shorten(meta.title || item.message || '')
-  const confirmedAt = String(meta.confirmedAt || '').trim()
-  const eventType = getEventTypeLabel(meta.eventType)
-
-  if (item.type === 'calendar') {
-    if (item.event === 'created') {
-      return `${eventType.toLowerCase()} created${childName ? ` for ${childName}` : ''}.`
-    }
-
-    if (item.event === 'updated') {
-      return `${eventType.toLowerCase()} updated${childName ? ` for ${childName}` : ''}.`
-    }
-
-    if (item.event === 'deleted') {
-      return `${eventType.toLowerCase()} deleted${childName ? ` for ${childName}` : ''}.`
-    }
-
-    if (item.event === 'confirmed') {
-      return `accepted this event${confirmedAt ? ` at ${confirmedAt}` : ''}.`
-    }
-
-    if (item.event === 'declined') {
-      return `declined this event${confirmedAt ? ` at ${confirmedAt}` : ''}.`
-    }
-
-    const parts = [
-      meta.startAt ? fmtTime(meta.startAt) : '',
-      meta.location || '',
-      childName ? childName : '',
-    ].filter(Boolean)
-
-    if (parts.length) return parts.join(' · ')
-  }
-
-  if (item.type === 'expense') {
-    return [
-      item.event === 'created' ? 'created a payment item' : '',
-      item.event === 'updated' ? 'updated a payment item' : '',
-      item.event === 'deleted' ? 'deleted a payment item' : '',
-      item.event === 'paid' ? 'paid a payment item' : '',
-      meta.amount ? fmtMoney(meta.amount, meta.currency || 'NOK') : '',
-      childName ? childName : '',
-    ]
-      .filter(Boolean)
-      .join(' · ')
-  }
-
-  if (item.type === 'request') {
-    return [
-      item.event === 'created' ? 'created a money request' : '',
-      item.event === 'approved' ? 'approved a money request' : '',
-      item.event === 'rejected' ? 'rejected a money request' : '',
-      item.event === 'updated' ? 'updated a money request' : '',
-      item.event === 'deleted' ? 'deleted a money request' : '',
-      meta.amount ? fmtMoney(meta.amount, meta.currency || 'NOK') : '',
-      childName ? childName : '',
-    ]
-      .filter(Boolean)
-      .join(' · ')
-  }
-
-  if (item.type === 'bank') {
-    return [meta.bankName || '', meta.connectionScope || '', meta.status || '']
-      .filter(Boolean)
-      .join(' · ')
-  }
-
-  if (item.type === 'status') {
-    if (item.event === 'created' && childName) {
-      return `created child profile for ${childName}.`
-    }
-
-    if (item.event === 'updated' && childName && meta.needsConfirmation) {
-      return `updated ${childName}'s profile. Waiting for confirmation.`
-    }
-
-    if (item.event === 'updated' && childName) {
-      return `updated ${childName}'s profile.`
-    }
-
-    if (item.event === 'confirmed' && childName) {
-      return `confirmed ${childName}'s profile.`
-    }
-
-    if (item.event === 'declined' && childName) {
-      return `declined ${childName}'s profile.`
-    }
-  }
-
-  if (item.type === 'documents') {
-    if (item.event === 'uploaded') {
-      return `uploaded ${documentName ? `"${documentName}"` : 'a document'}.`
-    }
-
-    if (item.event === 'replaced') {
-      return `replaced ${documentName ? `"${documentName}"` : 'a document'}.`
-    }
-
-    if (item.event === 'updated') {
-      return `updated ${documentName ? `"${documentName}"` : 'a document'}.`
-    }
-
-    if (item.event === 'deleted') {
-      return `deleted ${documentName ? `"${documentName}"` : 'a document'}.`
-    }
-  }
-
-  if (item.type === 'post') {
-    if (item.event === 'created') {
-      return childName
-        ? `posted an update for ${childName}: "${postTitle}".`
-        : `posted: "${postTitle}".`
-    }
-
-    if (item.event === 'updated') {
-      return childName
-        ? `updated a post for ${childName}: "${postTitle}".`
-        : `updated the post "${postTitle}".`
-    }
-
-    if (item.event === 'deleted') {
-      return childName
-        ? `deleted a post for ${childName}: "${postTitle}".`
-        : `deleted the post "${postTitle}".`
-    }
-
-    if (item.event === 'commented') {
-      return `commented on "${postTitle}".`
-    }
-
-    if (item.event === 'liked') {
-      return `liked "${postTitle}".`
-    }
-  }
-
-  return item.message || 'Open to view details.'
 }
 
 function getMediaUrl(value: any) {
@@ -345,6 +157,335 @@ function getAvatarUrl(item: NotificationItem) {
   )
 }
 
+function buildNotificationTitle(item: NotificationItem) {
+  const meta = item.meta || {}
+  const actorName = String(meta.actorName || item.title || 'En forelder').trim()
+  const childName = String(meta.childName || '').trim()
+  const documentName = String(meta.documentName || item.title || '').trim()
+  const eventType = getEventTypeLabel(meta.eventType)
+  const rawTitle = String(item.title || 'Varsel').trim()
+  const isChildUpdate = !!meta.isChildUpdate
+
+  if (meta.type === 'custody-schedule') {
+    if (item.event === 'created') {
+      return `Omsorgsperiode opprettet${childName ? ` for ${childName}` : ''}`
+    }
+
+    if (item.event === 'updated') {
+      if (meta.handoverStatus === 'ready') {
+        return `Klar for bytte${childName ? ` for ${childName}` : ''}`
+      }
+
+      if (meta.handoverStatus === 'handed-over') {
+        return `Barn mottatt${childName ? `: ${childName}` : ''}`
+      }
+
+      return `Omsorgsperiode oppdatert${childName ? ` for ${childName}` : ''}`
+    }
+  }
+
+  if (meta.type === 'custody-emergency') {
+    return `${actorName} ber om hastebytte${childName ? ` for ${childName}` : ''}`
+  }
+
+  if (meta.type === 'custody-emergency-response') {
+    return meta.status === 'approved'
+      ? `Hastebytte godkjent${childName ? ` for ${childName}` : ''}`
+      : `Hastebytte avslått${childName ? ` for ${childName}` : ''}`
+  }
+
+  if (item.type === 'calendar') {
+    if (item.event === 'created') {
+      return `${eventType} opprettet${childName ? ` for ${childName}` : ''}`
+    }
+
+    if (item.event === 'updated') {
+      return `${eventType} oppdatert${childName ? ` for ${childName}` : ''}`
+    }
+
+    if (item.event === 'deleted') {
+      return `${eventType} slettet${childName ? ` for ${childName}` : ''}`
+    }
+
+    if (item.event === 'confirmed') {
+      return `${eventType} godkjent${childName ? ` for ${childName}` : ''}`
+    }
+
+    if (item.event === 'declined') {
+      return `${eventType} avslått${childName ? ` for ${childName}` : ''}`
+    }
+  }
+
+  if (item.type === 'expense') return actorName
+  if (item.type === 'request') return actorName
+  if (item.type === 'bank') return 'Bank'
+
+  if (item.type === 'status') {
+    if (item.event === 'created' && childName) return `Ny barneprofil: ${childName}`
+    if (item.event === 'updated' && childName && meta.needsConfirmation) {
+      return `${childName} trenger bekreftelse`
+    }
+    if (item.event === 'updated' && childName) return `${childName} profil oppdatert`
+    if (item.event === 'confirmed' && childName) return `${childName} ble bekreftet`
+    if (item.event === 'declined' && childName) return `${childName} ble avslått`
+  }
+
+  if (item.type === 'documents') {
+    if (item.event === 'uploaded') {
+      return childName
+        ? `Dokument lastet opp for ${childName}`
+        : documentName
+          ? `Dokument lastet opp: ${documentName}`
+          : 'Dokument lastet opp'
+    }
+
+    if (item.event === 'replaced') {
+      return childName
+        ? `Dokument erstattet for ${childName}`
+        : documentName
+          ? `Dokument erstattet: ${documentName}`
+          : 'Dokument erstattet'
+    }
+
+    if (item.event === 'updated') {
+      return childName
+        ? `Dokument oppdatert for ${childName}`
+        : documentName
+          ? `Dokument oppdatert: ${documentName}`
+          : 'Dokument oppdatert'
+    }
+
+    if (item.event === 'deleted') {
+      return childName
+        ? `Dokument slettet for ${childName}`
+        : documentName
+          ? `Dokument slettet: ${documentName}`
+          : 'Dokument slettet'
+    }
+  }
+
+  if (item.type === 'post') {
+    if (item.event === 'created') {
+      return isChildUpdate
+        ? `Ny oppdatering${childName ? ` for ${childName}` : ''}`
+        : 'Ny familieoppdatering'
+    }
+
+    if (item.event === 'updated') {
+      return isChildUpdate
+        ? `Oppdatering redigert${childName ? ` for ${childName}` : ''}`
+        : 'Familieoppdatering redigert'
+    }
+
+    if (item.event === 'deleted') {
+      return isChildUpdate
+        ? `Oppdatering slettet${childName ? ` for ${childName}` : ''}`
+        : 'Familieoppdatering slettet'
+    }
+
+    if (item.event === 'commented') {
+      return childName ? `Ny kommentar for ${childName}` : 'Ny kommentar på oppdatering'
+    }
+
+    if (item.event === 'liked') {
+      return childName ? `Oppdatering likt for ${childName}` : 'Oppdatering likt'
+    }
+  }
+
+  return rawTitle
+}
+
+function buildNotificationMessage(item: NotificationItem) {
+  const meta = item.meta || {}
+  const actorName = String(meta.actorName || 'En forelder').trim()
+  const childName = String(meta.childName || '').trim()
+  const documentName = shorten(meta.documentName || item.title || '')
+  const postTitle = shorten(meta.title || item.message || '')
+  const confirmedAt = String(meta.confirmedAt || '').trim()
+
+  if (meta.type === 'custody-schedule') {
+    const route =
+      meta.currentParentName && meta.nextParentName
+        ? `${meta.currentParentName} → ${meta.nextParentName}`
+        : ''
+
+    if (item.event === 'created') {
+      return [
+        `${actorName} opprettet en omsorgsperiode`,
+        childName,
+        route,
+        meta.startAt ? fmtTime(meta.startAt) : '',
+      ]
+        .filter(Boolean)
+        .join(' · ')
+    }
+
+    if (meta.handoverStatus === 'ready') {
+      return `${actorName} markerte barnet som klart for bytte.`
+    }
+
+    if (meta.handoverStatus === 'handed-over') {
+      return `${actorName} bekreftet mottak av barnet.`
+    }
+
+    return [
+      `${actorName} oppdaterte en omsorgsperiode`,
+      childName,
+      route,
+      meta.startAt ? fmtTime(meta.startAt) : '',
+    ]
+      .filter(Boolean)
+      .join(' · ')
+  }
+
+  if (meta.type === 'custody-emergency') {
+    return [
+      meta.pickupAt ? `Henting: ${fmtTime(meta.pickupAt)}` : '',
+      meta.returnAt ? `Varer til: ${fmtTime(meta.returnAt)}` : '',
+      item.message || meta.reason || 'Hastebytte forespurt.',
+    ]
+      .filter(Boolean)
+      .join(' · ')
+  }
+
+  if (meta.type === 'custody-emergency-response') {
+    return [
+      meta.status === 'approved'
+        ? 'Den andre forelderen har godkjent hastebytte.'
+        : 'Den andre forelderen har avslått hastebytte.',
+      meta.pickupAt ? `Henting: ${fmtTime(meta.pickupAt)}` : '',
+      meta.returnAt ? `Varer til: ${fmtTime(meta.returnAt)}` : '',
+    ]
+      .filter(Boolean)
+      .join(' · ')
+  }
+
+  if (item.type === 'calendar') {
+    const eventType = getEventTypeLabel(meta.eventType).toLowerCase()
+
+    if (item.event === 'created') {
+      return `${actorName} opprettet ${eventType}${childName ? ` for ${childName}` : ''}.`
+    }
+
+    if (item.event === 'updated') {
+      return `${actorName} oppdaterte en kalenderhendelse.`
+    }
+
+    if (item.event === 'deleted') {
+      return `${actorName} slettet ${eventType}${childName ? ` for ${childName}` : ''}.`
+    }
+
+    if (item.event === 'confirmed') {
+      return `${actorName} godkjente hendelsen${confirmedAt ? ` ${confirmedAt}` : ''}.`
+    }
+
+    if (item.event === 'declined') {
+      return `${actorName} avslo hendelsen${confirmedAt ? ` ${confirmedAt}` : ''}.`
+    }
+  }
+
+  if (item.type === 'expense') {
+    return [
+      item.event === 'created' ? 'opprettet en betaling' : '',
+      item.event === 'updated' ? 'oppdaterte en betaling' : '',
+      item.event === 'deleted' ? 'slettet en betaling' : '',
+      item.event === 'paid' ? 'betalte en betaling' : '',
+      meta.amount ? fmtMoney(meta.amount, meta.currency || 'NOK') : '',
+      childName,
+    ]
+      .filter(Boolean)
+      .join(' · ')
+  }
+
+  if (item.type === 'request') {
+    return [
+      item.event === 'created' ? 'opprettet en pengeforespørsel' : '',
+      item.event === 'approved' ? 'godkjente en pengeforespørsel' : '',
+      item.event === 'rejected' ? 'avslo en pengeforespørsel' : '',
+      meta.amount ? fmtMoney(meta.amount, meta.currency || 'NOK') : '',
+      childName,
+    ]
+      .filter(Boolean)
+      .join(' · ')
+  }
+
+  if (item.type === 'bank') {
+    return [meta.bankName || '', meta.connectionScope || '', meta.status || '']
+      .filter(Boolean)
+      .join(' · ')
+  }
+
+  if (item.type === 'status') {
+    if (item.event === 'created' && childName) {
+      return `${actorName} opprettet barneprofilen. Venter på bekreftelse.`
+    }
+
+    if (item.event === 'updated' && childName && meta.needsConfirmation) {
+      return `${actorName} oppdaterte profilen. Venter på bekreftelse.`
+    }
+
+    if (item.event === 'updated' && childName) {
+      return `${actorName} oppdaterte barneprofilen.`
+    }
+
+    if (item.event === 'confirmed' && childName) {
+      return `${actorName} bekreftet barneprofilen.`
+    }
+
+    if (item.event === 'declined' && childName) {
+      return `${actorName} avslo barneprofilen.`
+    }
+  }
+
+  if (item.type === 'documents') {
+    if (item.event === 'uploaded') {
+      return `${actorName} lastet opp${documentName ? ` "${documentName}"` : ' et dokument'}.`
+    }
+
+    if (item.event === 'replaced') {
+      return `${actorName} erstattet${documentName ? ` "${documentName}"` : ' et dokument'}.`
+    }
+
+    if (item.event === 'updated') {
+      return `${actorName} oppdaterte${documentName ? ` "${documentName}"` : ' et dokument'}.`
+    }
+
+    if (item.event === 'deleted') {
+      return `${actorName} slettet${documentName ? ` "${documentName}"` : ' et dokument'}.`
+    }
+  }
+
+  if (item.type === 'post') {
+    if (item.event === 'created') {
+      return childName
+        ? `${actorName} opprettet innlegget "${postTitle}" for ${childName}.`
+        : `${actorName} opprettet innlegget "${postTitle}".`
+    }
+
+    if (item.event === 'updated') {
+      return childName
+        ? `${actorName} oppdaterte innlegget "${postTitle}" for ${childName}.`
+        : `${actorName} oppdaterte innlegget "${postTitle}".`
+    }
+
+    if (item.event === 'deleted') {
+      return childName
+        ? `${actorName} slettet innlegget "${postTitle}" for ${childName}.`
+        : `${actorName} slettet innlegget "${postTitle}".`
+    }
+
+    if (item.event === 'commented') {
+      return `${actorName} kommenterte på "${postTitle}".`
+    }
+
+    if (item.event === 'liked') {
+      return `${actorName} likte "${postTitle}".`
+    }
+  }
+
+  return item.message || 'Åpne for å se detaljer.'
+}
+
 function NotificationTypeIcon({ type }: { type: NotificationItem['type'] }) {
   const common = {
     className: styles.typeIcon,
@@ -369,23 +510,14 @@ function NotificationTypeIcon({ type }: { type: NotificationItem['type'] }) {
       return (
         <svg {...common}>
           <path d="M3 7h18v10H3V7z" stroke="currentColor" strokeWidth="1.8" />
-          <path
-            d="M12 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"
-            stroke="currentColor"
-            strokeWidth="1.8"
-          />
+          <path d="M12 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4z" stroke="currentColor" strokeWidth="1.8" />
         </svg>
       )
 
     case 'request':
       return (
         <svg {...common}>
-          <path
-            d="M12 3v18M3 12h18"
-            stroke="currentColor"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-          />
+          <path d="M12 3v18M3 12h18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
         </svg>
       )
 
@@ -433,12 +565,7 @@ function NotificationTypeIcon({ type }: { type: NotificationItem['type'] }) {
             stroke="currentColor"
             strokeWidth="1.8"
           />
-          <path
-            d="M8 9h8M8 12h8M8 15h5"
-            stroke="currentColor"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-          />
+          <path d="M8 9h8M8 12h8M8 15h5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
         </svg>
       )
   }
@@ -460,6 +587,7 @@ export default function NotificationDropdown({
     if (activeTab === 'unread') {
       return items.filter((item) => !item.isRead)
     }
+
     return items
   }, [activeTab, items])
 
@@ -470,36 +598,55 @@ export default function NotificationDropdown({
       <div className={styles.header}>
         <div className={styles.headerTop}>
           <h2 className={styles.title}>Siste varsler</h2>
+
+          {unreadCount > 0 ? (
+            <button
+              type="button"
+              className={styles.seeAllBtn}
+              onClick={onMarkAll}
+              disabled={markingAll}
+            >
+              {markingAll ? 'Lagrer...' : 'Merk alle lest'}
+            </button>
+          ) : null}
         </div>
 
         <div className={styles.tabs}>
-          <button type="button" className={`${styles.tab} ${styles.activeTab}`}>
-            All
+          <button
+            type="button"
+            className={`${styles.tab} ${activeTab === 'all' ? styles.activeTab : ''}`}
+            onClick={() => setActiveTab('all')}
+          >
+            Alle
           </button>
 
-          <button type="button" className={styles.tab}>
-            Unread
+          <button
+            type="button"
+            className={`${styles.tab} ${activeTab === 'unread' ? styles.activeTab : ''}`}
+            onClick={() => setActiveTab('unread')}
+          >
+            Ulest
           </button>
         </div>
       </div>
 
       <div className={styles.sectionHeader}>
-        <span>New</span>
+        <span>Nye</span>
 
         <button type="button" className={styles.seeAllBtn} onClick={onViewAll}>
-          See all
+          Se alle
         </button>
       </div>
 
       <div className={styles.list}>
         {loading ? (
-          <div className={styles.empty}>Loading notifications...</div>
+          <div className={styles.empty}>Laster varsler...</div>
         ) : visibleItems.length === 0 ? (
-          <div className={styles.empty}>No notifications yet.</div>
+          <div className={styles.empty}>Ingen varsler ennå.</div>
         ) : (
           visibleItems.map((item) => {
             const avatarUrl = getAvatarUrl(item)
-            const actorName = String(item.meta?.actorName || item.title || 'Notification')
+            const actorName = String(item.meta?.actorName || item.title || 'Varsel')
             const fallbackInitials = getInitials(actorName)
 
             return (
@@ -518,11 +665,7 @@ export default function NotificationDropdown({
                     )}
                   </div>
 
-                  <div
-                    className={`${styles.smallTypeIcon} ${
-                      styles[`smallTypeIcon--${item.type}`] || ''
-                    }`}
-                  >
+                  <div className={`${styles.smallTypeIcon} ${styles[`smallTypeIcon--${item.type}`] || ''}`}>
                     <NotificationTypeIcon type={item.type} />
                   </div>
                 </div>

@@ -889,22 +889,22 @@ export default function EconomyPage() {
     setRequestNotes('')
   }
 
-  function saveMonthlyBudget(e: React.FormEvent) {
-    e.preventDefault()
-    setError('')
-    setSuccess('')
+ function saveMonthlyBudget(e: React.FormEvent) {
+  e.preventDefault()
+  setError('')
+  setSuccess('')
 
-    const parsed = Number(budgetInput)
+  const parsed = Number(budgetInput)
 
-    if (!Number.isFinite(parsed) || parsed < 0) {
-      setError('Please enter a valid planned budget.')
-      return
-    }
-
-    setMonthlyBudget(parsed)
-    setShowBudgetModal(false)
-    setSuccess('Planned monthly budget saved.')
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    setError(te.validPlannedBudget)
+    return
   }
+
+  setMonthlyBudget(parsed)
+  setShowBudgetModal(false)
+  setSuccess(te.plannedBudgetSaved)
+}
 
   function openBankPanel() {
     setError('')
@@ -1624,85 +1624,81 @@ export default function EconomyPage() {
         </aside>
       </section>
 
-      <section className={styles.budgetOverviewCard}>
-        <div className={styles.budgetOverviewHeader}>
-          <div>
-            <div className={styles.cashflowEyebrow}>Monthly budget overview</div>
-            <div className={styles.cashflowTitle}>This month spending</div>
-            <div className={styles.cashflowSub}>
-              Compare your planned spending with your real paid expenses this month.
-            </div>
-          </div>
+   <section className={styles.budgetOverviewCard}>
+  <div className={styles.budgetOverviewHeader}>
+    <div>
+      <div className={styles.cashflowEyebrow}>{te.budgetOverviewEyebrow}</div>
+      <div className={styles.cashflowTitle}>{te.thisMonthSpending}</div>
+      <div className={styles.cashflowSub}>{te.budgetOverviewDescription}</div>
+    </div>
 
-          <button
-            type="button"
-            className={styles.primaryBtn}
-            onClick={() => {
-              setBudgetInput(monthlyBudget > 0 ? String(monthlyBudget) : '')
-              setShowBudgetModal(true)
-            }}
-          >
-            {monthlyBudget > 0 ? 'Edit planned spending' : 'Set up planned spending'}
-          </button>
+    <button
+      type="button"
+      className={styles.primaryBtn}
+      onClick={() => {
+        setBudgetInput(monthlyBudget > 0 ? String(monthlyBudget) : '')
+        setShowBudgetModal(true)
+      }}
+    >
+      {monthlyBudget > 0 ? te.editPlannedSpending : te.setPlannedSpending}
+    </button>
+  </div>
+
+  <div className={styles.budgetOverviewStats}>
+    <div className={styles.budgetMiniCard}>
+      <span>{te.actualThisMonth}</span>
+      <strong>{fmtCurrency(totalSpentThisMonth, dashboardCurrency)}</strong>
+    </div>
+
+    <div className={styles.budgetMiniCard}>
+      <span>{te.plannedBudget}</span>
+      <strong>{fmtCurrency(monthlyBudget, dashboardCurrency)}</strong>
+    </div>
+
+    <div className={styles.budgetMiniCard}>
+      <span>{budgetExceeded ? te.overBudget : te.remaining}</span>
+      <strong>{fmtCurrency(Math.abs(budgetRemaining), dashboardCurrency)}</strong>
+    </div>
+  </div>
+
+  <div className={styles.budgetCompare}>
+    <div className={styles.budgetCompareTop}>
+      <span>{te.budgetProgress}</span>
+      <strong>
+        {monthlyBudget > 0 ? `${Math.round(budgetUsedPercent)}% ${te.used}` : te.noPlanSet}
+      </strong>
+    </div>
+
+    <div className={styles.budgetBarsGroup}>
+      <div className={styles.budgetBarBlock}>
+        <div className={styles.budgetBarLabelRow}>
+          <span>{te.planned}</span>
+          <strong>{fmtCurrency(monthlyBudget, dashboardCurrency)}</strong>
         </div>
 
-        <div className={styles.budgetOverviewStats}>
-          <div className={styles.budgetMiniCard}>
-            <span>Actual this month</span>
-            <strong>{fmtCurrency(totalSpentThisMonth, dashboardCurrency)}</strong>
-          </div>
+        <div className={styles.budgetBarTrack}>
+          <div className={styles.budgetBarPlanned} style={{ width: `${plannedBarWidth}%` }} />
+        </div>
+      </div>
 
-          <div className={styles.budgetMiniCard}>
-            <span>Planned budget</span>
-            <strong>{fmtCurrency(monthlyBudget, dashboardCurrency)}</strong>
-          </div>
-
-          <div className={styles.budgetMiniCard}>
-            <span>{budgetExceeded ? 'Over budget' : 'Remaining'}</span>
-            <strong>{fmtCurrency(Math.abs(budgetRemaining), dashboardCurrency)}</strong>
-          </div>
+      <div className={styles.budgetBarBlock}>
+        <div className={styles.budgetBarLabelRow}>
+          <span>{te.actual}</span>
+          <strong>{fmtCurrency(totalSpentThisMonth, dashboardCurrency)}</strong>
         </div>
 
-        <div className={styles.budgetCompare}>
-          <div className={styles.budgetCompareTop}>
-            <span>Budget progress</span>
-            <strong>{monthlyBudget > 0 ? `${Math.round(budgetUsedPercent)}% used` : 'No plan set'}</strong>
-          </div>
-
-          <div className={styles.budgetBarsGroup}>
-            <div className={styles.budgetBarBlock}>
-              <div className={styles.budgetBarLabelRow}>
-                <span>Planned</span>
-                <strong>{fmtCurrency(monthlyBudget, dashboardCurrency)}</strong>
-              </div>
-
-              <div className={styles.budgetBarTrack}>
-                <div className={styles.budgetBarPlanned} style={{ width: `${plannedBarWidth}%` }} />
-              </div>
-            </div>
-
-            <div className={styles.budgetBarBlock}>
-              <div className={styles.budgetBarLabelRow}>
-                <span>Actual</span>
-                <strong>{fmtCurrency(totalSpentThisMonth, dashboardCurrency)}</strong>
-              </div>
-
-              <div className={styles.budgetBarTrack}>
-                <div className={styles.budgetBarActual} style={{ width: `${actualBarWidth}%` }} />
-              </div>
-            </div>
-          </div>
-
-          <div className={styles.budgetCompareMeta}>
-            <span>Difference: {fmtCurrency(monthlyBudget - totalSpentThisMonth, dashboardCurrency)}</span>
-            <span>
-              {totalSpentThisMonth > monthlyBudget
-                ? 'You are above plan this month.'
-                : 'You are within plan.'}
-            </span>
-          </div>
+        <div className={styles.budgetBarTrack}>
+          <div className={styles.budgetBarActual} style={{ width: `${actualBarWidth}%` }} />
         </div>
-      </section>
+      </div>
+    </div>
+
+    <div className={styles.budgetCompareMeta}>
+      <span>{te.difference}: {fmtCurrency(monthlyBudget - totalSpentThisMonth, dashboardCurrency)}</span>
+      <span>{totalSpentThisMonth > monthlyBudget ? te.abovePlan : te.withinPlan}</span>
+    </div>
+  </div>
+</section>
 
       <section className={styles.cashflowGrid}>
         <section className={styles.cashflowCard}>
@@ -2195,44 +2191,43 @@ export default function EconomyPage() {
       </section>
 
       {showBudgetModal ? (
-        <div className={styles.modalBackdrop} onMouseDown={() => setShowBudgetModal(false)}>
-          <div className={styles.modalCard} onMouseDown={(e) => e.stopPropagation()}>
-            <div className={styles.modalTitle}>Set planned monthly spending</div>
-            <p className={styles.modalText}>Choose how much you plan to spend this month.</p>
+  <div className={styles.modalBackdrop} onMouseDown={() => setShowBudgetModal(false)}>
+    <div className={styles.modalCard} onMouseDown={(e) => e.stopPropagation()}>
+      <div className={styles.modalTitle}>{te.setPlannedMonthlySpending}</div>
+      <p className={styles.modalText}>{te.plannedMonthlySpendingDescription}</p>
 
-            <form className={styles.transferForm} onSubmit={saveMonthlyBudget}>
-              <label className={styles.label}>
-                Planned amount
-                <input
-                  className={styles.input}
-                  type="number"
-                  inputMode="decimal"
-                  min="0"
-                  step="0.01"
-                  placeholder="Enter monthly budget"
-                  value={budgetInput}
-                  onChange={(e) => setBudgetInput(e.target.value)}
-                />
-              </label>
+      <form className={styles.transferForm} onSubmit={saveMonthlyBudget}>
+        <label className={styles.label}>
+          {te.plannedAmount}
+          <input
+            className={styles.input}
+            type="number"
+            inputMode="decimal"
+            min="0"
+            step="0.01"
+            placeholder={te.enterMonthlyBudget}
+            value={budgetInput}
+            onChange={(e) => setBudgetInput(e.target.value)}
+          />
+        </label>
 
-              <div className={styles.modalActions}>
-                <button
-                  type="button"
-                  className={styles.secondaryBtn}
-                  onClick={() => setShowBudgetModal(false)}
-                >
-                  Cancel
-                </button>
+        <div className={styles.modalActions}>
+          <button
+            type="button"
+            className={styles.secondaryBtn}
+            onClick={() => setShowBudgetModal(false)}
+          >
+            {te.cancel}
+          </button>
 
-                <button type="submit" className={styles.primaryBtn}>
-                  Save budget
-                </button>
-              </div>
-            </form>
-          </div>
+          <button type="submit" className={styles.primaryBtn}>
+            {te.saveBudget}
+          </button>
         </div>
-      ) : null}
-
+      </form>
+    </div>
+  </div>
+) : null}
       {showBankPanel ? (
         <div className={styles.modalBackdrop} onMouseDown={closeBankPanel}>
           <div

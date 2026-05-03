@@ -2,6 +2,9 @@
 
 import { useMemo, useState } from 'react'
 import styles from './notificationDropdown.module.css'
+import { useSettings } from '@/app/(frontend)/components/providers/SettingsProvider'
+
+type Lang = 'no' | 'en'
 
 export type NotificationEventType =
   | 'created'
@@ -16,6 +19,9 @@ export type NotificationEventType =
   | 'approved'
   | 'rejected'
   | 'paid'
+  | 'connected'
+  | 'disconnected'
+  | 'transferred'
 
 export type NotificationItem = {
   id: string | number
@@ -39,6 +45,93 @@ type Props = {
   onMarkAll: () => void
   onItemClick: (item: NotificationItem) => void
   onViewAll: () => void
+}
+
+const text = {
+  no: {
+    latest: 'Siste varsler',
+    markAllRead: 'Merk alle lest',
+    saving: 'Lagrer...',
+    all: 'Alle',
+    unread: 'Ulest',
+    new: 'Nye',
+    viewAll: 'Se alle',
+    loading: 'Laster varsler...',
+    empty: 'Ingen varsler ennå.',
+    aParent: 'En forelder',
+    openDetails: 'Åpne for å se detaljer.',
+    custodyCreated: 'Omsorgsperiode opprettet',
+    custodyUpdated: 'Omsorgsperiode oppdatert',
+    custodyDeleted: 'Omsorgsperiode slettet',
+    custodyReady: 'Klar for bytte',
+    custodyHandedOver: 'Barn mottatt',
+    createdCustody: 'opprettet en omsorgsperiode',
+    updatedCustody: 'oppdaterte en omsorgsperiode',
+    deletedCustody: 'slettet en omsorgsperiode',
+    markedReady: 'markerte barnet som klart for bytte',
+    confirmedHandover: 'bekreftet mottak av barnet',
+    emergencyRequested: 'ber om hastebytte',
+    emergencyApproved: 'Hastebytte godkjent',
+    emergencyRejected: 'Hastebytte avslått',
+    calendarCreated: 'opprettet',
+    calendarUpdated: 'oppdatert',
+    calendarDeleted: 'slettet',
+    calendarConfirmed: 'godkjent',
+    calendarDeclined: 'avslått',
+    eventTypes: {
+      custody: 'Omsorgsperiode',
+      handover: 'Levering',
+      pickup: 'Henting',
+      dropoff: 'Levering',
+      school: 'Skole',
+      activity: 'Aktivitet',
+      medical: 'Medisinsk',
+      payment: 'Betaling',
+      other: 'Kalender',
+    },
+  },
+  en: {
+    latest: 'Latest notifications',
+    markAllRead: 'Mark all read',
+    saving: 'Saving...',
+    all: 'All',
+    unread: 'Unread',
+    new: 'New',
+    viewAll: 'View all',
+    loading: 'Loading notifications...',
+    empty: 'No notifications yet.',
+    aParent: 'A parent',
+    openDetails: 'Open to view details.',
+    custodyCreated: 'Custody period created',
+    custodyUpdated: 'Custody period updated',
+    custodyDeleted: 'Custody period deleted',
+    custodyReady: 'Ready for handover',
+    custodyHandedOver: 'Child handed over',
+    createdCustody: 'created a custody period',
+    updatedCustody: 'updated a custody period',
+    deletedCustody: 'deleted a custody period',
+    markedReady: 'marked the child as ready for handover',
+    confirmedHandover: 'confirmed receiving the child',
+    emergencyRequested: 'requested emergency change',
+    emergencyApproved: 'Emergency change approved',
+    emergencyRejected: 'Emergency change rejected',
+    calendarCreated: 'created',
+    calendarUpdated: 'updated',
+    calendarDeleted: 'deleted',
+    calendarConfirmed: 'confirmed',
+    calendarDeclined: 'declined',
+    eventTypes: {
+      custody: 'Custody period',
+      handover: 'Handover',
+      pickup: 'Pickup',
+      dropoff: 'Drop-off',
+      school: 'School',
+      activity: 'Activity',
+      medical: 'Medical',
+      payment: 'Payment',
+      other: 'Calendar',
+    },
+  },
 }
 
 function formatRelativeTime(value?: string) {
@@ -94,28 +187,8 @@ function fmtMoney(amount?: number, currency = 'NOK') {
 function shorten(text?: string, max = 80) {
   const value = String(text || '').trim()
   if (!value) return ''
-  return value.length > max ? `${value.slice(0, max)}…` : value
-}
 
-function getEventTypeLabel(type?: string) {
-  switch (String(type || 'other')) {
-    case 'handover':
-      return 'Levering'
-    case 'pickup':
-      return 'Henting'
-    case 'dropoff':
-      return 'Levering'
-    case 'school':
-      return 'Skole'
-    case 'activity':
-      return 'Aktivitet'
-    case 'medical':
-      return 'Medisinsk'
-    case 'payment':
-      return 'Betaling'
-    default:
-      return 'Kalender'
-  }
+  return value.length > max ? `${value.slice(0, max)}…` : value
 }
 
 function getInitials(name?: string) {
@@ -157,62 +230,88 @@ function getAvatarUrl(item: NotificationItem) {
   )
 }
 
-function buildNotificationTitle(item: NotificationItem) {
+function getEventTypeLabel(type: string | undefined, lang: Lang) {
+  const t = text[lang]
+  const key = String(type || 'other') as keyof typeof t.eventTypes
+
+  return t.eventTypes[key] || t.eventTypes.other
+}
+
+function isCustodyNotification(item: NotificationItem) {
   const meta = item.meta || {}
-  const actorName = String(meta.actorName || item.title || 'En forelder').trim()
+
+  return (
+    item.type === 'calendar' &&
+    (meta.type === 'custody-schedule' ||
+      meta.eventType === 'custody' ||
+      meta.custodyId ||
+      String(item.title || '').toLowerCase().includes('custody period') ||
+      String(item.title || '').toLowerCase().includes('omsorgsperiode'))
+  )
+}
+
+function buildNotificationTitle(item: NotificationItem, lang: Lang) {
+  const t = text[lang]
+  const meta = item.meta || {}
+  const actorName = String(meta.actorName || item.title || t.aParent).trim()
   const childName = String(meta.childName || '').trim()
   const documentName = String(meta.documentName || item.title || '').trim()
-  const eventType = getEventTypeLabel(meta.eventType)
   const rawTitle = String(item.title || 'Varsel').trim()
   const isChildUpdate = !!meta.isChildUpdate
 
-  if (meta.type === 'custody-schedule') {
+  if (isCustodyNotification(item)) {
     if (item.event === 'created') {
-      return `Omsorgsperiode opprettet${childName ? ` for ${childName}` : ''}`
+      return `${t.custodyCreated}${childName ? ` for ${childName}` : ''}`
+    }
+
+    if (item.event === 'deleted') {
+      return `${t.custodyDeleted}${childName ? ` for ${childName}` : ''}`
     }
 
     if (item.event === 'updated') {
       if (meta.handoverStatus === 'ready') {
-        return `Klar for bytte${childName ? ` for ${childName}` : ''}`
+        return `${t.custodyReady}${childName ? ` for ${childName}` : ''}`
       }
 
       if (meta.handoverStatus === 'handed-over') {
-        return `Barn mottatt${childName ? `: ${childName}` : ''}`
+        return `${t.custodyHandedOver}${childName ? `: ${childName}` : ''}`
       }
 
-      return `Omsorgsperiode oppdatert${childName ? ` for ${childName}` : ''}`
+      return `${t.custodyUpdated}${childName ? ` for ${childName}` : ''}`
     }
   }
 
   if (meta.type === 'custody-emergency') {
-    return `${actorName} ber om hastebytte${childName ? ` for ${childName}` : ''}`
+    return `${actorName} ${t.emergencyRequested}${childName ? ` for ${childName}` : ''}`
   }
 
   if (meta.type === 'custody-emergency-response') {
     return meta.status === 'approved'
-      ? `Hastebytte godkjent${childName ? ` for ${childName}` : ''}`
-      : `Hastebytte avslått${childName ? ` for ${childName}` : ''}`
+      ? `${t.emergencyApproved}${childName ? ` for ${childName}` : ''}`
+      : `${t.emergencyRejected}${childName ? ` for ${childName}` : ''}`
   }
 
   if (item.type === 'calendar') {
+    const eventType = getEventTypeLabel(meta.eventType, lang)
+
     if (item.event === 'created') {
-      return `${eventType} opprettet${childName ? ` for ${childName}` : ''}`
+      return `${eventType} ${t.calendarCreated}${childName ? ` for ${childName}` : ''}`
     }
 
     if (item.event === 'updated') {
-      return `${eventType} oppdatert${childName ? ` for ${childName}` : ''}`
+      return `${eventType} ${t.calendarUpdated}${childName ? ` for ${childName}` : ''}`
     }
 
     if (item.event === 'deleted') {
-      return `${eventType} slettet${childName ? ` for ${childName}` : ''}`
+      return `${eventType} ${t.calendarDeleted}${childName ? ` for ${childName}` : ''}`
     }
 
     if (item.event === 'confirmed') {
-      return `${eventType} godkjent${childName ? ` for ${childName}` : ''}`
+      return `${eventType} ${t.calendarConfirmed}${childName ? ` for ${childName}` : ''}`
     }
 
     if (item.event === 'declined') {
-      return `${eventType} avslått${childName ? ` for ${childName}` : ''}`
+      return `${eventType} ${t.calendarDeclined}${childName ? ` for ${childName}` : ''}`
     }
   }
 
@@ -221,115 +320,168 @@ function buildNotificationTitle(item: NotificationItem) {
   if (item.type === 'bank') return 'Bank'
 
   if (item.type === 'status') {
-    if (item.event === 'created' && childName) return `Ny barneprofil: ${childName}`
-    if (item.event === 'updated' && childName && meta.needsConfirmation) {
-      return `${childName} trenger bekreftelse`
+    if (item.event === 'created' && childName) {
+      return lang === 'en' ? `New child profile: ${childName}` : `Ny barneprofil: ${childName}`
     }
-    if (item.event === 'updated' && childName) return `${childName} profil oppdatert`
-    if (item.event === 'confirmed' && childName) return `${childName} ble bekreftet`
-    if (item.event === 'declined' && childName) return `${childName} ble avslått`
+
+    if (item.event === 'updated' && childName && meta.needsConfirmation) {
+      return lang === 'en' ? `${childName} needs confirmation` : `${childName} trenger bekreftelse`
+    }
+
+    if (item.event === 'updated' && childName) {
+      return lang === 'en' ? `${childName} profile updated` : `${childName} profil oppdatert`
+    }
+
+    if (item.event === 'confirmed' && childName) {
+      return lang === 'en' ? `${childName} was confirmed` : `${childName} ble bekreftet`
+    }
+
+    if (item.event === 'declined' && childName) {
+      return lang === 'en' ? `${childName} was declined` : `${childName} ble avslått`
+    }
   }
 
   if (item.type === 'documents') {
     if (item.event === 'uploaded') {
       return childName
-        ? `Dokument lastet opp for ${childName}`
+        ? lang === 'en'
+          ? `Document uploaded for ${childName}`
+          : `Dokument lastet opp for ${childName}`
         : documentName
-          ? `Dokument lastet opp: ${documentName}`
-          : 'Dokument lastet opp'
+          ? lang === 'en'
+            ? `Document uploaded: ${documentName}`
+            : `Dokument lastet opp: ${documentName}`
+          : lang === 'en'
+            ? 'Document uploaded'
+            : 'Dokument lastet opp'
     }
 
     if (item.event === 'replaced') {
       return childName
-        ? `Dokument erstattet for ${childName}`
+        ? lang === 'en'
+          ? `Document replaced for ${childName}`
+          : `Dokument erstattet for ${childName}`
         : documentName
-          ? `Dokument erstattet: ${documentName}`
-          : 'Dokument erstattet'
+          ? lang === 'en'
+            ? `Document replaced: ${documentName}`
+            : `Dokument erstattet: ${documentName}`
+          : lang === 'en'
+            ? 'Document replaced'
+            : 'Dokument erstattet'
     }
 
     if (item.event === 'updated') {
       return childName
-        ? `Dokument oppdatert for ${childName}`
+        ? lang === 'en'
+          ? `Document updated for ${childName}`
+          : `Dokument oppdatert for ${childName}`
         : documentName
-          ? `Dokument oppdatert: ${documentName}`
-          : 'Dokument oppdatert'
+          ? lang === 'en'
+            ? `Document updated: ${documentName}`
+            : `Dokument oppdatert: ${documentName}`
+          : lang === 'en'
+            ? 'Document updated'
+            : 'Dokument oppdatert'
     }
 
     if (item.event === 'deleted') {
       return childName
-        ? `Dokument slettet for ${childName}`
+        ? lang === 'en'
+          ? `Document deleted for ${childName}`
+          : `Dokument slettet for ${childName}`
         : documentName
-          ? `Dokument slettet: ${documentName}`
-          : 'Dokument slettet'
+          ? lang === 'en'
+            ? `Document deleted: ${documentName}`
+            : `Dokument slettet: ${documentName}`
+          : lang === 'en'
+            ? 'Document deleted'
+            : 'Dokument slettet'
     }
   }
 
   if (item.type === 'post') {
     if (item.event === 'created') {
       return isChildUpdate
-        ? `Ny oppdatering${childName ? ` for ${childName}` : ''}`
-        : 'Ny familieoppdatering'
+        ? lang === 'en'
+          ? `New update${childName ? ` for ${childName}` : ''}`
+          : `Ny oppdatering${childName ? ` for ${childName}` : ''}`
+        : lang === 'en'
+          ? 'New family update'
+          : 'Ny familieoppdatering'
     }
 
     if (item.event === 'updated') {
       return isChildUpdate
-        ? `Oppdatering redigert${childName ? ` for ${childName}` : ''}`
-        : 'Familieoppdatering redigert'
+        ? lang === 'en'
+          ? `Update edited${childName ? ` for ${childName}` : ''}`
+          : `Oppdatering redigert${childName ? ` for ${childName}` : ''}`
+        : lang === 'en'
+          ? 'Family update edited'
+          : 'Familieoppdatering redigert'
     }
 
     if (item.event === 'deleted') {
       return isChildUpdate
-        ? `Oppdatering slettet${childName ? ` for ${childName}` : ''}`
-        : 'Familieoppdatering slettet'
+        ? lang === 'en'
+          ? `Update deleted${childName ? ` for ${childName}` : ''}`
+          : `Oppdatering slettet${childName ? ` for ${childName}` : ''}`
+        : lang === 'en'
+          ? 'Family update deleted'
+          : 'Familieoppdatering slettet'
     }
 
     if (item.event === 'commented') {
-      return childName ? `Ny kommentar for ${childName}` : 'Ny kommentar på oppdatering'
+      return childName
+        ? lang === 'en'
+          ? `New comment for ${childName}`
+          : `Ny kommentar for ${childName}`
+        : lang === 'en'
+          ? 'New comment on update'
+          : 'Ny kommentar på oppdatering'
     }
 
     if (item.event === 'liked') {
-      return childName ? `Oppdatering likt for ${childName}` : 'Oppdatering likt'
+      return childName
+        ? lang === 'en'
+          ? `Update liked for ${childName}`
+          : `Oppdatering likt for ${childName}`
+        : lang === 'en'
+          ? 'Update liked'
+          : 'Oppdatering likt'
     }
   }
 
   return rawTitle
 }
 
-function buildNotificationMessage(item: NotificationItem) {
+function buildNotificationMessage(item: NotificationItem, lang: Lang) {
+  const t = text[lang]
   const meta = item.meta || {}
-  const actorName = String(meta.actorName || 'En forelder').trim()
+  const actorName = String(meta.actorName || t.aParent).trim()
   const childName = String(meta.childName || '').trim()
   const documentName = shorten(meta.documentName || item.title || '')
   const postTitle = shorten(meta.title || item.message || '')
   const confirmedAt = String(meta.confirmedAt || '').trim()
 
-  if (meta.type === 'custody-schedule') {
+  if (isCustodyNotification(item)) {
     const route =
       meta.currentParentName && meta.nextParentName
         ? `${meta.currentParentName} → ${meta.nextParentName}`
         : ''
 
-    if (item.event === 'created') {
-      return [
-        `${actorName} opprettet en omsorgsperiode`,
-        childName,
-        route,
-        meta.startAt ? fmtTime(meta.startAt) : '',
-      ]
-        .filter(Boolean)
-        .join(' · ')
-    }
-
-    if (meta.handoverStatus === 'ready') {
-      return `${actorName} markerte barnet som klart for bytte.`
-    }
-
-    if (meta.handoverStatus === 'handed-over') {
-      return `${actorName} bekreftet mottak av barnet.`
-    }
+    const action =
+      meta.handoverStatus === 'ready'
+        ? t.markedReady
+        : meta.handoverStatus === 'handed-over'
+          ? t.confirmedHandover
+          : item.event === 'created'
+            ? t.createdCustody
+            : item.event === 'deleted'
+              ? t.deletedCustody
+              : t.updatedCustody
 
     return [
-      `${actorName} oppdaterte en omsorgsperiode`,
+      `${actorName} ${action}`,
       childName,
       route,
       meta.startAt ? fmtTime(meta.startAt) : '',
@@ -340,9 +492,9 @@ function buildNotificationMessage(item: NotificationItem) {
 
   if (meta.type === 'custody-emergency') {
     return [
-      meta.pickupAt ? `Henting: ${fmtTime(meta.pickupAt)}` : '',
-      meta.returnAt ? `Varer til: ${fmtTime(meta.returnAt)}` : '',
-      item.message || meta.reason || 'Hastebytte forespurt.',
+      meta.pickupAt ? `${lang === 'en' ? 'Pickup' : 'Henting'}: ${fmtTime(meta.pickupAt)}` : '',
+      meta.returnAt ? `${lang === 'en' ? 'Lasts until' : 'Varer til'}: ${fmtTime(meta.returnAt)}` : '',
+      item.message || meta.reason || (lang === 'en' ? 'Emergency change requested.' : 'Hastebytte forespurt.'),
     ]
       .filter(Boolean)
       .join(' · ')
@@ -350,46 +502,54 @@ function buildNotificationMessage(item: NotificationItem) {
 
   if (meta.type === 'custody-emergency-response') {
     return [
-      meta.status === 'approved'
-        ? 'Den andre forelderen har godkjent hastebytte.'
-        : 'Den andre forelderen har avslått hastebytte.',
-      meta.pickupAt ? `Henting: ${fmtTime(meta.pickupAt)}` : '',
-      meta.returnAt ? `Varer til: ${fmtTime(meta.returnAt)}` : '',
+      meta.status === 'approved' ? t.emergencyApproved : t.emergencyRejected,
+      meta.pickupAt ? `${lang === 'en' ? 'Pickup' : 'Henting'}: ${fmtTime(meta.pickupAt)}` : '',
+      meta.returnAt ? `${lang === 'en' ? 'Lasts until' : 'Varer til'}: ${fmtTime(meta.returnAt)}` : '',
     ]
       .filter(Boolean)
       .join(' · ')
   }
 
   if (item.type === 'calendar') {
-    const eventType = getEventTypeLabel(meta.eventType).toLowerCase()
+    const eventType = getEventTypeLabel(meta.eventType, lang).toLowerCase()
 
     if (item.event === 'created') {
-      return `${actorName} opprettet ${eventType}${childName ? ` for ${childName}` : ''}.`
+      return lang === 'en'
+        ? `${actorName} created ${eventType}${childName ? ` for ${childName}` : ''}.`
+        : `${actorName} opprettet ${eventType}${childName ? ` for ${childName}` : ''}.`
     }
 
     if (item.event === 'updated') {
-      return `${actorName} oppdaterte en kalenderhendelse.`
+      return lang === 'en'
+        ? `${actorName} updated a calendar event.`
+        : `${actorName} oppdaterte en kalenderhendelse.`
     }
 
     if (item.event === 'deleted') {
-      return `${actorName} slettet ${eventType}${childName ? ` for ${childName}` : ''}.`
+      return lang === 'en'
+        ? `${actorName} deleted ${eventType}${childName ? ` for ${childName}` : ''}.`
+        : `${actorName} slettet ${eventType}${childName ? ` for ${childName}` : ''}.`
     }
 
     if (item.event === 'confirmed') {
-      return `${actorName} godkjente hendelsen${confirmedAt ? ` ${confirmedAt}` : ''}.`
+      return lang === 'en'
+        ? `${actorName} accepted the event${confirmedAt ? ` ${confirmedAt}` : ''}.`
+        : `${actorName} godkjente hendelsen${confirmedAt ? ` ${confirmedAt}` : ''}.`
     }
 
     if (item.event === 'declined') {
-      return `${actorName} avslo hendelsen${confirmedAt ? ` ${confirmedAt}` : ''}.`
+      return lang === 'en'
+        ? `${actorName} declined the event${confirmedAt ? ` ${confirmedAt}` : ''}.`
+        : `${actorName} avslo hendelsen${confirmedAt ? ` ${confirmedAt}` : ''}.`
     }
   }
 
   if (item.type === 'expense') {
     return [
-      item.event === 'created' ? 'opprettet en betaling' : '',
-      item.event === 'updated' ? 'oppdaterte en betaling' : '',
-      item.event === 'deleted' ? 'slettet en betaling' : '',
-      item.event === 'paid' ? 'betalte en betaling' : '',
+      item.event === 'created' ? (lang === 'en' ? 'created a payment' : 'opprettet en betaling') : '',
+      item.event === 'updated' ? (lang === 'en' ? 'updated a payment' : 'oppdaterte en betaling') : '',
+      item.event === 'deleted' ? (lang === 'en' ? 'deleted a payment' : 'slettet en betaling') : '',
+      item.event === 'paid' ? (lang === 'en' ? 'paid a payment' : 'betalte en betaling') : '',
       meta.amount ? fmtMoney(meta.amount, meta.currency || 'NOK') : '',
       childName,
     ]
@@ -399,9 +559,9 @@ function buildNotificationMessage(item: NotificationItem) {
 
   if (item.type === 'request') {
     return [
-      item.event === 'created' ? 'opprettet en pengeforespørsel' : '',
-      item.event === 'approved' ? 'godkjente en pengeforespørsel' : '',
-      item.event === 'rejected' ? 'avslo en pengeforespørsel' : '',
+      item.event === 'created' ? (lang === 'en' ? 'created a money request' : 'opprettet en pengeforespørsel') : '',
+      item.event === 'approved' ? (lang === 'en' ? 'approved a money request' : 'godkjente en pengeforespørsel') : '',
+      item.event === 'rejected' ? (lang === 'en' ? 'rejected a money request' : 'avslo en pengeforespørsel') : '',
       meta.amount ? fmtMoney(meta.amount, meta.currency || 'NOK') : '',
       childName,
     ]
@@ -417,73 +577,107 @@ function buildNotificationMessage(item: NotificationItem) {
 
   if (item.type === 'status') {
     if (item.event === 'created' && childName) {
-      return `${actorName} opprettet barneprofilen. Venter på bekreftelse.`
+      return lang === 'en'
+        ? `${actorName} created the child profile. Waiting for confirmation.`
+        : `${actorName} opprettet barneprofilen. Venter på bekreftelse.`
     }
 
     if (item.event === 'updated' && childName && meta.needsConfirmation) {
-      return `${actorName} oppdaterte profilen. Venter på bekreftelse.`
+      return lang === 'en'
+        ? `${actorName} updated the profile. Waiting for confirmation.`
+        : `${actorName} oppdaterte profilen. Venter på bekreftelse.`
     }
 
     if (item.event === 'updated' && childName) {
-      return `${actorName} oppdaterte barneprofilen.`
+      return lang === 'en'
+        ? `${actorName} updated the child profile.`
+        : `${actorName} oppdaterte barneprofilen.`
     }
 
     if (item.event === 'confirmed' && childName) {
-      return `${actorName} bekreftet barneprofilen.`
+      return lang === 'en'
+        ? `${actorName} confirmed the child profile.`
+        : `${actorName} bekreftet barneprofilen.`
     }
 
     if (item.event === 'declined' && childName) {
-      return `${actorName} avslo barneprofilen.`
+      return lang === 'en'
+        ? `${actorName} declined the child profile.`
+        : `${actorName} avslo barneprofilen.`
     }
   }
 
   if (item.type === 'documents') {
     if (item.event === 'uploaded') {
-      return `${actorName} lastet opp${documentName ? ` "${documentName}"` : ' et dokument'}.`
+      return lang === 'en'
+        ? `${actorName} uploaded${documentName ? ` "${documentName}"` : ' a document'}.`
+        : `${actorName} lastet opp${documentName ? ` "${documentName}"` : ' et dokument'}.`
     }
 
     if (item.event === 'replaced') {
-      return `${actorName} erstattet${documentName ? ` "${documentName}"` : ' et dokument'}.`
+      return lang === 'en'
+        ? `${actorName} replaced${documentName ? ` "${documentName}"` : ' a document'}.`
+        : `${actorName} erstattet${documentName ? ` "${documentName}"` : ' et dokument'}.`
     }
 
     if (item.event === 'updated') {
-      return `${actorName} oppdaterte${documentName ? ` "${documentName}"` : ' et dokument'}.`
+      return lang === 'en'
+        ? `${actorName} updated${documentName ? ` "${documentName}"` : ' a document'}.`
+        : `${actorName} oppdaterte${documentName ? ` "${documentName}"` : ' et dokument'}.`
     }
 
     if (item.event === 'deleted') {
-      return `${actorName} slettet${documentName ? ` "${documentName}"` : ' et dokument'}.`
+      return lang === 'en'
+        ? `${actorName} deleted${documentName ? ` "${documentName}"` : ' a document'}.`
+        : `${actorName} slettet${documentName ? ` "${documentName}"` : ' et dokument'}.`
     }
   }
 
   if (item.type === 'post') {
     if (item.event === 'created') {
       return childName
-        ? `${actorName} opprettet innlegget "${postTitle}" for ${childName}.`
-        : `${actorName} opprettet innlegget "${postTitle}".`
+        ? lang === 'en'
+          ? `${actorName} created the post "${postTitle}" for ${childName}.`
+          : `${actorName} opprettet innlegget "${postTitle}" for ${childName}.`
+        : lang === 'en'
+          ? `${actorName} created the post "${postTitle}".`
+          : `${actorName} opprettet innlegget "${postTitle}".`
     }
 
     if (item.event === 'updated') {
       return childName
-        ? `${actorName} oppdaterte innlegget "${postTitle}" for ${childName}.`
-        : `${actorName} oppdaterte innlegget "${postTitle}".`
+        ? lang === 'en'
+          ? `${actorName} updated the post "${postTitle}" for ${childName}.`
+          : `${actorName} oppdaterte innlegget "${postTitle}" for ${childName}.`
+        : lang === 'en'
+          ? `${actorName} updated the post "${postTitle}".`
+          : `${actorName} oppdaterte innlegget "${postTitle}".`
     }
 
     if (item.event === 'deleted') {
       return childName
-        ? `${actorName} slettet innlegget "${postTitle}" for ${childName}.`
-        : `${actorName} slettet innlegget "${postTitle}".`
+        ? lang === 'en'
+          ? `${actorName} deleted the post "${postTitle}" for ${childName}.`
+          : `${actorName} slettet innlegget "${postTitle}" for ${childName}.`
+        : lang === 'en'
+          ? `${actorName} deleted the post "${postTitle}".`
+          : `${actorName} slettet innlegget "${postTitle}".`
     }
 
     if (item.event === 'commented') {
-      return `${actorName} kommenterte på "${postTitle}".`
+      return lang === 'en'
+        ? `${actorName} commented on "${postTitle}".`
+        : `${actorName} kommenterte på "${postTitle}".`
     }
 
     if (item.event === 'liked') {
-      return `${actorName} likte "${postTitle}".`
+      return lang === 'en'
+        ? `${actorName} liked "${postTitle}".`
+        : `${actorName} likte "${postTitle}".`
     }
   }
 
-  return item.message || 'Åpne for å se detaljer.'
+  return item.message || t.openDetails
 }
 
 function NotificationTypeIcon({ type }: { type: NotificationItem['type'] }) {
@@ -581,6 +775,10 @@ export default function NotificationDropdown({
   onItemClick,
   onViewAll,
 }: Props) {
+  const { settings } = useSettings()
+  const lang: Lang = settings?.language === 'en' ? 'en' : 'no'
+  const t = text[lang]
+
   const [activeTab, setActiveTab] = useState<'all' | 'unread'>('all')
 
   const visibleItems = useMemo(() => {
@@ -597,7 +795,7 @@ export default function NotificationDropdown({
     <div className={styles.dropdown}>
       <div className={styles.header}>
         <div className={styles.headerTop}>
-          <h2 className={styles.title}>Siste varsler</h2>
+          <h2 className={styles.title}>{t.latest}</h2>
 
           {unreadCount > 0 ? (
             <button
@@ -606,7 +804,7 @@ export default function NotificationDropdown({
               onClick={onMarkAll}
               disabled={markingAll}
             >
-              {markingAll ? 'Lagrer...' : 'Merk alle lest'}
+              {markingAll ? t.saving : t.markAllRead}
             </button>
           ) : null}
         </div>
@@ -617,7 +815,7 @@ export default function NotificationDropdown({
             className={`${styles.tab} ${activeTab === 'all' ? styles.activeTab : ''}`}
             onClick={() => setActiveTab('all')}
           >
-            Alle
+            {t.all}
           </button>
 
           <button
@@ -625,24 +823,24 @@ export default function NotificationDropdown({
             className={`${styles.tab} ${activeTab === 'unread' ? styles.activeTab : ''}`}
             onClick={() => setActiveTab('unread')}
           >
-            Ulest
+            {t.unread}
           </button>
         </div>
       </div>
 
       <div className={styles.sectionHeader}>
-        <span>Nye</span>
+        <span>{t.new}</span>
 
         <button type="button" className={styles.seeAllBtn} onClick={onViewAll}>
-          Se alle
+          {t.viewAll}
         </button>
       </div>
 
       <div className={styles.list}>
         {loading ? (
-          <div className={styles.empty}>Laster varsler...</div>
+          <div className={styles.empty}>{t.loading}</div>
         ) : visibleItems.length === 0 ? (
-          <div className={styles.empty}>Ingen varsler ennå.</div>
+          <div className={styles.empty}>{t.empty}</div>
         ) : (
           visibleItems.map((item) => {
             const avatarUrl = getAvatarUrl(item)
@@ -672,8 +870,8 @@ export default function NotificationDropdown({
 
                 <div className={styles.content}>
                   <p className={styles.notificationText}>
-                    <strong>{buildNotificationTitle(item)}</strong>{' '}
-                    <span>{buildNotificationMessage(item)}</span>
+                    <strong>{buildNotificationTitle(item, lang)}</strong>{' '}
+                    <span>{buildNotificationMessage(item, lang)}</span>
                   </p>
 
                   <p className={styles.timeText}>{formatRelativeTime(item.createdAt)}</p>

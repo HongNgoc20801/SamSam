@@ -221,26 +221,7 @@ type DashboardData = {
     handoverStatus: string
     notes?: string
   } | null
-  upcomingHandover: {
-    id: string | number
-    title: string
-    startAt: string
-    endAt: string
-    location: string
-    childName: string
-    handoverFromName: string
-    handoverToName: string
-    responsibleParentName: string
-    confirmationStatus: string
-    confirmedByName: string
-    confirmedAt?: string
-    createdById: string
-    handoverFromId: string
-    handoverToId: string
-    handoverStatus: string
-    handoverDeliveredAt?: string
-    handoverReceivedAt?: string
-  } | null
+  upcomingHandover: any
   decisionActions: DecisionActionItem[]
   openFinanceItems: OpenFinanceItem[]
   financeOverview: FinanceOverview
@@ -302,13 +283,7 @@ function getCountdownParts(targetIso?: string, nowMs = Date.now()) {
   const diff = target - nowMs
 
   if (Number.isNaN(target) || diff <= 0) {
-    return {
-      days: 0,
-      hours: 0,
-      minutes: 0,
-      seconds: 0,
-      expired: true,
-    }
+    return { days: 0, hours: 0, minutes: 0, seconds: 0, expired: true }
   }
 
   const totalSeconds = Math.floor(diff / 1000)
@@ -325,11 +300,13 @@ function getCountdownParts(targetIso?: string, nowMs = Date.now()) {
 export default function DashboardPage() {
   const router = useRouter()
   const t = useTranslations()
+  const td = t.dashboard as any
+
+  const tx = (key: string, fallback: string) => String(td?.[key] || fallback)
 
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [notifOpen, setNotifOpen] = useState(false)
   const [joinOpen, setJoinOpen] = useState(false)
   const [actionLoading, setActionLoading] = useState('')
   const [joinCode, setJoinCode] = useState('')
@@ -640,7 +617,7 @@ export default function DashboardPage() {
         currentCustody: activeCustody
           ? {
               id: activeCustody.id,
-              title: activeCustody.title || 'Omsorgsperiode',
+              title: activeCustody.title || tx('custodyPeriod', 'Custody period'),
               childId: getRelId(activeCustody.child),
               childName: getRelDisplayName(activeCustody.child),
               currentParentName: getRelDisplayName(activeCustody.currentParent, localParentNameById),
@@ -654,28 +631,7 @@ export default function DashboardPage() {
               notes: activeCustody.notes || '',
             }
           : null,
-        upcomingHandover: upcomingHandover
-          ? {
-              id: upcomingHandover.id,
-              title: upcomingHandover.title,
-              startAt: upcomingHandover.startAt,
-              endAt: upcomingHandover.endAt,
-              location: upcomingHandover.location || '',
-              childName: getRelDisplayName(upcomingHandover.child),
-              handoverFromName: getRelDisplayName(upcomingHandover.handoverFrom, localParentNameById),
-              handoverToName: getRelDisplayName(upcomingHandover.handoverTo, localParentNameById),
-              responsibleParentName: getRelDisplayName(upcomingHandover.responsibleParent, localParentNameById),
-              confirmationStatus: upcomingHandover.confirmationStatus || 'not-required',
-              confirmedByName: getRelDisplayName(upcomingHandover.confirmedBy, localParentNameById),
-              confirmedAt: upcomingHandover.confirmedAt,
-              createdById: getRelId(upcomingHandover.createdBy),
-              handoverFromId: getRelId(upcomingHandover.handoverFrom),
-              handoverToId: getRelId(upcomingHandover.handoverTo),
-              handoverStatus: upcomingHandover.handoverStatus || 'not-started',
-              handoverDeliveredAt: upcomingHandover.handoverDeliveredAt,
-              handoverReceivedAt: upcomingHandover.handoverReceivedAt,
-            }
-          : null,
+        upcomingHandover,
         decisionActions: [...decisionChildActions, ...decisionEventActions, ...decisionRequestActions],
         openFinanceItems: [...openWaitingRequests, ...openPaymentItems],
         financeOverview,
@@ -703,19 +659,12 @@ export default function DashboardPage() {
     loadDashboard(true)
 
     const interval = window.setInterval(() => {
-      if (document.visibilityState === 'visible') {
-        loadDashboard(false)
-      }
+      if (document.visibilityState === 'visible') loadDashboard(false)
     }, 3000)
 
-    const handleFocus = () => {
-      loadDashboard(false)
-    }
-
+    const handleFocus = () => loadDashboard(false)
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        loadDashboard(false)
-      }
+      if (document.visibilityState === 'visible') loadDashboard(false)
     }
 
     window.addEventListener('focus', handleFocus)
@@ -729,32 +678,22 @@ export default function DashboardPage() {
   }, [])
 
   useEffect(() => {
-    const timer = window.setInterval(() => {
-      setNowTick(Date.now())
-    }, 1000)
-
-    return () => {
-      window.clearInterval(timer)
-    }
+    const timer = window.setInterval(() => setNowTick(Date.now()), 1000)
+    return () => window.clearInterval(timer)
   }, [])
 
   const greetingName = useMemo(() => getDisplayName(data?.me ?? null), [data?.me])
-
   const profileImageUrl = useMemo(() => getProfileImageUrl(data?.me ?? null), [data?.me])
 
   const todayEvents = useMemo(() => {
     if (!data) return []
-
     const todayKey = format(new Date(), 'yyyy-MM-dd')
-
-    return data.upcomingEvents.filter(
-      (item) => format(new Date(item.startAt), 'yyyy-MM-dd') === todayKey,
-    )
+    return data.upcomingEvents.filter((item) => format(new Date(item.startAt), 'yyyy-MM-dd') === todayKey)
   }, [data])
 
   const currentUserId = String(data?.me?.id || '')
 
-  function renderDashboardHeader(dashboardData: DashboardData) {
+  function renderDashboardHeader() {
     return (
       <header className={styles.header}>
         <div>
@@ -769,10 +708,7 @@ export default function DashboardPage() {
             <button
               type="button"
               className={styles.iconBtn}
-              onClick={() => {
-                setJoinOpen((prev) => !prev)
-                setNotifOpen(false)
-              }}
+              onClick={() => setJoinOpen((prev) => !prev)}
               aria-label={t.dashboard.joinFamily}
             >
               <UserPlus size={20} />
@@ -833,9 +769,7 @@ export default function DashboardPage() {
         method: 'PATCH',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          confirmationStatus: nextStatus,
-        }),
+        body: JSON.stringify({ confirmationStatus: nextStatus }),
       })
 
       const raw = await res.text()
@@ -843,9 +777,7 @@ export default function DashboardPage() {
 
       try {
         json = raw ? JSON.parse(raw) : null
-      } catch {
-        json = null
-      }
+      } catch {}
 
       if (!res.ok) {
         throw new Error(json?.message || json?.errors?.[0]?.message || raw || t.dashboard.couldNotUpdateConfirmation)
@@ -875,13 +807,7 @@ export default function DashboardPage() {
       })
 
       const raw = await res.text()
-      let json: any = null
-
-      try {
-        json = raw ? JSON.parse(raw) : null
-      } catch {
-        json = null
-      }
+      const json = raw ? JSON.parse(raw) : null
 
       if (!res.ok) throw new Error(json?.message || raw || t.dashboard.couldNotPreviewFamilyJoin)
 
@@ -907,20 +833,11 @@ export default function DashboardPage() {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          code,
-          confirmJoin: true,
-        }),
+        body: JSON.stringify({ code, confirmJoin: true }),
       })
 
       const raw = await res.text()
-      let json: any = null
-
-      try {
-        json = raw ? JSON.parse(raw) : null
-      } catch {
-        json = null
-      }
+      const json = raw ? JSON.parse(raw) : null
 
       if (!res.ok) throw new Error(json?.message || raw || t.dashboard.couldNotJoinFamily)
 
@@ -944,27 +861,27 @@ export default function DashboardPage() {
       const nextParentId = String(custodyNextParentId || '')
       const currentParentId = String(data?.me?.id || '')
 
-      if (!childId) throw new Error('Velg barn.')
-      if (!currentParentId) throw new Error('Mangler innlogget bruker.')
-      if (!nextParentId) throw new Error('Velg neste forelder.')
-      if (currentParentId === nextParentId) throw new Error('Neste forelder kan ikke være deg selv.')
-      if (!custodyStartAt) throw new Error('Velg startdato.')
-      if (!custodyEndAt) throw new Error('Velg sluttdato.')
-
-      const payload = {
-        child: Number(childId),
-        currentParent: Number(currentParentId),
-        nextParent: Number(nextParentId),
-        startAt: new Date(custodyStartAt).toISOString(),
-        endAt: new Date(custodyEndAt).toISOString(),
-        notes: custodyNotes,
+      if (!childId) throw new Error(tx('custodySelectChildError', 'Select a child.'))
+      if (!currentParentId) throw new Error(tx('missingCurrentUser', 'Missing current user.'))
+      if (!nextParentId) throw new Error(tx('custodySelectNextParentError', 'Select next parent.'))
+      if (currentParentId === nextParentId) {
+        throw new Error(tx('custodyNextParentCannotBeYou', 'Next parent cannot be yourself.'))
       }
+      if (!custodyStartAt) throw new Error(tx('custodySelectStartError', 'Select start date.'))
+      if (!custodyEndAt) throw new Error(tx('custodySelectEndError', 'Select end date.'))
 
       const res = await fetch('/api/custody-schedules', {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          child: Number(childId),
+          currentParent: Number(currentParentId),
+          nextParent: Number(nextParentId),
+          startAt: new Date(custodyStartAt).toISOString(),
+          endAt: new Date(custodyEndAt).toISOString(),
+          notes: custodyNotes,
+        }),
       })
 
       const raw = await res.text()
@@ -972,14 +889,10 @@ export default function DashboardPage() {
 
       try {
         json = raw ? JSON.parse(raw) : null
-      } catch {
-        json = null
-      }
+      } catch {}
 
       if (!res.ok) {
-        throw new Error(
-          json?.errors?.[0]?.message || json?.message || raw || 'Kunne ikke opprette omsorgsperiode.',
-        )
+        throw new Error(json?.errors?.[0]?.message || json?.message || raw || tx('custodyCreateFailed', 'Could not create custody period.'))
       }
 
       setCustodyOpen(false)
@@ -988,10 +901,9 @@ export default function DashboardPage() {
       setCustodyStartAt('')
       setCustodyEndAt('')
       setCustodyNotes('')
-
       await loadDashboard()
     } catch (err: any) {
-      setError(err?.message || 'Kunne ikke opprette omsorgsperiode.')
+      setError(err?.message || tx('custodyCreateFailed', 'Could not create custody period.'))
     } finally {
       setActionLoading('')
     }
@@ -1004,32 +916,23 @@ export default function DashboardPage() {
       setError('')
       setActionLoading('custody-create')
 
-      if (!custodyStartAt) throw new Error('Velg startdato.')
-      if (!custodyEndAt) throw new Error('Velg sluttdato.')
-
-      const payload = {
-        startAt: new Date(custodyStartAt).toISOString(),
-        endAt: new Date(custodyEndAt).toISOString(),
-        notes: custodyNotes,
-      }
+      if (!custodyStartAt) throw new Error(tx('custodySelectStartError', 'Select start date.'))
+      if (!custodyEndAt) throw new Error(tx('custodySelectEndError', 'Select end date.'))
 
       const res = await fetch(`/api/custody-schedules/${editingCustodyId}`, {
         method: 'PATCH',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          startAt: new Date(custodyStartAt).toISOString(),
+          endAt: new Date(custodyEndAt).toISOString(),
+          notes: custodyNotes,
+        }),
       })
 
       const raw = await res.text()
-      let json: any = null
 
-      try {
-        json = raw ? JSON.parse(raw) : null
-      } catch {
-        json = null
-      }
-
-      if (!res.ok) throw new Error(json?.message || raw || 'Kunne ikke oppdatere omsorgsperiode.')
+      if (!res.ok) throw new Error(raw || tx('custodyUpdateFailed', 'Could not update custody period.'))
 
       setCustodyOpen(false)
       setEditingCustodyId(null)
@@ -1038,10 +941,9 @@ export default function DashboardPage() {
       setCustodyStartAt('')
       setCustodyEndAt('')
       setCustodyNotes('')
-
       await loadDashboard()
     } catch (err: any) {
-      setError(err?.message || 'Kunne ikke oppdatere omsorgsperiode.')
+      setError(err?.message || tx('custodyUpdateFailed', 'Could not update custody period.'))
     } finally {
       setActionLoading('')
     }
@@ -1056,19 +958,17 @@ export default function DashboardPage() {
         method: 'PATCH',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          handoverStatus: 'ready',
-        }),
+        body: JSON.stringify({ handoverStatus: 'ready' }),
       })
 
       if (!res.ok) {
         const raw = await res.text()
-        throw new Error(raw || 'Kunne ikke sette klar for bytte.')
+        throw new Error(raw || tx('custodyReadyFailed', 'Could not mark ready for handover.'))
       }
 
       await loadDashboard()
     } catch (err: any) {
-      setError(err?.message || 'Feil ved klar for bytte.')
+      setError(err?.message || tx('custodyReadyFailed', 'Could not mark ready for handover.'))
     } finally {
       setActionLoading('')
     }
@@ -1091,16 +991,14 @@ export default function DashboardPage() {
 
       if (!res.ok) {
         const raw = await res.text()
-        throw new Error(raw || 'Kunne ikke bekrefte mottak.')
+        throw new Error(raw || tx('custodyReceiveFailed', 'Could not confirm handover.'))
       }
 
       await loadDashboard()
 
       const current = data?.currentCustody
 
-      setCustodyChildId(
-        data?.children.find((c) => c.fullName === current?.childName)?.id?.toString() || '',
-      )
+      setCustodyChildId(data?.children.find((c) => c.fullName === current?.childName)?.id?.toString() || '')
       setCustodyNextParentId(current?.currentParentId || '')
       setCustodyStartAt(new Date().toISOString().slice(0, 16))
       setCustodyEndAt('')
@@ -1108,7 +1006,7 @@ export default function DashboardPage() {
       setEditingCustodyId(null)
       setCustodyOpen(true)
     } catch (err: any) {
-      setError(err?.message || 'Feil ved mottak.')
+      setError(err?.message || tx('custodyReceiveFailed', 'Could not confirm handover.'))
     } finally {
       setActionLoading('')
     }
@@ -1116,7 +1014,7 @@ export default function DashboardPage() {
 
   async function deleteCustodySchedule(id: string | number) {
     try {
-      const confirmed = window.confirm('Er du sikker på at du vil slette omsorgsperioden?')
+      const confirmed = window.confirm(tx('custodyDeleteConfirm', 'Are you sure you want to delete this custody period?'))
       if (!confirmed) return
 
       setError('')
@@ -1129,11 +1027,11 @@ export default function DashboardPage() {
 
       const raw = await res.text()
 
-      if (!res.ok) throw new Error(raw || 'Kunne ikke slette omsorgsperiode.')
+      if (!res.ok) throw new Error(raw || tx('custodyDeleteFailed', 'Could not delete custody period.'))
 
       await loadDashboard()
     } catch (err: any) {
-      setError(err?.message || 'Kunne ikke slette omsorgsperiode.')
+      setError(err?.message || tx('custodyDeleteFailed', 'Could not delete custody period.'))
     } finally {
       setActionLoading('')
     }
@@ -1142,20 +1040,20 @@ export default function DashboardPage() {
   async function requestEmergencyCustodyChange() {
     try {
       if (!emergencyCustodyId) return
-      if (!emergencyReason.trim()) throw new Error('Skriv hvorfor du trenger hastebytte.')
-      if (!emergencyPickupAt) throw new Error('Velg når barnet skal hentes.')
-      if (!emergencyReturnAt) throw new Error('Velg hvor lenge hastebyttet skal vare.')
+      if (!emergencyReason.trim()) throw new Error(tx('emergencyReasonRequired', 'Write why you need an emergency switch.'))
+      if (!emergencyPickupAt) throw new Error(tx('emergencyPickupRequired', 'Select pickup time.'))
+      if (!emergencyReturnAt) throw new Error(tx('emergencyReturnRequired', 'Select return time.'))
 
       const pickupDate = new Date(emergencyPickupAt)
       const returnDate = new Date(emergencyReturnAt)
 
-      if (Number.isNaN(pickupDate.getTime())) throw new Error('Ugyldig hentetidspunkt.')
-      if (Number.isNaN(returnDate.getTime())) throw new Error('Ugyldig sluttidspunkt.')
-      if (returnDate <= pickupDate) throw new Error('Sluttidspunkt må være etter hentetidspunkt.')
+      if (Number.isNaN(pickupDate.getTime())) throw new Error(tx('emergencyInvalidPickup', 'Invalid pickup time.'))
+      if (Number.isNaN(returnDate.getTime())) throw new Error(tx('emergencyInvalidReturn', 'Invalid return time.'))
+      if (returnDate <= pickupDate) throw new Error(tx('emergencyReturnAfterPickup', 'Return time must be after pickup time.'))
 
       const current = data?.currentCustody
-      if (!current) throw new Error('Fant ingen aktiv omsorgsperiode.')
-      if (!current.childId) throw new Error('Mangler barn for hastebytte.')
+      if (!current) throw new Error(tx('noActiveCustodyFound', 'No active custody period found.'))
+      if (!current.childId) throw new Error(tx('missingChildForEmergency', 'Missing child for emergency switch.'))
 
       setError('')
       setActionLoading(`custody-emergency-${emergencyCustodyId}`)
@@ -1166,7 +1064,7 @@ export default function DashboardPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           recipient: Number(current.nextParentId),
-          title: 'Hastebytte forespurt',
+          title: tx('emergencyRequested', 'Emergency custody change requested'),
           message: emergencyReason.trim(),
           type: 'calendar',
           event: 'updated',
@@ -1192,17 +1090,18 @@ export default function DashboardPage() {
 
       const raw = await res.text()
 
-      if (!res.ok) throw new Error(raw || 'Kunne ikke sende hastebytte.')
+      if (!res.ok) throw new Error(raw || tx('emergencySendFailed', 'Could not send emergency request.'))
 
       setEmergencyOpen(false)
       setEmergencyReason('')
       setEmergencyPickupAt('')
       setEmergencyReturnAt('')
       setEmergencyCustodyId(null)
-      window.alert('Hastebytte er sendt.')
+
+      window.alert(tx('emergencySent', 'Emergency request sent.'))
       await loadDashboard()
     } catch (err: any) {
-      setError(err?.message || 'Feil ved hastebytte.')
+      setError(err?.message || tx('emergencySendFailed', 'Could not send emergency request.'))
     } finally {
       setActionLoading('')
     }
@@ -1279,28 +1178,28 @@ export default function DashboardPage() {
             <div className={styles.modalTitleRow}>
               <Users size={18} />
               <h3 className={styles.modalTitle}>
-                {editingCustodyId ? 'Rediger omsorgsperiode' : 'Opprett omsorgsperiode'}
+                {editingCustodyId ? tx('editCustody', 'Edit custody period') : tx('createCustody', 'Create custody period')}
               </h3>
             </div>
           </div>
 
           <div className={styles.custodyForm}>
             <label>
-              Barn
+              {tx('childLabel', 'Child')}
               <select value={custodyChildId} onChange={(e) => setCustodyChildId(e.target.value)}>
-                <option value="">Velg barn</option>
+                <option value="">{tx('selectChild', 'Select child')}</option>
                 {data.children.map((child) => (
                   <option key={String(child.id)} value={String(child.id)}>
-                    {child.fullName || `Barn ${child.id}`}
+                    {child.fullName || `${tx('childLabel', 'Child')} ${child.id}`}
                   </option>
                 ))}
               </select>
             </label>
 
             <label>
-              Neste forelder
+              {tx('nextParent', 'Next parent')}
               <select value={custodyNextParentId} onChange={(e) => setCustodyNextParentId(e.target.value)}>
-                <option value="">Velg forelder</option>
+                <option value="">{tx('selectParent', 'Select parent')}</option>
                 {data.parents
                   .filter((parent) => String(parent.id) !== String(data.me?.id))
                   .map((parent) => (
@@ -1312,36 +1211,28 @@ export default function DashboardPage() {
             </label>
 
             <label>
-              Start
-              <input
-                type="datetime-local"
-                value={custodyStartAt}
-                onChange={(e) => setCustodyStartAt(e.target.value)}
-              />
+              {tx('start', 'Start')}
+              <input type="datetime-local" value={custodyStartAt} onChange={(e) => setCustodyStartAt(e.target.value)} />
             </label>
 
             <label>
-              Slutt
-              <input
-                type="datetime-local"
-                value={custodyEndAt}
-                onChange={(e) => setCustodyEndAt(e.target.value)}
-              />
+              {tx('end', 'End')}
+              <input type="datetime-local" value={custodyEndAt} onChange={(e) => setCustodyEndAt(e.target.value)} />
             </label>
 
             <label>
-              Notat
+              {tx('note', 'Note')}
               <textarea
                 value={custodyNotes}
                 onChange={(e) => setCustodyNotes(e.target.value)}
-                placeholder="Valgfritt notat"
+                placeholder={tx('optionalNote', 'Optional note')}
               />
             </label>
           </div>
 
           <div className={styles.modalActions}>
             <button type="button" className={styles.secondaryBtn} onClick={() => setCustodyOpen(false)}>
-              Avbryt
+              {t.dashboard.cancel}
             </button>
 
             <button
@@ -1353,12 +1244,12 @@ export default function DashboardPage() {
               {actionLoading === 'custody-create' ? (
                 <>
                   <Loader2 size={16} className={styles.spin} />
-                  {editingCustodyId ? 'Lagrer' : 'Oppretter'}
+                  {editingCustodyId ? tx('saving', 'Saving...') : tx('creating', 'Creating...')}
                 </>
               ) : editingCustodyId ? (
-                'Lagre'
+                tx('save', 'Save')
               ) : (
-                'Opprett'
+                tx('create', 'Create')
               )}
             </button>
           </div>
@@ -1376,50 +1267,42 @@ export default function DashboardPage() {
           <div className={styles.modalHeader}>
             <div className={styles.modalTitleRow}>
               <AlertTriangle size={18} />
-              <h3 className={styles.modalTitle}>Be om hastebytte</h3>
+              <h3 className={styles.modalTitle}>{tx('requestEmergencyChange', 'Request emergency switch')}</h3>
             </div>
           </div>
 
           <div className={styles.modalBody}>
             <p className={styles.modalText}>
-              Send en forespørsel til den andre forelderen om å endre omsorgsperioden raskt.
+              {tx('emergencyDescription', 'Send a request to the other parent to change the custody period quickly.')}
             </p>
 
             <div className={styles.custodyForm}>
               <label>
-                Barn
+                {tx('childLabel', 'Child')}
                 <input value={data.currentCustody?.childName || ''} disabled />
               </label>
 
               <label>
-                Mottaker
+                {tx('recipient', 'Recipient')}
                 <input value={data.currentCustody?.nextParentName || ''} disabled />
               </label>
 
               <label>
-                Når skal barnet hentes?
-                <input
-                  type="datetime-local"
-                  value={emergencyPickupAt}
-                  onChange={(e) => setEmergencyPickupAt(e.target.value)}
-                />
+                {tx('emergencyPickupAt', 'When should the child be picked up?')}
+                <input type="datetime-local" value={emergencyPickupAt} onChange={(e) => setEmergencyPickupAt(e.target.value)} />
               </label>
 
               <label>
-                Hvor lenge skal du ha barnet?
-                <input
-                  type="datetime-local"
-                  value={emergencyReturnAt}
-                  onChange={(e) => setEmergencyReturnAt(e.target.value)}
-                />
+                {tx('emergencyReturnAt', 'How long should the emergency switch last?')}
+                <input type="datetime-local" value={emergencyReturnAt} onChange={(e) => setEmergencyReturnAt(e.target.value)} />
               </label>
 
               <label>
-                Begrunnelse
+                {tx('reason', 'Reason')}
                 <textarea
                   value={emergencyReason}
                   onChange={(e) => setEmergencyReason(e.target.value)}
-                  placeholder="Skriv hvorfor du trenger hastebytte..."
+                  placeholder={tx('emergencyReasonPlaceholder', 'Write why you need an emergency switch...')}
                 />
               </label>
             </div>
@@ -1435,7 +1318,7 @@ export default function DashboardPage() {
                 setEmergencyCustodyId(null)
               }}
             >
-              Avbryt
+              {t.dashboard.cancel}
             </button>
 
             <button
@@ -1452,10 +1335,10 @@ export default function DashboardPage() {
               {actionLoading === `custody-emergency-${emergencyCustodyId}` ? (
                 <>
                   <Loader2 size={16} className={styles.spin} />
-                  Sender
+                  {tx('sending', 'Sending...')}
                 </>
               ) : (
-                'Send forespørsel'
+                tx('sendRequest', 'Send request')
               )}
             </button>
           </div>
@@ -1464,22 +1347,14 @@ export default function DashboardPage() {
     )
   }
 
-  if (loading) {
-    return <div className={styles.state}>{t.dashboard.loadingDashboard}</div>
-  }
-
-  if (error && !data) {
-    return <div className={styles.stateError}>{error}</div>
-  }
-
-  if (!data) {
-    return <div className={styles.state}>{t.dashboard.noData}</div>
-  }
+  if (loading) return <div className={styles.state}>{t.dashboard.loadingDashboard}</div>
+  if (error && !data) return <div className={styles.stateError}>{error}</div>
+  if (!data) return <div className={styles.state}>{t.dashboard.noData}</div>
 
   if (data.childCount === 0) {
     return (
       <div className={styles.wrapper}>
-        {renderDashboardHeader(data)}
+        {renderDashboardHeader()}
 
         {error ? <div className={styles.inlineError}>{error}</div> : null}
 
@@ -1508,7 +1383,7 @@ export default function DashboardPage() {
 
   return (
     <div className={styles.wrapper}>
-      {renderDashboardHeader(data)}
+      {renderDashboardHeader()}
 
       {error ? <div className={styles.inlineError}>{error}</div> : null}
 
@@ -1519,16 +1394,18 @@ export default function DashboardPage() {
               <div className={styles.custodyContent}>
                 <span className={styles.custodyEyebrow}>
                   <Users size={13} />
-                  Omsorgsperiode nå
+                  {tx('custodyNow', 'Current custody period')}
                 </span>
 
                 <h2>
-                  {data.currentCustody.childName || 'Barnet'} er hos{' '}
-                  {isCurrentCustodyParent ? 'deg' : data.currentCustody.currentParentName || 'forelder'}
+                  {data.currentCustody.childName || tx('theChild', 'The child')}{' '}
+                  {tx('isWith', 'is with')}{' '}
+                  {isCurrentCustodyParent ? tx('you', 'you') : data.currentCustody.currentParentName || tx('parent', 'parent')}
                 </h2>
 
                 <p>
-                  Neste bytte er til <strong>{data.currentCustody.nextParentName || 'andre forelder'}</strong>
+                  {tx('nextHandoverTo', 'Next handover is to')}{' '}
+                  <strong>{data.currentCustody.nextParentName || tx('otherParent', 'other parent')}</strong>
                 </p>
 
                 <div className={styles.custodyDates}>
@@ -1550,32 +1427,33 @@ export default function DashboardPage() {
                 {data.currentCustody.notes ? (
                   <div className={styles.custodyNoteBox}>
                     <FileText size={16} />
-                    <span>Notat: {data.currentCustody.notes}</span>
+                    <span>{tx('note', 'Note')}: {data.currentCustody.notes}</span>
                   </div>
                 ) : null}
               </div>
 
               <div className={styles.custodySide}>
                 <div className={styles.custodyCountdown}>
-                  <span className={styles.countdownLabel}>Slutter om</span>
+                  <span className={styles.countdownLabel}>{tx('endsIn', 'Ends in')}</span>
                   <strong className={styles.countdownDays}>{custodyCountdown?.days ?? 0}</strong>
-                  <small className={styles.countdownDaysText}>DAGER</small>
+                  <small className={styles.countdownDaysText}>{tx('daysUpper', 'DAYS')}</small>
+
                   <div className={styles.countdownDivider} />
 
                   <div className={styles.custodyCountdownDetails}>
                     <div className={styles.countdownBox}>
                       <b>{String(custodyCountdown?.hours ?? 0).padStart(2, '0')}</b>
-                      <small>TIMER</small>
+                      <small>{tx('hoursUpper', 'HRS')}</small>
                     </div>
 
                     <div className={styles.countdownBox}>
                       <b>{String(custodyCountdown?.minutes ?? 0).padStart(2, '0')}</b>
-                      <small>MIN</small>
+                      <small>{tx('minutesUpper', 'MIN')}</small>
                     </div>
 
                     <div className={styles.countdownBox}>
                       <b>{String(custodyCountdown?.seconds ?? 0).padStart(2, '0')}</b>
-                      <small>SEK</small>
+                      <small>{tx('secondsUpper', 'SEC')}</small>
                     </div>
                   </div>
                 </div>
@@ -1588,7 +1466,9 @@ export default function DashboardPage() {
                     disabled={actionLoading === `custody-ready-${data.currentCustody.id}`}
                   >
                     <Check size={16} />
-                    {actionLoading === `custody-ready-${data.currentCustody.id}` ? 'Lagrer...' : 'Klar for bytte'}
+                    {actionLoading === `custody-ready-${data.currentCustody.id}`
+                      ? tx('saving', 'Saving...')
+                      : tx('readyForHandover', 'Ready for handover')}
                   </button>
                 ) : null}
 
@@ -1600,15 +1480,17 @@ export default function DashboardPage() {
                     disabled={actionLoading === `custody-received-${data.currentCustody.id}`}
                   >
                     <Check size={16} />
-                    {actionLoading === `custody-received-${data.currentCustody.id}` ? 'Bekrefter...' : 'Bekreft mottak'}
+                    {actionLoading === `custody-received-${data.currentCustody.id}`
+                      ? tx('confirming', 'Confirming...')
+                      : tx('confirmReceive', 'Confirm handover')}
                   </button>
                 ) : null}
 
                 {!isCurrentCustodyParent && !(isNextCustodyParent && data.currentCustody.handoverStatus === 'ready') ? (
                   <div className={styles.custodyWaitingBox}>
                     {isNextCustodyParent
-                      ? `Du får barnet om ${custodyCountdown?.days ?? 0} dager`
-                      : 'Du kan se denne omsorgsperioden'}
+                      ? `${tx('youGetChildIn', 'You get the child in')} ${custodyCountdown?.days ?? 0} ${tx('daysLower', 'days')}`
+                      : tx('canViewCustody', 'You can view this custody period')}
                   </div>
                 ) : null}
 
@@ -1616,8 +1498,8 @@ export default function DashboardPage() {
                   <div className={styles.custodyIconActions}>
                     <button
                       type="button"
-                      aria-label="Rediger omsorgsperiode"
-                      title="Rediger omsorgsperiode"
+                      aria-label={tx('editCustody', 'Edit custody period')}
+                      title={tx('editCustody', 'Edit custody period')}
                       className={styles.roundEditBtn}
                       onClick={() => {
                         setEditingCustodyId(data.currentCustody!.id)
@@ -1643,8 +1525,8 @@ export default function DashboardPage() {
 
                     <button
                       type="button"
-                      aria-label="Slett omsorgsperiode"
-                      title="Slett omsorgsperiode"
+                      aria-label={tx('deleteCustody', 'Delete custody period')}
+                      title={tx('deleteCustody', 'Delete custody period')}
                       className={styles.roundDeleteBtn}
                       onClick={() => deleteCustodySchedule(data.currentCustody!.id)}
                       disabled={actionLoading === `custody-delete-${data.currentCustody.id}`}
@@ -1654,7 +1536,7 @@ export default function DashboardPage() {
 
                     <button
                       type="button"
-                      className={styles.roundEditBtn}
+                      className={styles.roundEmergencyBtn}
                       onClick={() => {
                         setEmergencyCustodyId(data.currentCustody!.id)
                         setEmergencyReason('')
@@ -1663,8 +1545,8 @@ export default function DashboardPage() {
                         setEmergencyOpen(true)
                       }}
                       disabled={actionLoading === `custody-emergency-${data.currentCustody.id}`}
-                      aria-label="Be om hastebytte"
-                      title="Be om hastebytte"
+                      aria-label={tx('requestEmergencyChange', 'Request emergency switch')}
+                      title={tx('requestEmergencyChange', 'Request emergency switch')}
                     >
                       !
                     </button>
@@ -1677,15 +1559,12 @@ export default function DashboardPage() {
               <div className={styles.custodyContent}>
                 <span className={styles.custodyEyebrow}>
                   <Users size={13} />
-                  Omsorgsperiode
+                  {tx('custodyPeriod', 'Custody period')}
                 </span>
 
-                <h2>Ingen aktiv omsorgsperiode</h2>
+                <h2>{tx('noActiveCustody', 'No active custody period')}</h2>
 
-                <p>
-                  Opprett en omsorgsperiode for å vise hvem barnet er hos akkurat nå,
-                  og når neste bytte skjer.
-                </p>
+                <p>{tx('noActiveCustodyDescription', 'Create a custody period to show where the child is now and when the next handover happens.')}</p>
               </div>
 
               <button
@@ -1693,16 +1572,14 @@ export default function DashboardPage() {
                 className={styles.completeBtn}
                 onClick={() => {
                   const firstChild = data.children?.[0]
-                  const otherParent = data.parents?.find(
-                    (parent) => String(parent.id) !== String(data.me?.id),
-                  )
+                  const otherParent = data.parents?.find((parent) => String(parent.id) !== String(data.me?.id))
 
                   setCustodyChildId(firstChild ? String(firstChild.id) : '')
                   setCustodyNextParentId(otherParent ? String(otherParent.id) : '')
                   setCustodyOpen(true)
                 }}
               >
-                Opprett omsorgsperiode
+                {tx('createCustody', 'Create custody period')}
               </button>
             </>
           )}
@@ -1792,7 +1669,7 @@ export default function DashboardPage() {
                     <div className={`${styles.timelineDot} ${index > 0 ? styles.timelineDotMuted : ''}`} />
 
                     <div className={styles.timelineBody}>
-                      <strong>{format(new Date(item.startAt), 'hh:mm a')}</strong>
+                      <strong>{format(new Date(item.startAt), 'HH:mm')}</strong>
                       <span>{item.title}</span>
                       <small>{item.location || getEventTypeLabel(item.eventType)}</small>
                     </div>
@@ -1850,9 +1727,7 @@ export default function DashboardPage() {
 
             <div className={styles.financeBalance}>
               <span>{t.dashboard.sharedBalance}</span>
-              <strong>
-                {fmtCurrency(data.financeOverview.familyBankBalance, data.financeOverview.familyBankCurrency)}
-              </strong>
+              <strong>{fmtCurrency(data.financeOverview.familyBankBalance, data.financeOverview.familyBankCurrency)}</strong>
             </div>
 
             <div className={styles.financeRows}>
@@ -1863,9 +1738,7 @@ export default function DashboardPage() {
 
               <div>
                 <span>{t.dashboard.pendingPayments}</span>
-                <strong>
-                  {fmtCurrency(data.financeOverview.pendingPaymentTotal, data.financeOverview.familyBankCurrency)}
-                </strong>
+                <strong>{fmtCurrency(data.financeOverview.pendingPaymentTotal, data.financeOverview.familyBankCurrency)}</strong>
               </div>
             </div>
           </section>
@@ -1888,7 +1761,7 @@ export default function DashboardPage() {
                     <div>
                       <strong>{item.title}</strong>
                       <span>
-                        {format(new Date(item.startAt), 'hh:mm a')}
+                        {format(new Date(item.startAt), 'HH:mm')}
                         {item.location ? ` · ${item.location}` : ''}
                       </span>
                     </div>

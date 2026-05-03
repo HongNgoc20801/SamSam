@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { CheckCheck, ChevronRight } from 'lucide-react'
 import styles from './notificationsPage.module.css'
 import { useSettings } from '@/app/(frontend)/components/providers/SettingsProvider'
+import { useTranslations } from '@/app/lib/i18n/useTranslations'
 
 type Lang = 'no' | 'en'
 
@@ -36,148 +37,6 @@ type NotificationItem = {
   type?: 'calendar' | 'expense' | 'request' | 'bank' | 'status' | 'documents' | 'post'
   event?: NotificationEventType
   meta?: Record<string, any>
-}
-
-const text = {
-  no: {
-    title: 'Alle varsler',
-    subtitle:
-      'Full oversikt over oppdateringer for barn, innlegg, kalender, dokumenter og økonomi.',
-    total: 'Totalt',
-    unread: 'Ulest',
-    all: 'Alle',
-    unreadTab: 'Ulest',
-    loading: 'Laster varsler...',
-    empty: 'Ingen varsler ennå.',
-    couldNotLoad: 'Kunne ikke laste varsler.',
-    markAllRead: 'Merk alle lest',
-    saving: 'Lagrer...',
-    back: 'Tilbake til dashboard',
-    general: 'Generelt',
-    calendar: 'Kalender',
-    custody: 'Omsorg',
-    expense: 'Økonomi',
-    request: 'Forespørsel',
-    bank: 'Bank',
-    status: 'Status',
-    documents: 'Dokumenter',
-    post: 'Oppdateringer',
-    child: 'Barn',
-    from: 'Fra',
-    to: 'Til',
-    pickup: 'Henting',
-    lastsUntil: 'Varer til',
-    reason: 'Begrunnelse',
-    close: 'Lukk',
-    reject: 'Avslå',
-    approve: 'Godta',
-    sending: 'Sender...',
-    emergencyRequested: 'Hastebytte forespurt',
-    emergencyApproved: 'Hastebytte godkjent',
-    emergencyRejected: 'Hastebytte avslått',
-    aParent: 'En forelder',
-    noReason: 'Ingen begrunnelse oppgitt.',
-    missingRecipient: 'Mangler mottaker for svar på hastebytte.',
-    missingCurrentUser: 'Mangler innlogget bruker.',
-    couldNotGetMe: 'Kunne ikke hente innlogget bruker.',
-    couldNotRespond: 'Kunne ikke svare på forespørselen.',
-    custodyCreated: 'Omsorgsperiode opprettet',
-    custodyUpdated: 'Omsorgsperiode oppdatert',
-    custodyDeleted: 'Omsorgsperiode slettet',
-    custodyReady: 'Klar for bytte',
-    custodyHandedOver: 'Barnet er overlevert',
-    createdCustody: 'opprettet en omsorgsperiode',
-    updatedCustody: 'oppdaterte omsorgsplanen',
-    deletedCustody: 'slettet en omsorgsperiode',
-    markedReady: 'markerte omsorgsperioden som klar for bytte',
-    confirmedHandover: 'bekreftet at barnet er overlevert',
-    calendarCreated: 'opprettet',
-    calendarUpdated: 'oppdatert',
-    calendarDeleted: 'slettet',
-    calendarAccepted: 'godtatt',
-    calendarDeclined: 'avslått',
-    eventTypes: {
-      custody: 'Omsorgsperiode',
-      handover: 'Omsorgsbytte',
-      pickup: 'Henting',
-      dropoff: 'Levering',
-      school: 'Skole',
-      activity: 'Aktivitet',
-      medical: 'Medisinsk',
-      payment: 'Betaling',
-      other: 'Kalender',
-    },
-  },
-
-  en: {
-    title: 'All notifications',
-    subtitle:
-      'A full overview of updates across child profiles, posts, calendar, documents, and expenses.',
-    total: 'Total',
-    unread: 'Unread',
-    all: 'All',
-    unreadTab: 'Unread',
-    loading: 'Loading notifications...',
-    empty: 'No notifications yet.',
-    couldNotLoad: 'Could not load notifications.',
-    markAllRead: 'Mark all read',
-    saving: 'Saving...',
-    back: 'Back to dashboard',
-    general: 'General',
-    calendar: 'Calendar',
-    custody: 'Custody',
-    expense: 'Expense',
-    request: 'Request',
-    bank: 'Bank',
-    status: 'Status',
-    documents: 'Documents',
-    post: 'Updates',
-    child: 'Child',
-    from: 'From',
-    to: 'To',
-    pickup: 'Pickup',
-    lastsUntil: 'Lasts until',
-    reason: 'Reason',
-    close: 'Close',
-    reject: 'Reject',
-    approve: 'Approve',
-    sending: 'Sending...',
-    emergencyRequested: 'Emergency custody change requested',
-    emergencyApproved: 'Emergency change approved',
-    emergencyRejected: 'Emergency change rejected',
-    aParent: 'A parent',
-    noReason: 'No reason provided.',
-    missingRecipient: 'Missing recipient for emergency response.',
-    missingCurrentUser: 'Missing current user.',
-    couldNotGetMe: 'Could not load current user.',
-    couldNotRespond: 'Could not respond to the request.',
-    custodyCreated: 'Custody period created',
-    custodyUpdated: 'Custody period updated',
-    custodyDeleted: 'Custody period deleted',
-    custodyReady: 'Ready for handover',
-    custodyHandedOver: 'Child handed over',
-    createdCustody: 'created a custody period',
-    updatedCustody: 'updated the custody plan',
-    deletedCustody: 'deleted a custody period',
-    markedReady: 'marked the custody period as ready for handover',
-    confirmedHandover: 'confirmed that the child was handed over',
-    calendarCreated: 'created',
-    calendarUpdated: 'updated',
-    calendarDeleted: 'deleted',
-    calendarAccepted: 'accepted',
-    calendarDeclined: 'declined',
-    eventTypes: {
-      custody: 'Custody period',
-      handover: 'Handover',
-      pickup: 'Pickup',
-      dropoff: 'Drop-off',
-      school: 'School',
-      activity: 'Activity',
-      medical: 'Medical',
-      payment: 'Payment',
-      other: 'Calendar',
-    },
-  },
 }
 
 function getMediaUrl(value: any) {
@@ -215,6 +74,7 @@ function formatDateTime(value: string | undefined, lang: Lang) {
 function shorten(text?: string, max = 80) {
   const value = String(text || '').trim()
   if (!value) return ''
+
   return value.length > max ? `${value.slice(0, max)}…` : value
 }
 
@@ -248,274 +108,17 @@ function getAvatarUrl(item: NotificationItem) {
   )
 }
 
-function getActorName(item: NotificationItem, lang: Lang) {
-  const meta = item.meta || {}
-
-  const directName =
-    meta.actorName ||
-    meta.actor?.fullName ||
-    meta.author?.fullName ||
-    meta.user?.fullName ||
-    meta.customer?.fullName
-
-  if (directName) return String(directName).trim()
-
-  return String(item.title || text[lang].aParent).trim()
-}
-
-function getEventTypeLabel(type: string | undefined, lang: Lang) {
-  const t = text[lang]
-  const key = String(type || 'other') as keyof typeof t.eventTypes
-  return t.eventTypes[key] || t.eventTypes.other
-}
-
 function isCustodyNotification(item: NotificationItem) {
-  return item.type === 'calendar' && item.meta?.type === 'custody-schedule'
-}
-
-function getTypeLabel(item: NotificationItem, lang: Lang) {
-  const t = text[lang]
-
-  if (isCustodyNotification(item)) return t.custody
-
-  switch (item.type) {
-    case 'calendar':
-      return t.calendar
-    case 'expense':
-      return t.expense
-    case 'request':
-      return t.request
-    case 'bank':
-      return t.bank
-    case 'status':
-      return t.status
-    case 'documents':
-      return t.documents
-    case 'post':
-      return t.post
-    default:
-      return t.general
-  }
-}
-
-function buildNotificationTitle(item: NotificationItem, lang: Lang) {
-  const t = text[lang]
   const meta = item.meta || {}
-  const childName = String(meta.childName || '').trim()
-  const documentName = String(meta.documentName || item.title || '').trim()
-  const rawTitle = String(item.title || t.general).trim()
-  const isChildUpdate = !!meta.isChildUpdate
 
-  if (isCustodyNotification(item)) {
-    if (item.event === 'created') {
-      return `${t.custodyCreated}${childName ? ` for ${childName}` : ''}`
-    }
-
-    if (item.event === 'deleted') {
-      return `${t.custodyDeleted}${childName ? ` for ${childName}` : ''}`
-    }
-
-    if (item.event === 'updated') {
-      if (meta.handoverStatus === 'ready') {
-        return `${t.custodyReady}${childName ? ` for ${childName}` : ''}`
-      }
-
-      if (meta.handoverStatus === 'handed-over') {
-        return `${t.custodyHandedOver}${childName ? `: ${childName}` : ''}`
-      }
-
-      return `${t.custodyUpdated}${childName ? ` for ${childName}` : ''}`
-    }
-  }
-
-  if (item.type === 'calendar' && meta.type === 'custody-emergency') {
-    return `${meta.actorName || t.aParent} ${lang === 'en' ? 'requested emergency change' : 'ber om hastebytte'}${
-      childName ? ` for ${childName}` : ''
-    }`
-  }
-
-  if (item.type === 'calendar' && meta.type === 'custody-emergency-response') {
-    return meta.status === 'approved'
-      ? `${t.emergencyApproved}${childName ? ` for ${childName}` : ''}`
-      : `${t.emergencyRejected}${childName ? ` for ${childName}` : ''}`
-  }
-
-  if (item.type === 'calendar') {
-    const eventType = getEventTypeLabel(meta.eventType, lang)
-
-    if (item.event === 'created') return `${eventType} ${t.calendarCreated}${childName ? ` for ${childName}` : ''}`
-    if (item.event === 'updated') return `${eventType} ${t.calendarUpdated}${childName ? ` for ${childName}` : ''}`
-    if (item.event === 'deleted') return `${eventType} ${t.calendarDeleted}${childName ? ` for ${childName}` : ''}`
-    if (item.event === 'confirmed') return `${eventType} ${t.calendarAccepted}${childName ? ` for ${childName}` : ''}`
-    if (item.event === 'declined') return `${eventType} ${t.calendarDeclined}${childName ? ` for ${childName}` : ''}`
-  }
-
-  if (item.type === 'documents') {
-    if (item.event === 'uploaded') {
-      return childName
-        ? lang === 'en'
-          ? `Document uploaded for ${childName}`
-          : `Dokument lastet opp for ${childName}`
-        : documentName
-          ? lang === 'en'
-            ? `Document uploaded: ${documentName}`
-            : `Dokument lastet opp: ${documentName}`
-          : lang === 'en'
-            ? 'Document uploaded'
-            : 'Dokument lastet opp'
-    }
-
-    if (item.event === 'deleted') {
-      return childName
-        ? lang === 'en'
-          ? `Document deleted for ${childName}`
-          : `Dokument slettet for ${childName}`
-        : documentName
-          ? lang === 'en'
-            ? `Document deleted: ${documentName}`
-            : `Dokument slettet: ${documentName}`
-          : lang === 'en'
-            ? 'Document deleted'
-            : 'Dokument slettet'
-    }
-  }
-
-  if (item.type === 'post') {
-    if (item.event === 'created') {
-      return isChildUpdate
-        ? lang === 'en'
-          ? `New update${childName ? ` for ${childName}` : ''}`
-          : `Ny oppdatering${childName ? ` for ${childName}` : ''}`
-        : lang === 'en'
-          ? 'New family update'
-          : 'Ny familieoppdatering'
-    }
-
-    if (item.event === 'deleted') {
-      return isChildUpdate
-        ? lang === 'en'
-          ? `Update deleted${childName ? ` for ${childName}` : ''}`
-          : `Oppdatering slettet${childName ? ` for ${childName}` : ''}`
-        : lang === 'en'
-          ? 'Family update deleted'
-          : 'Familieoppdatering slettet'
-    }
-  }
-
-  return rawTitle
-}
-
-function buildNotificationMessage(item: NotificationItem, lang: Lang) {
-  const t = text[lang]
-  const meta = item.meta || {}
-  const actorName = String(meta.actorName || t.aParent).trim()
-  const childName = String(meta.childName || '').trim()
-  const documentName = shorten(meta.documentName || item.title || '')
-  const postTitle = shorten(meta.title || item.message || '')
-  const confirmedAt = String(meta.confirmedAt || '').trim()
-
-  if (isCustodyNotification(item)) {
-    const action =
-      meta.handoverStatus === 'ready'
-        ? t.markedReady
-        : meta.handoverStatus === 'handed-over'
-          ? t.confirmedHandover
-          : item.event === 'created'
-            ? t.createdCustody
-            : item.event === 'deleted'
-              ? t.deletedCustody
-              : t.updatedCustody
-
-    return [
-      `${actorName} ${action}`,
-      childName ? `${t.child}: ${childName}` : '',
-      meta.currentParentName && meta.nextParentName
-        ? `${meta.currentParentName} → ${meta.nextParentName}`
-        : '',
-      meta.startAt ? `${t.from} ${formatDateTime(meta.startAt, lang)}` : '',
-      meta.endAt ? `${t.to} ${formatDateTime(meta.endAt, lang)}` : '',
-    ]
-      .filter(Boolean)
-      .join(' · ')
-  }
-
-  if (item.type === 'calendar' && meta.type === 'custody-emergency') {
-    return [
-      meta.pickupAt ? `${t.pickup}: ${formatDateTime(meta.pickupAt, lang)}` : '',
-      meta.returnAt ? `${t.lastsUntil}: ${formatDateTime(meta.returnAt, lang)}` : '',
-      item.message || meta.reason || t.emergencyRequested,
-    ]
-      .filter(Boolean)
-      .join(' · ')
-  }
-
-  if (item.type === 'calendar' && meta.type === 'custody-emergency-response') {
-    return [
-      meta.status === 'approved' ? t.emergencyApproved : t.emergencyRejected,
-      meta.pickupAt ? `${t.pickup}: ${formatDateTime(meta.pickupAt, lang)}` : '',
-      meta.returnAt ? `${t.lastsUntil}: ${formatDateTime(meta.returnAt, lang)}` : '',
-    ]
-      .filter(Boolean)
-      .join(' · ')
-  }
-
-  if (item.type === 'calendar') {
-    if (item.event === 'confirmed') {
-      return `${actorName} ${lang === 'en' ? 'accepted the event' : 'godtok hendelsen'}${
-        confirmedAt ? ` ${confirmedAt}` : ''
-      }.`
-    }
-
-    if (item.event === 'declined') {
-      return `${actorName} ${lang === 'en' ? 'declined the event' : 'avslo hendelsen'}${
-        confirmedAt ? ` ${confirmedAt}` : ''
-      }.`
-    }
-
-    if (item.event === 'updated') {
-      return `${actorName} ${lang === 'en' ? 'updated a calendar event' : 'oppdaterte en kalenderhendelse'}${
-        childName ? ` for ${childName}` : ''
-      }.`
-    }
-  }
-
-  if (item.type === 'documents') {
-    if (item.event === 'uploaded') {
-      return lang === 'en'
-        ? `${actorName} uploaded${documentName ? ` "${documentName}"` : ' a document'}.`
-        : `${actorName} lastet opp${documentName ? ` "${documentName}"` : ' et dokument'}.`
-    }
-
-    if (item.event === 'deleted') {
-      return lang === 'en'
-        ? `${actorName} deleted${documentName ? ` "${documentName}"` : ' a document'}.`
-        : `${actorName} slettet${documentName ? ` "${documentName}"` : ' et dokument'}.`
-    }
-  }
-
-  if (item.type === 'post') {
-    if (item.event === 'created') {
-      return childName
-        ? lang === 'en'
-          ? `${actorName} published "${postTitle}" for ${childName}.`
-          : `${actorName} publiserte "${postTitle}" for ${childName}.`
-        : lang === 'en'
-          ? `${actorName} published "${postTitle}".`
-          : `${actorName} publiserte "${postTitle}".`
-    }
-
-    if (item.event === 'deleted') {
-      return childName
-        ? lang === 'en'
-          ? `${actorName} deleted "${postTitle}" for ${childName}.`
-          : `${actorName} slettet "${postTitle}" for ${childName}.`
-        : lang === 'en'
-          ? `${actorName} deleted "${postTitle}".`
-          : `${actorName} slettet "${postTitle}".`
-    }
-  }
-
-  return item.message || (lang === 'en' ? 'Open to view details.' : 'Åpne for å se detaljer.')
+  return (
+    item.type === 'calendar' &&
+    (meta.type === 'custody-schedule' ||
+      meta.eventType === 'custody' ||
+      meta.custodyId ||
+      String(item.title || '').toLowerCase().includes('custody period') ||
+      String(item.title || '').toLowerCase().includes('omsorgsperiode'))
+  )
 }
 
 function NotificationTypeIcon({ type }: { type?: NotificationItem['type'] }) {
@@ -594,8 +197,10 @@ function NotificationTypeIcon({ type }: { type?: NotificationItem['type'] }) {
 
 export default function NotificationsPage() {
   const { settings } = useSettings()
+  const dict = useTranslations()
+
   const lang: Lang = settings?.language === 'en' ? 'en' : 'no'
-  const t = text[lang]
+  const t = dict.notifications as any
 
   const [items, setItems] = useState<NotificationItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -604,6 +209,261 @@ export default function NotificationsPage() {
   const [selectedEmergency, setSelectedEmergency] = useState<NotificationItem | null>(null)
   const [actionLoading, setActionLoading] = useState('')
   const [activeTab, setActiveTab] = useState<'all' | 'unread'>('all')
+
+  function getActorName(item: NotificationItem) {
+    const meta = item.meta || {}
+
+    const directName =
+      meta.actorName ||
+      meta.actor?.fullName ||
+      meta.author?.fullName ||
+      meta.user?.fullName ||
+      meta.customer?.fullName
+
+    if (directName) return String(directName).trim()
+
+    return String(item.title || t.aParent || 'A parent').trim()
+  }
+
+  function getEventTypeLabel(type: string | undefined) {
+    const eventTypes = t.eventTypes || {}
+    const key = String(type || 'other')
+
+    return eventTypes[key] || eventTypes.other || (lang === 'en' ? 'Calendar' : 'Kalender')
+  }
+
+  function getTypeLabel(item: NotificationItem) {
+    if (isCustodyNotification(item)) return t.custody || (lang === 'en' ? 'Custody' : 'Omsorg')
+
+    switch (item.type) {
+      case 'calendar':
+        return t.calendar || (lang === 'en' ? 'Calendar' : 'Kalender')
+      case 'expense':
+        return t.expense || (lang === 'en' ? 'Expense' : 'Økonomi')
+      case 'request':
+        return t.request || (lang === 'en' ? 'Request' : 'Forespørsel')
+      case 'bank':
+        return t.bank || 'Bank'
+      case 'status':
+        return t.status || 'Status'
+      case 'documents':
+        return t.documents || (lang === 'en' ? 'Documents' : 'Dokumenter')
+      case 'post':
+        return t.post || (lang === 'en' ? 'Updates' : 'Oppdateringer')
+      default:
+        return t.general || (lang === 'en' ? 'General' : 'Generelt')
+    }
+  }
+
+  function buildNotificationTitle(item: NotificationItem) {
+    const meta = item.meta || {}
+    const childName = String(meta.childName || '').trim()
+    const documentName = String(meta.documentName || item.title || '').trim()
+    const rawTitle = String(item.title || t.general || 'Notification').trim()
+    const isChildUpdate = !!meta.isChildUpdate
+
+    if (isCustodyNotification(item)) {
+      if (item.event === 'created') {
+        return `${t.custodyCreated || 'Custody period created'}${childName ? ` for ${childName}` : ''}`
+      }
+
+      if (item.event === 'deleted') {
+        return `${t.custodyDeleted || 'Custody period deleted'}${childName ? ` for ${childName}` : ''}`
+      }
+
+      if (item.event === 'updated') {
+        if (meta.handoverStatus === 'ready') {
+          return `${t.custodyReady || 'Ready for handover'}${childName ? ` for ${childName}` : ''}`
+        }
+
+        if (meta.handoverStatus === 'handed-over') {
+          return `${t.custodyHandedOver || 'Child handed over'}${childName ? `: ${childName}` : ''}`
+        }
+
+        return `${t.custodyUpdated || 'Custody period updated'}${childName ? ` for ${childName}` : ''}`
+      }
+    }
+
+    if (item.type === 'calendar' && meta.type === 'custody-emergency') {
+      return `${meta.actorName || t.aParent || 'A parent'} ${t.requestedEmergencyChange || (lang === 'en' ? 'requested emergency change' : 'ber om hastebytte')}${childName ? ` for ${childName}` : ''}`
+    }
+
+    if (item.type === 'calendar' && meta.type === 'custody-emergency-response') {
+      return meta.status === 'approved'
+        ? `${t.emergencyApproved || 'Emergency change approved'}${childName ? ` for ${childName}` : ''}`
+        : `${t.emergencyRejected || 'Emergency change rejected'}${childName ? ` for ${childName}` : ''}`
+    }
+
+    if (item.type === 'calendar') {
+      const eventType = getEventTypeLabel(meta.eventType)
+
+      if (item.event === 'created') return `${eventType} ${t.calendarCreated || 'created'}${childName ? ` for ${childName}` : ''}`
+      if (item.event === 'updated') return `${eventType} ${t.calendarUpdated || 'updated'}${childName ? ` for ${childName}` : ''}`
+      if (item.event === 'deleted') return `${eventType} ${t.calendarDeleted || 'deleted'}${childName ? ` for ${childName}` : ''}`
+      if (item.event === 'confirmed') return `${eventType} ${t.calendarAccepted || 'accepted'}${childName ? ` for ${childName}` : ''}`
+      if (item.event === 'declined') return `${eventType} ${t.calendarDeclined || 'declined'}${childName ? ` for ${childName}` : ''}`
+    }
+
+    if (item.type === 'documents') {
+      if (item.event === 'uploaded') {
+        return childName
+          ? `${t.documentUploadedFor || 'Document uploaded for'} ${childName}`
+          : documentName
+            ? `${t.documentUploaded || 'Document uploaded'}: ${documentName}`
+            : t.documentUploadedPlain || 'Document uploaded'
+      }
+
+      if (item.event === 'replaced') {
+        return childName
+          ? `${t.documentReplacedFor || 'Document replaced for'} ${childName}`
+          : documentName
+            ? `${t.documentReplaced || 'Document replaced'}: ${documentName}`
+            : t.documentReplacedPlain || 'Document replaced'
+      }
+
+      if (item.event === 'updated') {
+        return childName
+          ? `${t.documentUpdatedFor || 'Document updated for'} ${childName}`
+          : documentName
+            ? `${t.documentUpdated || 'Document updated'}: ${documentName}`
+            : t.documentUpdatedPlain || 'Document updated'
+      }
+
+      if (item.event === 'deleted') {
+        return childName
+          ? `${t.documentDeletedFor || 'Document deleted for'} ${childName}`
+          : documentName
+            ? `${t.documentDeleted || 'Document deleted'}: ${documentName}`
+            : t.documentDeletedPlain || 'Document deleted'
+      }
+    }
+
+    if (item.type === 'post') {
+      if (item.event === 'created') return isChildUpdate ? `${t.newUpdate || 'New update'}${childName ? ` for ${childName}` : ''}` : t.newFamilyUpdate || 'New family update'
+      if (item.event === 'updated') return isChildUpdate ? `${t.updateEdited || 'Update edited'}${childName ? ` for ${childName}` : ''}` : t.familyUpdateEdited || 'Family update edited'
+      if (item.event === 'deleted') return isChildUpdate ? `${t.updateDeleted || 'Update deleted'}${childName ? ` for ${childName}` : ''}` : t.familyUpdateDeleted || 'Family update deleted'
+      if (item.event === 'commented') return childName ? `${t.newCommentFor || 'New comment for'} ${childName}` : t.newCommentOnUpdate || 'New comment on update'
+      if (item.event === 'liked') return childName ? `${t.updateLikedFor || 'Update liked for'} ${childName}` : t.updateLiked || 'Update liked'
+    }
+
+    return rawTitle
+  }
+
+  function buildNotificationMessage(item: NotificationItem) {
+    const meta = item.meta || {}
+    const actorName = String(meta.actorName || t.aParent || 'A parent').trim()
+    const childName = String(meta.childName || '').trim()
+    const documentName = shorten(meta.documentName || item.title || '')
+    const postTitle = shorten(meta.title || item.message || '')
+    const confirmedAt = String(meta.confirmedAt || '').trim()
+
+    if (isCustodyNotification(item)) {
+      const action =
+        meta.handoverStatus === 'ready'
+          ? t.markedReady || 'marked the custody period as ready for handover'
+          : meta.handoverStatus === 'handed-over'
+            ? t.confirmedHandover || 'confirmed that the child was handed over'
+            : item.event === 'created'
+              ? t.createdCustody || 'created a custody period'
+              : item.event === 'deleted'
+                ? t.deletedCustody || 'deleted a custody period'
+                : t.updatedCustody || 'updated the custody plan'
+
+      return [
+        `${actorName} ${action}`,
+        childName ? `${t.child || 'Child'}: ${childName}` : '',
+        meta.currentParentName && meta.nextParentName ? `${meta.currentParentName} → ${meta.nextParentName}` : '',
+        meta.startAt ? `${t.from || 'From'} ${formatDateTime(meta.startAt, lang)}` : '',
+        meta.endAt ? `${t.to || 'To'} ${formatDateTime(meta.endAt, lang)}` : '',
+      ]
+        .filter(Boolean)
+        .join(' · ')
+    }
+
+    if (item.type === 'calendar' && meta.type === 'custody-emergency') {
+      return [
+        meta.pickupAt ? `${t.pickup || 'Pickup'}: ${formatDateTime(meta.pickupAt, lang)}` : '',
+        meta.returnAt ? `${t.lastsUntil || 'Lasts until'}: ${formatDateTime(meta.returnAt, lang)}` : '',
+        item.message || meta.reason || t.emergencyRequested || 'Emergency custody change requested',
+      ]
+        .filter(Boolean)
+        .join(' · ')
+    }
+
+    if (item.type === 'calendar' && meta.type === 'custody-emergency-response') {
+      return [
+        meta.status === 'approved'
+          ? t.emergencyApproved || 'Emergency change approved'
+          : t.emergencyRejected || 'Emergency change rejected',
+        meta.pickupAt ? `${t.pickup || 'Pickup'}: ${formatDateTime(meta.pickupAt, lang)}` : '',
+        meta.returnAt ? `${t.lastsUntil || 'Lasts until'}: ${formatDateTime(meta.returnAt, lang)}` : '',
+      ]
+        .filter(Boolean)
+        .join(' · ')
+    }
+
+    if (item.type === 'calendar') {
+      if (item.event === 'confirmed') {
+        return `${actorName} ${t.acceptedEvent || 'accepted the event'}${confirmedAt ? ` ${confirmedAt}` : ''}.`
+      }
+
+      if (item.event === 'declined') {
+        return `${actorName} ${t.declinedEvent || 'declined the event'}${confirmedAt ? ` ${confirmedAt}` : ''}.`
+      }
+
+      if (item.event === 'updated') {
+        return `${actorName} ${t.updatedCalendarEvent || 'updated a calendar event'}${childName ? ` for ${childName}` : ''}.`
+      }
+    }
+
+    if (item.type === 'documents') {
+      if (item.event === 'uploaded') {
+        return `${actorName} ${t.uploaded || 'uploaded'}${documentName ? ` "${documentName}"` : ` ${t.aDocument || 'a document'}`}.`
+      }
+
+      if (item.event === 'replaced') {
+        return `${actorName} ${t.replaced || 'replaced'}${documentName ? ` "${documentName}"` : ` ${t.aDocument || 'a document'}`}.`
+      }
+
+      if (item.event === 'updated') {
+        return `${actorName} ${t.updated || 'updated'}${documentName ? ` "${documentName}"` : ` ${t.aDocument || 'a document'}`}.`
+      }
+
+      if (item.event === 'deleted') {
+        return `${actorName} ${t.deleted || 'deleted'}${documentName ? ` "${documentName}"` : ` ${t.aDocument || 'a document'}`}.`
+      }
+    }
+
+    if (item.type === 'post') {
+      if (item.event === 'created') {
+        return childName
+          ? `${actorName} ${t.createdThePost || 'created the post'} "${postTitle}" for ${childName}.`
+          : `${actorName} ${t.createdThePost || 'created the post'} "${postTitle}".`
+      }
+
+      if (item.event === 'updated') {
+        return childName
+          ? `${actorName} ${t.updatedThePost || 'updated the post'} "${postTitle}" for ${childName}.`
+          : `${actorName} ${t.updatedThePost || 'updated the post'} "${postTitle}".`
+      }
+
+      if (item.event === 'deleted') {
+        return childName
+          ? `${actorName} ${t.deletedThePost || 'deleted the post'} "${postTitle}" for ${childName}.`
+          : `${actorName} ${t.deletedThePost || 'deleted the post'} "${postTitle}".`
+      }
+
+      if (item.event === 'commented') {
+        return `${actorName} ${t.commentedOn || 'commented on'} "${postTitle}".`
+      }
+
+      if (item.event === 'liked') {
+        return `${actorName} ${t.liked || 'liked'} "${postTitle}".`
+      }
+    }
+
+    return item.message || t.openToViewDetails || 'Open to view details.'
+  }
 
   async function loadNotifications() {
     try {
@@ -618,12 +478,12 @@ export default function NotificationsPage() {
       const json = await res.json().catch(() => null)
 
       if (!res.ok) {
-        throw new Error(json?.message || t.couldNotLoad)
+        throw new Error(json?.message || t.couldNotLoad || 'Could not load notifications.')
       }
 
       setItems(Array.isArray(json?.docs) ? json.docs : [])
     } catch (err: any) {
-      setError(err?.message || t.couldNotLoad)
+      setError(err?.message || t.couldNotLoad || 'Could not load notifications.')
       setItems([])
     } finally {
       setLoading(false)
@@ -695,7 +555,7 @@ export default function NotificationsPage() {
       const meta = selectedEmergency.meta || {}
       const recipientId = meta.actorId
 
-      if (!recipientId) throw new Error(t.missingRecipient)
+      if (!recipientId) throw new Error(t.missingRecipient || 'Missing recipient for emergency response.')
 
       const meRes = await fetch('/api/customers/me', {
         credentials: 'include',
@@ -704,18 +564,19 @@ export default function NotificationsPage() {
 
       const meJson = await meRes.json().catch(() => null)
 
-      if (!meRes.ok) throw new Error(meJson?.message || t.couldNotGetMe)
+      if (!meRes.ok) throw new Error(meJson?.message || t.couldNotGetMe || 'Could not load current user.')
 
       const meUser = meJson?.user || meJson
       const meId = meUser?.id
 
-      if (!meId) throw new Error(t.missingCurrentUser)
+      if (!meId) throw new Error(t.missingCurrentUser || 'Missing current user.')
 
       const meName =
         meUser?.fullName ||
         `${meUser?.firstName || ''} ${meUser?.lastName || ''}`.trim() ||
         meUser?.email ||
-        t.aParent
+        t.aParent ||
+        'A parent'
 
       const meAvatarUrl =
         getMediaUrl(meUser?.avatar) ||
@@ -737,7 +598,7 @@ export default function NotificationsPage() {
 
         if (!updateOldRes.ok) {
           const raw = await updateOldRes.text()
-          throw new Error(raw || t.couldNotRespond)
+          throw new Error(raw || t.couldNotRespond || 'Could not respond to the request.')
         }
 
         const createNewRes = await fetch('/api/custody-schedules', {
@@ -759,7 +620,7 @@ export default function NotificationsPage() {
 
         if (!createNewRes.ok) {
           const raw = await createNewRes.text()
-          throw new Error(raw || t.couldNotRespond)
+          throw new Error(raw || t.couldNotRespond || 'Could not respond to the request.')
         }
       }
 
@@ -774,8 +635,14 @@ export default function NotificationsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           recipient: Number(recipientId),
-          title: nextStatus === 'approved' ? t.emergencyApproved : t.emergencyRejected,
-          message: nextStatus === 'approved' ? t.emergencyApproved : t.emergencyRejected,
+          title:
+            nextStatus === 'approved'
+              ? t.emergencyApproved || 'Emergency change approved'
+              : t.emergencyRejected || 'Emergency change rejected',
+          message:
+            nextStatus === 'approved'
+              ? t.emergencyApproved || 'Emergency change approved'
+              : t.emergencyRejected || 'Emergency change rejected',
           type: 'calendar',
           event: nextStatus === 'approved' ? 'approved' : 'rejected',
           link: '/notifications',
@@ -797,7 +664,7 @@ export default function NotificationsPage() {
 
       if (!res.ok) {
         const raw = await res.text()
-        throw new Error(raw || t.couldNotRespond)
+        throw new Error(raw || t.couldNotRespond || 'Could not respond to the request.')
       }
 
       setSelectedEmergency(null)
@@ -807,7 +674,7 @@ export default function NotificationsPage() {
         window.location.href = '/dashboard'
       }
     } catch (err: any) {
-      setError(err?.message || t.couldNotRespond)
+      setError(err?.message || t.couldNotRespond || 'Could not respond to the request.')
     } finally {
       setActionLoading('')
     }
@@ -834,7 +701,7 @@ export default function NotificationsPage() {
     const map = new Map<string, string>()
 
     items.forEach((item) => {
-      const actorName = getActorName(item, lang).toLowerCase()
+      const actorName = getActorName(item).toLowerCase()
       const avatarUrl = getAvatarUrl(item)
 
       if (actorName && avatarUrl && !map.has(actorName)) {
@@ -849,8 +716,11 @@ export default function NotificationsPage() {
     <div className={styles.page}>
       <div className={styles.topbar}>
         <div>
-          <h1 className={styles.title}>{t.title}</h1>
-          <p className={styles.subtitle}>{t.subtitle}</p>
+          <h1 className={styles.title}>{t.title || 'All notifications'}</h1>
+          <p className={styles.subtitle}>
+            {t.subtitle ||
+              'A full overview of updates across child profiles, posts, calendar, documents, and expenses.'}
+          </p>
         </div>
 
         <button
@@ -860,18 +730,18 @@ export default function NotificationsPage() {
           disabled={markingAll || unreadCount === 0}
         >
           <CheckCheck size={16} />
-          {markingAll ? t.saving : t.markAllRead}
+          {markingAll ? t.saving || 'Saving...' : t.markAllRead || 'Mark all read'}
         </button>
       </div>
 
       <div className={styles.summaryRow}>
         <div className={styles.summaryCard}>
-          <div className={styles.summaryLabel}>{t.total}</div>
+          <div className={styles.summaryLabel}>{t.total || 'Total'}</div>
           <div className={styles.summaryValue}>{items.length}</div>
         </div>
 
         <div className={styles.summaryCard}>
-          <div className={styles.summaryLabel}>{t.unread}</div>
+          <div className={styles.summaryLabel}>{t.unread || 'Unread'}</div>
           <div className={styles.summaryValue}>{unreadCount}</div>
         </div>
       </div>
@@ -883,7 +753,7 @@ export default function NotificationsPage() {
             className={`${styles.tab} ${activeTab === 'all' ? styles.activeTab : ''}`}
             onClick={() => setActiveTab('all')}
           >
-            {t.all}
+            {t.all || 'All'}
           </button>
 
           <button
@@ -891,21 +761,21 @@ export default function NotificationsPage() {
             className={`${styles.tab} ${activeTab === 'unread' ? styles.activeTab : ''}`}
             onClick={() => setActiveTab('unread')}
           >
-            {t.unreadTab}
+            {t.unreadTab || t.unread || 'Unread'}
           </button>
         </div>
       </div>
 
       {loading ? (
-        <div className={styles.state}>{t.loading}</div>
+        <div className={styles.state}>{t.loading || 'Loading notifications...'}</div>
       ) : error ? (
         <div className={styles.stateError}>{error}</div>
       ) : visibleItems.length === 0 ? (
-        <div className={styles.state}>{t.empty}</div>
+        <div className={styles.state}>{t.empty || 'No notifications yet.'}</div>
       ) : (
         <div className={styles.list}>
           {visibleItems.map((item) => {
-            const actorName = getActorName(item, lang)
+            const actorName = getActorName(item)
             const avatarUrl = getAvatarUrl(item) || actorAvatarMap.get(actorName.toLowerCase()) || ''
             const fallbackInitials = getInitials(actorName)
             const isUnread = !item.isRead && !item.readAt
@@ -934,15 +804,15 @@ export default function NotificationsPage() {
                 <div className={styles.content}>
                   <div className={styles.itemTop}>
                     <div>
-                      <div className={styles.itemTitle}>{buildNotificationTitle(item, lang)}</div>
-                      <div className={styles.itemMessage}>{buildNotificationMessage(item, lang)}</div>
+                      <div className={styles.itemTitle}>{buildNotificationTitle(item)}</div>
+                      <div className={styles.itemMessage}>{buildNotificationMessage(item)}</div>
                     </div>
 
                     {isUnread ? <span className={styles.dot} /> : null}
                   </div>
 
                   <div className={styles.meta}>
-                    <span>{getTypeLabel(item, lang)}</span>
+                    <span>{getTypeLabel(item)}</span>
                     <span>•</span>
                     <span>{formatDateTime(item.createdAt, lang)}</span>
                   </div>
@@ -957,7 +827,7 @@ export default function NotificationsPage() {
 
       <div className={styles.backRow}>
         <Link href="/dashboard" className={styles.backLink}>
-          {t.back}
+          {t.back || 'Back to dashboard'}
         </Link>
       </div>
 
@@ -965,47 +835,59 @@ export default function NotificationsPage() {
         <div className={styles.modalBackdrop} onMouseDown={() => setSelectedEmergency(null)}>
           <div className={styles.modalCard} onMouseDown={(e) => e.stopPropagation()}>
             <div className={styles.modalHeader}>
-              <h3>{t.emergencyRequested}</h3>
+              <h3>{t.emergencyRequested || 'Emergency custody change requested'}</h3>
             </div>
 
             <div className={styles.modalBody}>
               <p>
-                <strong>{selectedEmergency.meta?.actorName || t.aParent}</strong>{' '}
-                {lang === 'en' ? 'requested emergency custody change' : 'ber om hastebytte'}
+                <strong>{selectedEmergency.meta?.actorName || t.aParent || 'A parent'}</strong>{' '}
+                {t.requestedEmergencyCustodyChange ||
+                  (lang === 'en' ? 'requested emergency custody change' : 'ber om hastebytte')}
                 {selectedEmergency.meta?.childName ? ` for ${selectedEmergency.meta.childName}` : ''}.
               </p>
 
               {selectedEmergency.meta?.pickupAt ? (
                 <p>
-                  <strong>{t.pickup}:</strong>{' '}
+                  <strong>{t.pickup || 'Pickup'}:</strong>{' '}
                   {formatDateTime(selectedEmergency.meta.pickupAt, lang)}
                 </p>
               ) : null}
 
               {selectedEmergency.meta?.returnAt ? (
                 <p>
-                  <strong>{t.lastsUntil}:</strong>{' '}
+                  <strong>{t.lastsUntil || 'Lasts until'}:</strong>{' '}
                   {formatDateTime(selectedEmergency.meta.returnAt, lang)}
                 </p>
               ) : null}
 
               <p>
-                <strong>{t.reason}:</strong>{' '}
-                {selectedEmergency.message || selectedEmergency.meta?.reason || t.noReason}
+                <strong>{t.reason || 'Reason'}:</strong>{' '}
+                {selectedEmergency.message ||
+                  selectedEmergency.meta?.reason ||
+                  t.noReason ||
+                  'No reason provided.'}
               </p>
             </div>
 
             <div className={styles.modalActions}>
               <button type="button" onClick={() => setSelectedEmergency(null)} disabled={!!actionLoading}>
-                {t.close}
+                {t.close || 'Close'}
               </button>
 
-              <button type="button" onClick={() => respondEmergencyRequest('rejected')} disabled={!!actionLoading}>
-                {actionLoading === 'rejected' ? t.sending : t.reject}
+              <button
+                type="button"
+                onClick={() => respondEmergencyRequest('rejected')}
+                disabled={!!actionLoading}
+              >
+                {actionLoading === 'rejected' ? t.sending || 'Sending...' : t.reject || 'Reject'}
               </button>
 
-              <button type="button" onClick={() => respondEmergencyRequest('approved')} disabled={!!actionLoading}>
-                {actionLoading === 'approved' ? t.sending : t.approve}
+              <button
+                type="button"
+                onClick={() => respondEmergencyRequest('approved')}
+                disabled={!!actionLoading}
+              >
+                {actionLoading === 'approved' ? t.sending || 'Sending...' : t.approve || 'Approve'}
               </button>
             </div>
           </div>

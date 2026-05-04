@@ -1,5 +1,5 @@
 :root {
-  /* ===== Base colors ===== */
+
   --bg: #F6F7FB;
   --bg2: #EEF0FA;
 
@@ -12,7 +12,7 @@
   --brand: #330C59;
   --accent: #EAF205;
 
-  /* ===== Layout ===== */
+
   --container: 1320px;
   --px: clamp(14px, 2.2vw, 24px);
   --section-y: clamp(52px, 6vw, 78px);
@@ -23,30 +23,25 @@
   --shadow1: 0 20px 50px rgba(15, 23, 42, 0.08);
   --shadow2: 0 10px 24px rgba(15, 23, 42, 0.05);
 
-  /* ===== NEW BACKGROUND SYSTEM ===== */
 
-  /* Neutral clean */
   --section-base:
     linear-gradient(180deg, #ffffff 0%, var(--bg) 100%);
 
-  /* Brand soft purple */
   --section-brand:
     radial-gradient(900px 520px at 20% 15%, rgba(51, 12, 89, 0.07), transparent 60%),
     linear-gradient(180deg, #ffffff 0%, var(--bg) 100%);
 
-  /* Calm blue */
+
   --section-trust:
     radial-gradient(900px 520px at 20% 15%, rgba(37, 99, 235, 0.07), transparent 60%),
     linear-gradient(180deg, #ffffff 0%, var(--bg) 100%);
 
-  /* Very soft surface */
+
   --section-soft:
     linear-gradient(180deg, var(--bg) 0%, var(--bg2) 100%);
     
 }
-/* =========================
-   BASE RESET
-   ========================= */
+
 * {
   box-sizing: border-box;
 }
@@ -56,7 +51,7 @@ html {
   text-rendering: optimizeLegibility;
   scroll-behavior: smooth;
 
-  /* ✅ Đồng bộ nền toàn site */
+
   background: var(--bg);
 }
 
@@ -71,7 +66,7 @@ body {
   font-family: var(--font-inter), sans-serif;
   color: var(--text);
 
-  /* ✅ Không để transparent nữa */
+
   background: var(--bg);
 
   font-size: 16px;

@@ -45,6 +45,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 18px;
 }
 
 .title {
@@ -66,6 +67,7 @@
   align-items: center;
   gap: 14px;
   position: relative;
+  flex-shrink: 0;
 }
 
 .joinIconWrap,
@@ -132,6 +134,7 @@
   display: block;
 }
 
+/* Dropdowns */
 .joinPopover,
 .notifDropdown {
   position: absolute;
@@ -281,6 +284,7 @@
   font-size: 14px;
 }
 
+/* Empty child state */
 .childOnlyEmpty {
   min-height: calc(100vh - 150px);
   border: 1px solid var(--samsam-border);
@@ -356,6 +360,7 @@
   background: var(--samsam-primary-hover);
 }
 
+/* Layout */
 .dashboardLayout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 360px;
@@ -378,7 +383,6 @@
   padding: 22px;
   box-shadow: 0 14px 34px rgba(15, 23, 42, 0.055);
 }
-
 
 .financeCard {
   background:
@@ -431,6 +435,7 @@
   font-size: 12px;
 }
 
+/* Decisions */
 .decisionList {
   display: grid;
   gap: 12px;
@@ -571,6 +576,7 @@
   background: var(--samsam-primary-hover);
 }
 
+/* Timeline */
 .timeline {
   position: relative;
   display: grid;
@@ -642,6 +648,7 @@
   align-self: center;
 }
 
+/* Quick actions */
 .quickGrid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -687,6 +694,7 @@
   background: var(--samsam-primary-hover);
 }
 
+/* Finance */
 .financeBalance {
   background: rgba(255, 255, 255, 0.09);
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -737,6 +745,7 @@
   font-weight: 850;
 }
 
+/* Events */
 .eventList {
   display: grid;
 }
@@ -805,6 +814,7 @@
   font-size: 14px;
 }
 
+/* Buttons */
 .primaryBtn,
 .secondaryBtn {
   min-height: 44px;
@@ -815,6 +825,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 8px;
 }
 
 .primaryBtn {
@@ -840,6 +851,22 @@
   color: #334155;
 }
 
+.dangerBtn {
+  min-height: 44px;
+  border-radius: 13px;
+  font-weight: 850;
+  cursor: pointer;
+  padding: 0 18px;
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.dangerBtn:hover {
+  background: #fee2e2;
+}
+
+/* Modal */
 .modalBackdrop {
   position: fixed;
   inset: 0;
@@ -852,6 +879,8 @@
 
 .modalCard {
   width: min(720px, 96vw);
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
   background: #fff;
   border: 1px solid #e8edf5;
   border-radius: 24px;
@@ -925,6 +954,7 @@
   flex-wrap: wrap;
 }
 
+/* Forms */
 .custodyForm {
   display: grid;
   gap: 14px;
@@ -962,19 +992,7 @@
   box-shadow: 0 0 0 3px var(--samsam-primary-soft);
 }
 
-.spin {
-  animation: spin 0.9s linear infinite;
-}
-.dangerBtn {
-  min-height: 44px;
-  border-radius: 13px;
-  font-weight: 850;
-  cursor: pointer;
-  padding: 0 18px;
-  border: 1px solid #fecaca;
-  background: #fef2f2;
-  color: #dc2626;
-}
+/* Custody card */
 .custodyCard {
   grid-column: 1 / -1;
   min-height: 410px;
@@ -990,6 +1008,7 @@
   align-items: center;
   box-shadow: 0 24px 55px rgba(39, 53, 123, 0.28);
 }
+
 .custodyCard::before {
   content: '';
   position: absolute;
@@ -1007,6 +1026,7 @@
   pointer-events: none;
   z-index: 1;
 }
+
 .custodyCard::after {
   content: '';
   position: absolute;
@@ -1025,12 +1045,24 @@
   opacity: 0.8;
   pointer-events: none;
   z-index: 0;
-  animation: logoGlow 3.5s ease-in-out infinite;
 }
+
 .custodyContent,
 .custodySide {
   position: relative;
-  z-index: 1;
+  z-index: 2;
+}
+
+.custodyContent {
+  min-width: 0;
+  flex: 1;
+}
+
+.custodySide {
+  min-width: 280px;
+  display: grid;
+  justify-items: center;
+  gap: 16px;
 }
 
 .custodyEyebrow {
@@ -1050,37 +1082,28 @@
   margin-bottom: 18px;
 }
 
-.custodyCard h2 {
-  margin: 0;
+.custodyContent h2 {
+  margin: 14px 0 10px;
   color: #ffffff;
   font-size: clamp(30px, 3vw, 42px);
-  line-height: 1.05;
+  line-height: 1.12;
   font-weight: 900;
   letter-spacing: -0.055em;
 }
 
-.custodyCard p {
-  margin: 14px 0 0;
+.custodyContent p {
+  margin: 0 0 20px;
   color: rgba(255, 255, 255, 0.76);
   font-size: 16px;
+  line-height: 1.5;
 }
 
-.custodyCard p strong {
+.custodyContent p strong {
   color: #f4e5ad;
   font-weight: 900;
 }
-.custodyContent h2 {
-  font-size: 32px;
-  line-height: 1.15;
-  margin: 14px 0 10px;
-}
-.custodyContent p {
-  font-size: 16px;
-  line-height: 1.5;
-  margin-bottom: 20px;
-}
+
 .custodyDates {
-  margin-top: 28px;
   display: flex;
   align-items: center;
   gap: 18px;
@@ -1095,7 +1118,6 @@
   align-items: center;
   gap: 10px;
   font-size: 16px;
-
 }
 
 .custodyDateItem svg {
@@ -1125,9 +1147,10 @@
   transform: translate(-50%, -50%);
   box-shadow: 0 0 0 6px rgba(228, 213, 162, 0.18);
 }
+
 .custodyNoteBox {
   width: fit-content;
-  margin-top: 26px;
+  margin-top: 20px;
   display: inline-flex;
   align-items: center;
   gap: 10px;
@@ -1141,13 +1164,6 @@
 
 .custodyNoteBox svg {
   color: #b99839;
-}
-
-.custodySide {
-  min-width: 260px;
-  display: grid;
-  justify-items: center;
-  gap: 16px;
 }
 
 .custodyCountdown {
@@ -1164,6 +1180,7 @@
   text-align: center;
   box-shadow: 0 16px 35px rgba(16, 24, 64, 0.16);
 }
+
 .countdownLabel {
   font-size: 12px;
   font-weight: 800;
@@ -1171,11 +1188,13 @@
   text-transform: uppercase;
   margin-bottom: 8px;
 }
+
 .countdownDays {
   font-size: 56px;
   line-height: 1;
   font-weight: 900;
 }
+
 .countdownDaysText {
   margin-top: 8px;
   font-size: 14px;
@@ -1187,45 +1206,43 @@
   width: 76%;
   height: 1px;
   background: #d8ddef;
-  margin: 14px 0 ;
+  margin: 14px 0;
 }
-.custodyWaitingBox {
-  min-height: 54px;
-  border-radius: 18px;
-  padding: 0 18px;
-  background: var(--samsam-primary-soft);
-  color: var(--samsam-primary);
-  display: inline-flex;
+
+.custodyCountdownDetails {
+  width: 78%;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  justify-items: center;
+  gap: 10px;
+}
+
+.countdownBox {
+  min-width: 0;
+  display: flex;
+  font-size: 18px;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  font-weight: 850;
+  justify-content: flex-start;
   text-align: center;
 }
 
-.custodyCountdown span {
-  display: block;
-  font-size: 11px;
+.countdownBox b {
+  color: var(--samsam-primary);
+  font-size: 19px;
+  line-height: 1;
+  font-weight: 900;
+}
+
+.countdownBox small {
+  margin-top: 6px;
+  color: var(--samsam-primary);
+  font-size: 9px;
   font-weight: 900;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 1px;
 }
-
-.custodyCountdown > strong {
-  display: block;
-  margin: 6px 0 4px;
-  font-size: 52px;
-  line-height: 0.95;
-  font-weight: 900;
-}
-
-.custodyCountdown > small {
-  display: block;
-  font-size: 11px;
-  font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-
 
 .completeBtn {
   min-width: 210px;
@@ -1249,15 +1266,33 @@
   background: var(--samsam-primary-hover);
 }
 
+.completeBtn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.custodyWaitingBox {
+  min-height: 54px;
+  border-radius: 18px;
+  padding: 0 18px;
+  background: var(--samsam-primary-soft);
+  color: var(--samsam-primary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 850;
+  text-align: center;
+}
+
 .custodyIconActions {
   display: flex;
   gap: 12px;
   margin-top: 18px;
-
 }
 
 .roundEditBtn,
-.roundDeleteBtn {
+.roundDeleteBtn,
+.roundEmergencyBtn {
   width: 58px;
   height: 58px;
   border: 0;
@@ -1266,8 +1301,10 @@
   display: grid;
   place-items: center;
   font-size: 17px;
+  font-weight: 900;
   box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
 }
+
 .roundEditBtn svg,
 .roundDeleteBtn svg {
   width: 20px;
@@ -1283,71 +1320,61 @@
   background: #fff0ec;
   color: #dc2626;
 }
-.dangerBtn:hover {
-  background: #fee2e2;
-}
-.custodyCountdownDetails {
-  width: 78%;
-  margin: 0 auto;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  justify-items: center;
-  gap: 10px;
+
+.roundEmergencyBtn {
+  background: #fff7ed;
+  color: #d97706;
 }
 
-.countdownBox {
-  min-width: 0;
-  display: flex;
-  font-size: 18px;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-start;
-  text-align: center;
+.roundEditBtn:disabled,
+.roundDeleteBtn:disabled,
+.roundEmergencyBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
-.countdownBox b {
-  font-size: 18px;
-  line-height: 1;
-  font-weight: 900;
+/* Animations */
+.spin {
+  animation: spin 0.9s linear infinite;
 }
 
-.countdownBox small {
-  margin-top: 6px;
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 1px;
-}
-.custodyCountdownDetails div {
-  display: grid;
-  gap: 3px;
-  justify-items: center;
-}
-
-.custodyCountdownDetails b {
-  display: block;
-  color: var(--samsam-primary);
-  font-size: 19px;
-  line-height: 1;
-  font-weight: 900;
-}
-
-.custodyCountdownDetails small {
-  display: block;
-  margin-top: 3px;
-  color: var(--samsam-primary);
-  font-size: 9px;
-  font-weight: 900;
-  text-transform: uppercase;
-}
 @keyframes spin {
   to {
     transform: rotate(360deg);
   }
 }
 
+/* Responsive */
 @media (max-width: 1100px) {
   .dashboardLayout {
     grid-template-columns: 1fr;
+  }
+
+  .custodyCard {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 24px;
+    min-height: auto;
+    gap: 28px;
+  }
+
+  .custodyContent,
+  .custodySide {
+    width: 100%;
+  }
+
+  .custodySide {
+    min-width: 0;
+    justify-items: center;
+  }
+
+  .custodyCountdown {
+    width: 240px;
+  }
+
+  .custodyIconActions {
+    justify-content: center;
+    flex-wrap: wrap;
   }
 }
 
@@ -1389,15 +1416,15 @@
     font-size: 32px;
   }
 
-  .quickGrid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
   .card,
   .quickActions,
   .financeCard {
     padding: 18px;
     border-radius: 18px;
+  }
+
+  .quickGrid {
+    grid-template-columns: repeat(2, 1fr);
   }
 
   .timelineItem {
@@ -1422,22 +1449,172 @@
     width: min(calc(100vw - 24px), 390px);
   }
 
-  
+  .modalCard {
+    padding: 20px;
+    border-radius: 20px;
+  }
+
+  .modalActions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .primaryBtn,
+  .secondaryBtn,
+  .dangerBtn {
+    width: 100%;
+  }
+
+  .custodyCard {
+    border-radius: 24px;
+    padding: 20px;
+    gap: 24px;
+  }
+
+  .custodyCard::before,
+  .custodyCard::after {
+    display: none;
+  }
+
+  .custodyEyebrow {
+    margin: 0 auto 16px;
+  }
+
+  .custodyContent h2 {
+    font-size: 26px;
+    line-height: 1.2;
+    text-align: center;
+  }
+
+  .custodyContent p {
+    text-align: center;
+    font-size: 15px;
+  }
 
   .custodyDates {
+    justify-content: center;
     flex-wrap: wrap;
+    gap: 12px;
   }
 
   .custodyLine {
-    width: 70px;
+    width: 60px;
   }
 
-  .custodySide {
-    width: 100%;
-    min-width: 0;
+  .custodyCountdown {
+    width: 220px;
+  }
+
+  .countdownDays {
+    font-size: 46px;
   }
 
   .completeBtn {
     width: 100%;
+  }
+}
+
+@media (max-width: 520px) {
+  .header {
+    gap: 12px;
+  }
+
+  .custodyCard {
+    padding: 18px 16px;
+    border-radius: 20px;
+    gap: 22px;
+  }
+
+  .custodyContent h2 {
+    font-size: 22px;
+  }
+
+  .custodyContent p {
+    font-size: 14px;
+  }
+
+  .custodyDates {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+  }
+
+  .custodyLine {
+    width: 2px;
+    height: 32px;
+    margin: auto;
+  }
+
+  .custodyDateItem {
+    justify-content: center;
+    font-size: 14px;
+  }
+
+  .custodyDateItem svg {
+    width: 34px;
+    height: 34px;
+    padding: 8px;
+  }
+
+  .custodyCountdown {
+    width: 190px;
+    padding: 18px;
+  }
+
+  .countdownDays {
+    font-size: 38px;
+  }
+
+  .countdownBox b {
+    font-size: 16px;
+  }
+
+  .countdownBox small {
+    font-size: 9px;
+  }
+
+  .custodyIconActions {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+
+  .roundEditBtn,
+  .roundDeleteBtn,
+  .roundEmergencyBtn {
+    width: 100%;
+    height: 48px;
+    border-radius: 14px;
+  }
+
+  .completeBtn {
+    min-height: 46px;
+    font-size: 13px;
+  }
+
+  .custodyWaitingBox {
+    width: 100%;
+    font-size: 13px;
+    padding: 12px;
+  }
+
+  .custodyNoteBox {
+    width: 100%;
+    justify-content: center;
+    text-align: center;
+    font-size: 13px;
+  }
+
+  .quickGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .eventItem {
+    grid-template-columns: 42px 1fr 16px;
+  }
+
+  .financeBalance strong {
+    font-size: 24px;
   }
 }

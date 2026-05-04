@@ -201,6 +201,22 @@ export default function ProtectedSidebar({ user }: { user: any }) {
     }
   }, [menuOpen])
 
+  useEffect(() => {
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setMenuOpen(false)
+      }
+    }
+
+    if (menuOpen) {
+      window.addEventListener('keydown', handleEscape)
+    }
+
+    return () => {
+      window.removeEventListener('keydown', handleEscape)
+    }
+  }, [menuOpen])
+
   const firstName = user?.firstName ?? '—'
   const lastName = user?.lastName ?? ''
   const role = user?.familyRole ?? '-'
@@ -226,9 +242,11 @@ export default function ProtectedSidebar({ user }: { user: any }) {
     <>
       <button
         type="button"
-        className={styles.mobileMenuButton}
+        className={`${styles.mobileMenuButton} ${menuOpen ? styles.mobileMenuButtonHidden : ''}`}
         onClick={() => setMenuOpen(true)}
         aria-label="Open menu"
+        aria-expanded={menuOpen}
+        aria-controls="protected-sidebar"
       >
         <span />
         <span />
@@ -245,6 +263,7 @@ export default function ProtectedSidebar({ user }: { user: any }) {
       ) : null}
 
       <aside
+        id="protected-sidebar"
         className={`${styles.sidebar} ${menuOpen ? styles.sidebarOpen : ''}`}
         aria-label="Sidebar"
       >

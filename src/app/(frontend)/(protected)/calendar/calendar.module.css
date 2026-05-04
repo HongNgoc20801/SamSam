@@ -1008,60 +1008,329 @@
   filter: brightness(0.96);
 }
 
-/* Responsive */
-@media (max-width: 900px) {
+/* =========================
+   Responsive: small laptop
+   ========================= */
+@media (max-width: 1120px) {
+  .wrapper {
+    padding: 18px 22px;
+  }
+
+  .topBar {
+    gap: 16px;
+    margin-bottom: 12px;
+  }
+
+  .title {
+    font-size: 25px;
+  }
+
+  .subtitle {
+    max-width: 560px;
+    font-size: 13px;
+  }
+
+  .topActions {
+    gap: 10px;
+    justify-content: flex-end;
+  }
+
+  .filterLabel {
+    min-width: 160px;
+  }
+
+  .topActions .select {
+    height: 40px;
+    min-width: 160px;
+    border-radius: 12px;
+    font-size: 13px;
+  }
+
+  .topActions .primaryBtn {
+    height: 40px;
+    padding: 0 16px;
+    border-radius: 12px;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+
+  .calendarShell {
+    height: calc(100dvh - 208px);
+    min-height: 410px;
+    border-radius: 14px;
+  }
+
+  .toolbar {
+    padding: 9px 14px;
+    gap: 12px;
+  }
+
+  .toolbarLeft {
+    gap: 8px;
+  }
+
+  .navBtn,
+  .iconNav {
+    height: 31px;
+  }
+
+  .iconNav {
+    width: 31px;
+  }
+
+  .monthLabel {
+    font-size: 16px;
+    margin-left: 4px;
+  }
+
+  .viewSwitch {
+    padding: 3px;
+    gap: 3px;
+  }
+
+  .viewBtn {
+    height: 27px;
+    padding: 0 10px;
+    font-size: 12px;
+  }
+
+  .calendarShell :global(.rbc-header) {
+    padding: 9px 0;
+    font-size: 11px;
+  }
+
+  .calendarShell :global(.rbc-date-cell) {
+    padding: 7px 8px 0 0;
+    font-size: 11px;
+  }
+
+  .monthEvent {
+    margin: 2px 4px;
+    padding: 3px 6px;
+    gap: 5px;
+  }
+
+  .monthTitle {
+    font-size: 10px;
+  }
+
+  .dotsInCell {
+    left: 8px;
+    bottom: 7px;
+    gap: 5px;
+  }
+
+  .dot {
+    width: 6px;
+    height: 6px;
+  }
+
+  .statsGrid {
+    gap: 12px;
+  }
+
+  .statCard {
+    min-height: 62px;
+    padding: 12px 14px;
+    border-radius: 13px;
+  }
+
+  .statIcon {
+    width: 32px;
+    height: 32px;
+  }
+
+  .statValue {
+    font-size: 15px;
+  }
+
+  .modalBackdrop {
+    z-index: 120;
+    padding: 22px 18px;
+  }
+
+  .modal {
+    width: min(680px, 92vw);
+    max-height: calc(100dvh - 44px);
+    border-radius: 18px;
+  }
+
+  .form {
+    padding: 16px 18px 18px;
+    gap: 11px;
+  }
+
+  .modalHeader {
+    padding: 15px 18px;
+  }
+
+  .modalTitle {
+    font-size: 18px;
+  }
+
+  .input,
+  .select,
+  .textarea {
+    font-size: 13px;
+    border-radius: 12px;
+  }
+
+  .textarea {
+    min-height: 88px;
+  }
+
+  .detailWrap {
+    padding: 18px;
+  }
+
+  .detailTitle {
+    font-size: 34px;
+  }
+
+  .infoGrid {
+    gap: 12px;
+  }
+
+  .infoCard {
+    padding: 13px;
+    border-radius: 15px;
+  }
+
+  .infoValue {
+    font-size: 15px;
+  }
+
+  .descBox {
+    font-size: 13px;
+  }
+}
+
+/* =========================
+   Responsive: tablet / menu mode
+   ========================= */
+@media (max-width: 860px) {
   .wrapper {
     height: auto;
     max-height: none;
     overflow: visible;
+    padding: 18px;
+    padding-bottom: 46px;
   }
 
   .topBar {
     flex-direction: column;
     align-items: stretch;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+
+  .topBar > div:first-child {
+    width: 100%;
+  }
+
+  .title {
+    display: block;
+    font-size: 28px;
+    line-height: 1.1;
+  }
+
+  .subtitle {
+    margin-top: 8px;
+    max-width: 100%;
+    font-size: 14px;
+    line-height: 1.45;
   }
 
   .topActions {
-    align-items: stretch;
+    width: 100%;
+    display: grid;
+    grid-template-columns: minmax(0, 220px) auto;
+    align-items: end;
+    justify-content: start;
+    gap: 12px;
+  }
+
+  .filterLabel {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .topActions .select {
+    width: 100%;
+    min-width: 0;
+    height: 42px;
+    border-radius: 13px;
+    font-size: 14px;
+    padding: 8px 12px;
+  }
+
+  .topActions .primaryBtn {
+    width: fit-content;
+    min-width: 150px;
+    height: 42px;
+    min-height: 42px;
+    padding: 0 20px;
+    border-radius: 13px;
+    font-size: 14px;
+    line-height: 1;
+    white-space: nowrap;
+    box-shadow: 0 8px 18px rgba(39, 53, 123, 0.18);
   }
 
   .calendarShell {
     height: auto;
+    min-height: 0;
+    margin-top: 14px;
+    border-radius: 16px;
+    overflow: hidden;
   }
 
   .calendarShell :global(.rbc-calendar) {
+    height: auto;
     min-height: 560px;
-  }
-
-  .detailTitle {
-    font-size: 32px;
-  }
-
-  .infoGrid {
-    grid-template-columns: 1fr;
-  }
-
-  .handoverRow {
-    grid-template-columns: 1fr;
-  }
-
-  .handoverArrow {
-    display: none;
-  }
-
-  .statsGrid {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 700px) {
-  .formRow {
-    grid-template-columns: 1fr;
   }
 
   .toolbar {
     flex-direction: column;
-    align-items: flex-start;
+    align-items: stretch;
+    gap: 10px;
+    padding: 10px 12px;
+  }
+
+  .toolbarLeft {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .navBtn {
+    height: 34px;
+    min-width: 64px;
+    padding: 0 10px;
+    white-space: nowrap;
+    line-height: 1;
+  }
+
+  .navArrows {
+    display: flex;
+    gap: 8px;
+  }
+
+  .iconNav {
+    width: 34px;
+    height: 34px;
+    flex: 0 0 34px;
+  }
+
+  .monthLabel {
+    margin-left: 0;
+    flex: 1 1 120px;
+    min-width: 100px;
+    text-align: center;
+    font-size: 17px;
+    line-height: 1.15;
   }
 
   .toolbarRight {
@@ -1070,28 +1339,378 @@
 
   .viewSwitch {
     width: 100%;
-    justify-content: space-between;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 4px;
+    padding: 4px;
   }
 
   .viewBtn {
-    flex: 1;
+    width: 100%;
+    min-width: 0;
+    height: 30px;
+    padding: 0 6px;
+    font-size: 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
-}
 
-@media (max-width: 520px) {
-  .wrapper {
+  .statsGrid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+    margin-top: 14px;
+    padding-bottom: 32px;
+  }
+
+  .statCard {
+    min-height: 58px;
+    padding: 12px 14px;
+    border-radius: 14px;
+  }
+
+  .statIcon {
+    width: 32px;
+    height: 32px;
+  }
+
+  .statLabel {
+    font-size: 10px;
+  }
+
+  .statValue {
+    font-size: 15px;
+  }
+
+  .modalBackdrop {
+    z-index: 120;
+    padding: 20px 12px;
+    align-items: flex-start;
+  }
+
+  .modal {
+    width: min(100%, 540px);
+    max-height: calc(100dvh - 40px);
+    border-radius: 22px;
+  }
+
+  .modalHeader {
+    padding: 14px 18px;
+  }
+
+  .modalTitle {
+    font-size: 22px;
+    line-height: 1.15;
+  }
+
+  .form {
+    padding: 16px 18px 18px;
+    gap: 11px;
+  }
+
+  .formRow {
+    grid-template-columns: 1fr;
+    gap: 11px;
+  }
+
+  .label {
+    gap: 6px;
+    font-size: 13px;
+  }
+
+  .input,
+  .select,
+  .textarea {
+    min-height: 42px;
+    border-radius: 13px;
+    padding: 9px 12px;
+    font-size: 14px;
+  }
+
+  .textarea {
+    min-height: 82px;
+  }
+
+  .checkboxRow {
+    font-size: 13px;
+    line-height: 1.35;
+    padding: 2px 0;
+  }
+
+  .modalActions {
+    gap: 9px;
+  }
+
+  .modalActions .primaryBtn,
+  .modalActions .secondaryBtn {
+    height: 40px;
+    min-height: 40px;
+    border-radius: 13px;
+    font-size: 14px;
+  }
+
+  .detailWrap {
     padding: 16px;
   }
 
+  .detailTopAccent {
+    height: 7px;
+    margin: -4px -4px 14px;
+    border-radius: 999px;
+  }
+
+  .detailHeader {
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .detailType {
+    font-size: 11px;
+    gap: 7px;
+    letter-spacing: 0.12em;
+  }
+
+  .detailClose {
+    width: 36px;
+    height: 36px;
+    flex: 0 0 36px;
+  }
+
   .detailTitle {
-    font-size: 28px;
+    margin-top: 8px;
+    font-size: 30px;
+    line-height: 1.08;
+  }
+
+  .badgeRow {
+    margin-top: 12px;
+    gap: 8px;
+  }
+
+  .badgePerson,
+  .badgeStatus,
+  .metaBadge {
+    min-height: 38px;
+    padding: 7px 10px;
+    gap: 8px;
+    font-size: 12px;
+  }
+
+  .infoGrid {
+    margin-top: 14px;
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .infoCard {
+    padding: 13px;
+    border-radius: 14px;
+  }
+
+  .infoLabel {
+    font-size: 11px;
+  }
+
+  .infoValue {
+    margin-top: 7px;
+    font-size: 17px;
+    line-height: 1.25;
+  }
+
+  .descSection {
+    margin-top: 14px;
+  }
+
+  .descBox {
+    padding: 13px;
+    border-radius: 14px;
+    font-size: 13px;
+  }
+
+  .detailFooter {
+    margin-top: 14px;
+    gap: 8px;
+  }
+
+  .actionClose,
+  .actionDelete,
+  .actionEdit,
+  .confirmBtn,
+  .declineBtn {
+    min-height: 40px;
+    padding: 0 14px;
+    border-radius: 13px;
+    font-size: 14px;
+  }
+}
+
+/* =========================
+   Responsive: mobile
+   ========================= */
+@media (max-width: 640px) {
+  .wrapper {
+    padding: 16px;
+    padding-bottom: 46px;
+  }
+
+  .title {
+    font-size: 26px;
+  }
+
+  .subtitle {
+    font-size: 14px;
+  }
+
+  .topActions {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .topActions .primaryBtn {
+    width: fit-content;
+    min-width: 145px;
+  }
+
+  .calendarShell :global(.rbc-calendar) {
+    min-height: 540px;
+  }
+
+  .toolbarLeft {
+    display: grid;
+    grid-template-columns: auto auto;
+    justify-content: start;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .monthLabel {
+    grid-column: 1 / -1;
+    width: 100%;
+    min-width: 0;
+    text-align: left;
+    margin-top: 2px;
+  }
+
+  .viewSwitch {
+    padding: 4px;
+  }
+
+  .viewBtn {
+    font-size: 12px;
+    padding: 0 4px;
+  }
+}
+
+/* =========================
+   Responsive: small mobile
+   ========================= */
+@media (max-width: 520px) {
+  .wrapper {
+    padding: 14px;
+    padding-bottom: 48px;
+  }
+
+  .title {
+    font-size: 24px;
+  }
+
+  .subtitle {
+    font-size: 13px;
+  }
+
+  .calendarShell {
+    border-radius: 15px;
   }
 
   .calendarShell :global(.rbc-calendar) {
     min-height: 520px;
   }
 
-  .title {
-    font-size: 24px;
+  .toolbar {
+    padding: 10px;
+  }
+
+  .navBtn {
+    min-width: 58px;
+    font-size: 13px;
+  }
+
+  .iconNav {
+    width: 32px;
+    height: 32px;
+    flex-basis: 32px;
+  }
+
+  .monthLabel {
+    font-size: 16px;
+  }
+
+  .viewBtn {
+    font-size: 11px;
+    letter-spacing: -0.01em;
+  }
+
+  .calendarShell :global(.rbc-header) {
+    font-size: 11px;
+  }
+
+  .calendarShell :global(.rbc-date-cell) {
+    font-size: 11px;
+    padding: 7px 7px 0 0;
+  }
+
+  .monthEvent {
+    margin: 2px 3px;
+    padding: 3px 5px;
+  }
+
+  .modalBackdrop {
+    padding: 16px 8px;
+  }
+
+  .modal {
+    width: calc(100vw - 16px);
+    max-height: calc(100dvh - 32px);
+    border-radius: 20px;
+  }
+
+  .modalHeader {
+    padding: 13px 16px;
+  }
+
+  .modalTitle {
+    font-size: 21px;
+  }
+
+  .form {
+    padding: 14px 16px 16px;
+  }
+
+  .detailWrap {
+    padding: 14px;
+  }
+
+  .detailTitle {
+    font-size: 26px;
+  }
+
+  .badgeText {
+    max-width: 210px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .detailFooter,
+  .modalActions,
+  .confirmationActions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .detailFooter button,
+  .modalActions button,
+  .confirmationActions button {
+    width: 100%;
   }
 }

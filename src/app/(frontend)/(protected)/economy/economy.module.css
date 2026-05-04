@@ -1137,9 +1137,9 @@
   color: var(--main-color);
 }
 
-/* RESPONSIVE */
 
-@media (max-width: 1180px) {
+/* @media (max-width: 1180px) {
+
   .heroBoard {
     grid-template-columns: 1fr;
   }
@@ -1341,5 +1341,1347 @@
   .pieChartBox {
     min-width: 100%;
     overflow-x: auto;
+  }
+} */
+
+/* RESPONSIVE */
+
+/* RESPONSIVE */
+@media (max-width: 1300px) {
+  .wrapper {
+    padding: 28px;
+    gap: 24px;
+    overflow-x: hidden;
+  }
+
+  .heroBoard {
+    grid-template-columns: minmax(0, 1fr) minmax(270px, 320px);
+    gap: 18px;
+    align-items: stretch;
+  }
+
+  .heroIntro {
+    min-width: 0;
+    padding: 28px;
+    gap: 18px;
+    overflow: hidden;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 180px;
+    align-items: stretch;
+  }
+
+  .heroIntro > div:first-child {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .heroKicker {
+    font-size: 12px;
+    margin-bottom: 12px;
+  }
+
+  .heroHeading {
+    font-size: clamp(38px, 3.6vw, 46px);
+    line-height: 0.95;
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+  }
+
+  .heroDescription {
+    max-width: 390px;
+    margin-top: 18px;
+    font-size: 15px;
+    line-height: 1.55;
+  }
+
+  .heroDateCard {
+    width: 180px;
+    min-width: 180px;
+    padding: 20px;
+    border-radius: 22px;
+  }
+
+  .heroDateMonth {
+    font-size: 30px;
+  }
+
+  .heroDateMeta {
+    font-size: 13px;
+  }
+
+  .heroActionCard {
+    padding: 24px;
+  }
+
+  .heroActionTitle {
+    font-size: 17px;
+  }
+
+  .heroActionText {
+    font-size: 13.5px;
+    line-height: 1.55;
+  }
+
+  .heroRequestBtn {
+    padding: 0 20px;
+    font-size: 14px;
+  }
+
+  .iconBankBtnLarge {
+    width: 58px;
+    height: 58px;
+  }
+}
+@media (max-width: 1180px) {
+  .wrapper {
+    padding: 28px;
+    gap: 24px;
+    overflow-x: hidden;
+  }
+
+  .heroBoard {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
+  .heroAside {
+    grid-template-columns: 1fr;
+  }
+
+  .heroIntro {
+    min-height: auto;
+  }
+
+  .heroActionCard {
+    min-height: auto;
+  }
+
+  .bankModalCard {
+    width: min(1120px, 100%);
+  }
+
+  .bankGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+  }
+
+  .bankModalCard .card {
+    min-width: 0;
+  }
+
+  .bankModalCard .cardHeader {
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+  }
+
+  .bankModalCard .statusBadge {
+    width: auto;
+    flex-shrink: 0;
+    align-self: flex-start;
+  }
+
+  .cashflowGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .cashflowHeader {
+    grid-template-columns: 1fr;
+  }
+
+  .cashflowStats {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .budgetOverviewCard {
+    margin-bottom: 0;
+  }
+}
+
+@media (max-width: 920px) {
+  .wrapper {
+    padding: 24px;
+    gap: 22px;
+  }
+
+  .heroIntro {
+    min-height: auto;
+    flex-direction: row;
+    align-items: stretch;
+    gap: 18px;
+  }
+
+  .heroIntro > div:first-child {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .heroDateCard {
+    width: 190px;
+    min-width: 190px;
+  }
+
+  .heroHeading {
+    font-size: 50px;
+  }
+
+  .heroDescription {
+    font-size: 16px;
+    line-height: 1.55;
+  }
+
+  .heroAside {
+    grid-template-columns: 1fr;
+  }
+
+  .heroActionCard {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 18px;
+  }
+
+  .heroActionButtons {
+    margin-top: 0;
+    flex-wrap: nowrap;
+  }
+
+  .iconBankBtnLarge {
+    flex-shrink: 0;
+  }
+
+  .heroRequestBtn {
+    white-space: nowrap;
+  }
+
+  .paymentRow,
+  .listRow,
+  .selectionItem {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .paymentActions {
+    width: 100%;
+    min-width: 0;
+    justify-content: flex-start;
+  }
+
+  .transferRow {
+    grid-template-columns: 1fr;
+  }
+
+  .cardHeader {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  /* Nylig betalt + Nylige overføringer */
+  .filterBar {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(160px, 1fr));
+    gap: 12px;
+    width: 100%;
+  }
+
+  .filterField {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .budgetOverviewHeader {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 18px;
+  }
+
+  .budgetOverviewHeader .primaryBtn {
+    width: auto;
+    white-space: nowrap;
+  }
+
+  .budgetOverviewStats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .budgetMiniCard {
+    padding: 16px;
+  }
+
+  .budgetMiniCard strong {
+    font-size: 22px;
+  }
+
+  .budgetBarLabelRow {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .cashflowHeader {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .cashflowStats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+    min-width: 0;
+  }
+
+  .cashflowStat strong {
+    font-size: 18px;
+  }
+
+  .cashflowGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .pieChartBox {
+    width: 100%;
+    min-width: 0;
+    overflow-x: auto;
+  }
+
+  .pieSvg {
+    min-width: 390px;
+  }
+
+  /* Modal chung */
+  .modalBackdrop {
+    padding: 18px;
+    place-items: start center;
+    overflow-y: auto;
+  }
+
+  .modalCard {
+    width: 100%;
+    max-height: calc(100dvh - 36px);
+  }
+
+  /* Banktilkoblinger modal - giữ 2 thẻ ngang giống bản lớn */
+  .bankModalCard {
+    width: 100%;
+    max-width: 100%;
+    padding: 22px;
+  }
+
+  .bankGrid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+    align-items: stretch;
+  }
+
+  .bankModalCard .card {
+    padding: 20px;
+    border-radius: 22px;
+    gap: 16px;
+    min-width: 0;
+  }
+
+  .bankModalCard .cardHeader {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 12px;
+  }
+
+  .bankModalCard .cardTitle {
+    font-size: 22px;
+    line-height: 1.1;
+  }
+
+  .bankModalCard .cardSub {
+    font-size: 13px;
+    line-height: 1.45;
+  }
+
+  .bankModalCard .statusBadge {
+    width: auto;
+    min-height: 30px;
+    padding: 0 12px;
+    font-size: 11px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .bankMeta {
+    gap: 6px;
+  }
+
+  .bankName {
+    font-size: 17px;
+    line-height: 1.15;
+  }
+
+  .bankInfo,
+  .muted {
+    font-size: 12.5px;
+    line-height: 1.45;
+  }
+
+  .balance {
+    font-size: 26px;
+    line-height: 1.05;
+  }
+
+  .bankModalCard .actions {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: nowrap;
+  }
+
+  .bankModalCard .secondaryBtn,
+  .bankModalCard .dangerBtn,
+  .bankModalCard .primaryBtn {
+    width: auto;
+    flex: 1;
+    min-width: 0;
+    white-space: nowrap;
+  }
+
+  .bankModalCard > .modalActions {
+    flex-direction: row;
+    justify-content: flex-end;
+    align-items: center;
+  }
+
+  .bankModalCard > .modalActions .secondaryBtn {
+    width: auto;
+    flex: 0 0 auto;
+    min-width: 90px;
+  }
+}
+
+@media (max-width: 700px) {
+  .wrapper {
+    padding: 18px;
+    gap: 18px;
+  }
+
+  .heroIntro,
+  .heroActionCard,
+  .card,
+  .modalCard,
+  .cashflowCard,
+  .budgetOverviewCard {
+    padding: 18px;
+    border-radius: 22px;
+  }
+
+  .heroIntro {
+    flex-direction: row;
+    align-items: stretch;
+    gap: 14px;
+  }
+
+  .heroIntro > div:first-child {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .heroKicker,
+  .cashflowEyebrow {
+    font-size: 11px;
+    margin-bottom: 8px;
+  }
+
+  .heroHeading {
+    font-size: 38px;
+    line-height: 0.95;
+  }
+
+  .heroDescription {
+    margin-top: 12px;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  .heroDateCard {
+    width: 165px;
+    min-width: 165px;
+    padding: 18px;
+    border-radius: 20px;
+  }
+
+  .heroDateMonth {
+    font-size: 32px;
+  }
+
+  .heroDateMeta {
+    font-size: 13px;
+  }
+
+  .heroActionCard {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    column-gap: 16px;
+    row-gap: 8px;
+  }
+
+  .heroActionTitle {
+    grid-column: 1;
+    font-size: 20px;
+  }
+
+  .heroActionText {
+    grid-column: 1;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  .heroActionButtons {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 10px;
+    margin-top: 0;
+  }
+
+  .iconBankBtnLarge {
+    width: 54px;
+    height: 54px;
+    border-radius: 16px;
+    flex-shrink: 0;
+  }
+
+  .heroRequestBtn {
+    min-height: 54px;
+    padding: 0 18px;
+    font-size: 14px;
+    white-space: nowrap;
+  }
+
+  .cardTitle {
+    font-size: 21px;
+  }
+
+  .cardSub {
+    font-size: 13px;
+    line-height: 1.55;
+  }
+
+  .cashflowTitle {
+    font-size: 24px;
+  }
+
+  .cashflowSub {
+    font-size: 13px;
+    line-height: 1.55;
+  }
+
+  .budgetOverviewHeader {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 14px;
+    margin-bottom: 18px;
+  }
+
+  .budgetOverviewHeader .primaryBtn {
+    width: auto;
+    min-width: 170px;
+    font-size: 13px;
+    padding: 0 16px;
+  }
+
+  .budgetOverviewStats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 18px;
+  }
+
+  .budgetMiniCard {
+    padding: 14px 12px;
+    border-radius: 18px;
+  }
+
+  .budgetMiniCard span {
+    font-size: 11px;
+    margin-bottom: 6px;
+  }
+
+  .budgetMiniCard strong {
+    font-size: 18px;
+  }
+
+  .budgetCompareTop,
+  .budgetBarLabelRow,
+  .budgetCompareMeta {
+    font-size: 13px;
+  }
+
+  .budgetBarLabelRow {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .budgetBarLabelRow strong {
+    font-size: 13px;
+  }
+
+  .budgetBarTrack {
+    height: 13px;
+  }
+
+  .cashflowStats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .cashflowStat {
+    padding: 13px 14px;
+    border-radius: 16px;
+  }
+
+  .cashflowStat span {
+    font-size: 11px;
+  }
+
+  .cashflowStat strong {
+    font-size: 17px;
+  }
+
+  .tableWrap {
+    overflow-x: auto;
+  }
+
+  .cashflowTable {
+    min-width: 560px;
+  }
+
+  .cashflowTable thead th {
+    font-size: 11px;
+    padding-bottom: 12px;
+  }
+
+  .cashflowTable tbody td {
+    font-size: 13px;
+    padding: 13px 10px 13px 0;
+  }
+
+  .pieChartBox {
+    height: 210px;
+    min-width: 0;
+    overflow-x: auto;
+    justify-content: flex-start;
+  }
+
+  .pieSvg {
+    min-width: 370px;
+  }
+
+  .pieOuterLabel {
+    font-size: 11px;
+  }
+
+  .paymentForm,
+  .transferForm {
+    gap: 14px;
+  }
+
+  .label {
+    font-size: 13px;
+  }
+
+  .input,
+  .select {
+    min-height: 44px;
+    border-radius: 14px;
+    padding: 0 14px;
+    font-size: 14px;
+  }
+
+  .primaryBtn,
+  .secondaryBtn,
+  .dangerBtn,
+  .viewMoreBtn,
+  .scrollBtn,
+  .quickBtn {
+    min-height: 42px;
+    border-radius: 13px;
+    padding: 0 16px;
+    font-size: 13px;
+  }
+
+  .actions,
+  .quickRow {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .actions .primaryBtn,
+  .quickBtn {
+    width: 100%;
+  }
+
+  .paymentRow,
+  .listRow {
+    padding: 15px 16px;
+    border-radius: 18px;
+    gap: 14px;
+  }
+
+  .rowTitle {
+    font-size: 15px;
+  }
+
+  .rowMeta {
+    font-size: 12px;
+    line-height: 1.55;
+  }
+
+  .paymentActions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .paymentActions .secondaryBtn,
+  .paymentActions .dangerBtn {
+    width: 100%;
+  }
+
+  .amountNegative,
+  .amountPositive {
+    width: 100%;
+    font-size: 16px;
+  }
+
+  /* Nylig betalt + Nylige overføringer */
+  .cardHeader {
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+  }
+
+  .filterBar {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(120px, 1fr));
+    gap: 10px;
+    width: auto;
+    min-width: 260px;
+    flex-shrink: 0;
+  }
+
+  .filterField {
+    min-width: 0;
+    width: 100%;
+    gap: 5px;
+    font-size: 12px;
+  }
+
+  .filterField .select {
+    min-height: 42px;
+    border-radius: 14px;
+    font-size: 13px;
+    padding: 0 12px;
+  }
+
+  .feedFooter {
+    align-items: stretch;
+  }
+
+  .viewMoreBtn {
+    width: 100%;
+  }
+
+  .modalBackdrop {
+    place-items: start center;
+    padding: 14px;
+    overflow-y: auto;
+  }
+
+  .modalCard {
+    width: 100%;
+    max-height: calc(100dvh - 28px);
+    padding: 18px;
+    border-radius: 22px;
+    gap: 16px;
+  }
+
+  .modalTitle {
+    font-size: 22px;
+  }
+
+  .modalText {
+    font-size: 13px;
+    line-height: 1.6;
+  }
+
+  .modalActions {
+    flex-direction: column-reverse;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .modalActions .primaryBtn,
+  .modalActions .secondaryBtn {
+    width: 100%;
+  }
+
+  /* Banktilkoblinger modal - giữ 2 thẻ ngang giống desktop */
+  .bankModalCard {
+    width: 100%;
+    padding: 18px;
+    border-radius: 22px;
+  }
+
+  .bankModalCard .modalTitle {
+    font-size: 22px;
+    line-height: 1.1;
+  }
+
+  .bankModalCard .modalText {
+    max-width: 100%;
+    font-size: 13px;
+    line-height: 1.55;
+  }
+
+  .bankGrid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    align-items: stretch;
+  }
+
+  .bankModalCard .card {
+    padding: 16px;
+    border-radius: 20px;
+    gap: 14px;
+    min-width: 0;
+  }
+
+  .bankModalCard .cardHeader {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 10px;
+  }
+
+  .bankModalCard .cardTitle {
+    font-size: 18px;
+    line-height: 1.12;
+    word-break: normal;
+  }
+
+  .bankModalCard .cardSub {
+    font-size: 12px;
+    line-height: 1.45;
+    margin-top: 5px;
+  }
+
+  .bankModalCard .statusBadge {
+    width: auto;
+    min-height: 28px;
+    padding: 0 10px;
+    font-size: 10.5px;
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+
+  .bankMeta {
+    gap: 5px;
+  }
+
+  .bankName {
+    font-size: 15px;
+    line-height: 1.15;
+  }
+
+  .bankInfo,
+  .muted {
+    font-size: 11.5px;
+    line-height: 1.45;
+  }
+
+  .balance {
+    font-size: 22px;
+    line-height: 1.05;
+  }
+
+  .bankModalCard .actions {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: nowrap;
+  }
+
+  .bankModalCard .secondaryBtn,
+  .bankModalCard .dangerBtn,
+  .bankModalCard .primaryBtn {
+    width: auto;
+    flex: 1;
+    min-width: 0;
+    min-height: 40px;
+    padding: 0 10px;
+    font-size: 12px;
+    border-radius: 13px;
+    white-space: nowrap;
+  }
+
+  .bankModalCard > .modalActions {
+    flex-direction: row;
+    justify-content: flex-end;
+    align-items: center;
+  }
+
+  .bankModalCard > .modalActions .secondaryBtn {
+    width: auto;
+    flex: 0 0 auto;
+    min-width: 86px;
+  }
+
+  .selectionItem {
+    padding: 14px;
+    border-radius: 16px;
+  }
+
+  .selectionItem .primaryBtn {
+    width: 100%;
+  }
+}
+
+@media (max-width: 520px) {
+  .wrapper {
+    padding: 14px;
+    gap: 14px;
+  }
+
+  .heroIntro,
+  .heroActionCard,
+  .card,
+  .modalCard,
+  .cashflowCard,
+  .budgetOverviewCard {
+    padding: 15px;
+    border-radius: 18px;
+  }
+
+  .heroIntro {
+    gap: 12px;
+  }
+
+  .heroHeading {
+    font-size: 31px;
+  }
+
+  .heroDescription {
+    font-size: 12.5px;
+  }
+
+  .heroDateCard {
+    width: 140px;
+    min-width: 140px;
+    padding: 15px;
+    border-radius: 18px;
+  }
+
+  .heroDateMonth {
+    font-size: 27px;
+  }
+
+  .heroDateMeta {
+    font-size: 12px;
+  }
+
+  .heroActionCard {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .heroActionTitle {
+    font-size: 18px;
+  }
+
+  .heroActionText {
+    font-size: 12.5px;
+  }
+
+  .heroActionButtons {
+    gap: 8px;
+  }
+
+  .iconBankBtnLarge {
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
+  }
+
+  .bankIconSvg {
+    width: 21px;
+    height: 21px;
+  }
+
+  .heroRequestBtn {
+    min-height: 48px;
+    padding: 0 14px;
+    font-size: 12.5px;
+  }
+
+  .cardTitle,
+  .cashflowTitle {
+    font-size: 19px;
+  }
+
+  .budgetOverviewHeader {
+    align-items: flex-start;
+  }
+
+  .budgetOverviewHeader .primaryBtn {
+    min-width: 145px;
+    font-size: 12px;
+    padding: 0 12px;
+  }
+
+  .budgetOverviewStats {
+    grid-template-columns: repeat(3, minmax(118px, 1fr));
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+
+  .budgetMiniCard {
+    min-width: 118px;
+  }
+
+  .budgetMiniCard strong {
+    font-size: 17px;
+  }
+
+  .cashflowStats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .cashflowStat strong {
+    font-size: 15px;
+  }
+
+  .cashflowTable {
+    min-width: 520px;
+  }
+
+  .pieChartBox {
+    height: 190px;
+  }
+
+  .pieSvg {
+    min-width: 340px;
+  }
+
+  .pieOuterLabel {
+    font-size: 10px;
+  }
+
+  .input,
+  .select {
+    min-height: 42px;
+    font-size: 13px;
+  }
+
+  .primaryBtn,
+  .secondaryBtn,
+  .dangerBtn,
+  .viewMoreBtn,
+  .scrollBtn,
+  .quickBtn {
+    min-height: 40px;
+    font-size: 13px;
+  }
+
+  /* Nylig betalt + Nylige overføringer */
+  .cardHeader {
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .filterBar {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(104px, 1fr));
+    gap: 8px;
+    width: auto;
+    min-width: 226px;
+    flex-shrink: 0;
+  }
+
+  .filterField {
+    min-width: 0;
+    width: 100%;
+    gap: 5px;
+    font-size: 11px;
+  }
+
+  .filterField .select {
+    min-height: 40px;
+    border-radius: 13px;
+    font-size: 12px;
+    padding: 0 10px;
+  }
+
+  .rowTitle {
+    font-size: 14px;
+  }
+
+  .rowMeta {
+    font-size: 12px;
+  }
+
+  .amountNegative,
+  .amountPositive {
+    font-size: 15px;
+  }
+
+  .modalBackdrop {
+    padding: 10px;
+  }
+
+  .modalCard {
+    max-height: calc(100dvh - 20px);
+    padding: 16px;
+    border-radius: 18px;
+  }
+
+  .modalTitle {
+    font-size: 20px;
+  }
+
+  /* Banktilkoblinger modal - vẫn giữ 2 cột */
+  .bankModalCard {
+    padding: 14px;
+    border-radius: 18px;
+  }
+
+  .bankModalCard .modalTitle {
+    font-size: 20px;
+  }
+
+  .bankModalCard .modalText {
+    font-size: 12px;
+    line-height: 1.45;
+  }
+
+  .bankGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .bankModalCard .card {
+    padding: 13px;
+    border-radius: 17px;
+    gap: 12px;
+  }
+
+  .bankModalCard .cardHeader {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+  }
+
+  .bankModalCard .cardTitle {
+    font-size: 16px;
+    line-height: 1.12;
+  }
+
+  .bankModalCard .cardSub {
+    font-size: 11.5px;
+    line-height: 1.4;
+  }
+
+  .bankModalCard .statusBadge {
+    min-height: 26px;
+    padding: 0 8px;
+    font-size: 10px;
+  }
+
+  .bankName {
+    font-size: 14px;
+  }
+
+  .bankInfo,
+  .muted {
+    font-size: 11px;
+    line-height: 1.4;
+  }
+
+  .balance {
+    font-size: 19px;
+  }
+
+  .bankModalCard .actions {
+    flex-direction: row;
+    gap: 7px;
+  }
+
+  .bankModalCard .secondaryBtn,
+  .bankModalCard .dangerBtn,
+  .bankModalCard .primaryBtn {
+    flex: 1;
+    width: auto;
+    min-width: 0;
+    min-height: 38px;
+    padding: 0 8px;
+    font-size: 11.5px;
+    border-radius: 12px;
+  }
+
+  .bankModalCard > .modalActions {
+    flex-direction: row;
+    justify-content: flex-end;
+  }
+
+  .bankModalCard > .modalActions .secondaryBtn {
+    width: auto;
+    flex: 0 0 auto;
+    min-width: 78px;
+  }
+}
+
+@media (max-width: 430px) {
+  .heroIntro {
+    flex-direction: column;
+  }
+
+  .heroDateCard {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .heroActionCard {
+    grid-template-columns: 1fr;
+  }
+
+  .heroActionButtons {
+    grid-column: 1;
+    grid-row: auto;
+    width: 100%;
+  }
+
+  .heroRequestBtn {
+    flex: 1;
+  }
+
+  .budgetOverviewHeader {
+    flex-direction: column;
+  }
+
+  .budgetOverviewHeader .primaryBtn {
+    width: 100%;
+  }
+
+  .cashflowStats {
+    grid-template-columns: 1fr;
+  }
+
+  /* Filter xuống dưới nhưng Måned và År vẫn nằm ngang */
+  .cardHeader {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filterBar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+    min-width: 0;
+    gap: 8px;
+  }
+
+  .filterField {
+    min-width: 0;
+    width: 100%;
+  }
+
+  /* Banktilkoblinger vẫn giữ 2 tài khoản ngang hàng */
+  .bankModalCard {
+    padding: 12px;
+  }
+
+  .bankModalCard .modalTitle {
+    font-size: 19px;
+  }
+
+  .bankModalCard .modalText {
+    font-size: 11.5px;
+  }
+
+  .bankGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .bankModalCard .card {
+    padding: 11px;
+    border-radius: 15px;
+    gap: 10px;
+  }
+
+  .bankModalCard .cardHeader {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 6px;
+  }
+
+  .bankModalCard .cardTitle {
+    font-size: 14.5px;
+    line-height: 1.15;
+  }
+
+  .bankModalCard .cardSub {
+    font-size: 10.5px;
+  }
+
+  .bankModalCard .statusBadge {
+    min-height: 23px;
+    padding: 0 7px;
+    font-size: 9px;
+  }
+
+  .bankName {
+    font-size: 12.5px;
+  }
+
+  .bankInfo,
+  .muted {
+    font-size: 10px;
+  }
+
+  .balance {
+    font-size: 16.5px;
+  }
+
+  .bankModalCard .actions {
+    flex-direction: row;
+    gap: 6px;
+  }
+
+  .bankModalCard .secondaryBtn,
+  .bankModalCard .dangerBtn,
+  .bankModalCard .primaryBtn {
+    flex: 1;
+    width: auto;
+    min-width: 0;
+    min-height: 34px;
+    padding: 0 6px;
+    font-size: 10px;
+    border-radius: 11px;
+  }
+
+  .bankModalCard > .modalActions {
+    flex-direction: row;
+    justify-content: flex-end;
+  }
+
+  .bankModalCard > .modalActions .secondaryBtn {
+    width: auto;
+    flex: 0 0 auto;
+    min-width: 72px;
   }
 }

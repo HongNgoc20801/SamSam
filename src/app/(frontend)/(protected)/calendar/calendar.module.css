@@ -160,7 +160,6 @@
   font-size: 14px;
 }
 
-/* Calendar card */
 .calendarShell {
   margin-top: 12px;
   height: calc(100dvh - 222px);
@@ -254,7 +253,7 @@
   min-height: 28px;
 }
 
-/* Toolbar */
+
 .toolbar {
   display: flex;
   align-items: center;
@@ -441,7 +440,6 @@
   background: #64748b !important;
 }
 
-/* Week/day event content */
 .timeEventRow {
   display: flex;
   align-items: center;
@@ -556,7 +554,6 @@
   border: 1px solid #e2e8f0;
 }
 
-/* Stats cards */
 .statsGrid {
   margin-top: 12px;
   display: grid;
@@ -604,7 +601,7 @@
   line-height: 1.15;
 }
 
-/* Modal */
+
 .modalBackdrop {
   position: fixed;
   inset: 0;
@@ -692,7 +689,7 @@
   padding-top: 4px;
 }
 
-/* Details modal */
+
 .detailWrap {
   padding: 18px;
 }
@@ -1008,9 +1005,6 @@
   filter: brightness(0.96);
 }
 
-/* =========================
-   Responsive: small laptop
-   ========================= */
 @media (max-width: 1120px) {
   .wrapper {
     padding: 18px 22px;
@@ -1205,9 +1199,6 @@
   }
 }
 
-/* =========================
-   Responsive: tablet / menu mode
-   ========================= */
 @media (max-width: 860px) {
   .wrapper {
     height: auto;
@@ -1544,9 +1535,7 @@
   }
 }
 
-/* =========================
-   Responsive: mobile
-   ========================= */
+
 @media (max-width: 640px) {
   .wrapper {
     padding: 16px;
@@ -1601,9 +1590,6 @@
   }
 }
 
-/* =========================
-   Responsive: small mobile
-   ========================= */
 @media (max-width: 520px) {
   .wrapper {
     padding: 14px;

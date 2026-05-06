@@ -380,7 +380,6 @@ export const Posts: CollectionConfig = {
             },
           })
 
-          // Only notify on "like", not on "unlike"
           if (familyId && !hasLiked) {
             await notifyFamily(req, {
               familyId,

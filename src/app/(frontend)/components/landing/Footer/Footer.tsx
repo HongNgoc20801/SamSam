@@ -9,9 +9,7 @@ export default function FooterWelcome() {
     <footer className={styles.footer}>
       <div className={styles.container}>
 
-        {/* TOP */}
         <div className={styles.top}>
-          {/* 1) Brand */}
           <div className={styles.brandCol}>
             <Link href="/" className={styles.brandLink} aria-label="Gå til forsiden">
               <Brand size="sm" />
@@ -27,14 +25,12 @@ export default function FooterWelcome() {
               <span className={styles.badge}>Brukervennlig</span>
             </div>
 
-            {/* Open hours */}
             <div className={styles.openHours}>
               <span className={styles.openLabel}>Åpningstider:</span>
               <span className={styles.openValue}>Man–Fre, 09:00–16:00</span>
             </div>
           </div>
 
-          {/* 2) Navigation */}
           <div className={styles.col}>
             <h4 className={styles.title}>Navigasjon</h4>
             <div className={styles.linkList}>
@@ -46,7 +42,6 @@ export default function FooterWelcome() {
             </div>
           </div>
 
-          {/* 3) Contact */}
           <div className={styles.col}>
             <h4 className={styles.title}>Kontakt</h4>
 
@@ -72,7 +67,6 @@ export default function FooterWelcome() {
             </div>
           </div>
 
-          {/* 4) Newsletter + Social */}
           <div className={styles.newsletter}>
             <h4 className={styles.title}>Hold deg oppdatert</h4>
             <p className={styles.small}>
@@ -100,7 +94,6 @@ export default function FooterWelcome() {
           </div>
         </div>
 
-        {/* BOTTOM */}
         <div className={styles.bottom}>
           <span>© {new Date().getFullYear()} SamSam. Alle rettigheter forbeholdt.</span>
 

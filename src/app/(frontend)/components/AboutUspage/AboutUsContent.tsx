@@ -1,4 +1,3 @@
-// src/app/(frontend)/about/page.tsx
 import { getPayload } from "payload";
 import config from "@payload-config";
 import styles from "./AboutUspage.module.css";
@@ -24,14 +23,10 @@ export default async function AboutPage() {
 
   return (
     <main className={styles.page}>
-      {/* HERO */}
       <section className={styles.hero}>
         <div className={styles.heroInner}>
           <div className={styles.heroText}>
-            {/* pill nhỏ */}
             <span className={styles.eyebrow}>VÅR REISE</span>
-
-            {/* tách "Om" và "SamSam" */}
             {(() => {
               const parts = (about.hero.title ?? "").trim().split(" ");
               const first = parts[0] ?? "";
@@ -57,7 +52,6 @@ export default async function AboutPage() {
         </div>
       </section>
 
-      {/* INTRO */}
       <section className={`${styles.section} ${styles.quoteSection}`}>
         <div className={styles.container}>
           <h2 className={styles.h2}>{about.intro.title}</h2>
@@ -65,7 +59,6 @@ export default async function AboutPage() {
         </div>
       </section>
 
-      {/* MISSION + VISION */}
       <section className={styles.sectionAlt}>
         <div className={styles.container}>
           <div className={styles.grid2}>
@@ -81,7 +74,7 @@ export default async function AboutPage() {
         </div>
       </section>
 
-      {/* VALUES */}
+
       <section className={`${styles.section} ${styles.valuesSection}`}>
         <div className={styles.container}>
           <h2 className={styles.h2}>{about.values.title}</h2>
@@ -97,18 +90,16 @@ export default async function AboutPage() {
         </div>
       </section>
 
-      {/* STORY */}
       <section className={styles.storySection}>
         <div className={styles.container}>
           <div className={styles.storyCard}>
-            {/* LEFT: text */}
+
             <div className={styles.storyText}>
               {(() => {
                 const title = (about.story.title ?? "").trim();
                 const parts = title.split(" ");
-                const first = parts.slice(0, 2).join(" ");     // "Hvorfor vi"
-                const rest = parts.slice(2).join(" ");         // "startet SamSam"
-
+                const first = parts.slice(0, 2).join(" ");     
+                const rest = parts.slice(2).join(" ");         
                 return (
                   <h2 className={styles.storyTitle}>
                     {first} <span className={styles.storyTitleEm}>{rest}</span>
@@ -117,7 +108,7 @@ export default async function AboutPage() {
               })()}
 
               {String(about.story.content ?? "")
-                .split(/\n\s*\n/) // tách theo dòng trống (paragraph)
+                .split(/\n\s*\n/) 
                 .filter(Boolean)
                 .map((t, i) => (
                   <p
@@ -129,12 +120,9 @@ export default async function AboutPage() {
                 ))}
             </div>
 
-            {/* RIGHT: image */}
             <div className={styles.storyMedia}>
               <div className={styles.storyMediaBg}>
-                {/* Nếu bạn chưa có story image từ CMS thì để placeholder vẫn đẹp */}
                 <div className={styles.storyFrame}>
-                  {/* Nếu sau này bạn có storyImageUrl thì thay placeholder bằng <img .../> */}
                   <div className={styles.storyImgPlaceholder} />
                 </div>
               </div>
@@ -143,7 +131,6 @@ export default async function AboutPage() {
         </div>
       </section>
 
-      {/* COMMITMENT */}
       <section className={styles.section}>
         <div className={styles.container}>
           <h2 className={styles.h2}>{about.commitment.title}</h2>
@@ -155,7 +142,6 @@ export default async function AboutPage() {
         </div>
       </section>
 
-      {/* CTA */}
       <section className={styles.ctaSection}>
         <div className={styles.container}>
           <div className={styles.ctaCard}>

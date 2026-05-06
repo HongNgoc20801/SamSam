@@ -78,7 +78,6 @@ type Child = {
     conditions?: { value: string }[]
     medications?: { value: string }[]
     notesShort?: string
-    emergencyInstruction?: string
     gp?: {
       name?: string
       clinic?: string
@@ -282,12 +281,13 @@ export default async function ChildDetailPage({
   const allergies = child?.medical?.allergies?.map((x) => x.value).filter(Boolean) ?? []
   const conditions = child?.medical?.conditions?.map((x) => x.value).filter(Boolean) ?? []
   const medications = child?.medical?.medications?.map((x) => x.value).filter(Boolean) ?? []
+  const shortNote = child.medical?.notesShort?.trim() || ''
 
   const hasMedicalAlert =
     allergies.length > 0 ||
     conditions.length > 0 ||
     medications.length > 0 ||
-    Boolean(child.medical?.emergencyInstruction || child.medical?.notesShort)
+    Boolean(shortNote)
 
   const emergency = Array.isArray(child.emergencyContacts) ? child.emergencyContacts : []
   const primary = emergency.find((c) => c.isPrimary) || emergency[0]
@@ -303,9 +303,9 @@ export default async function ChildDetailPage({
       <header className={styles.topbar}>
         <div className={styles.breadcrumb}>
           <Link href="/child-info" className={styles.backBtn}>
-          <ArrowLeft size={18} />
-          <span>{t.childDetail.back}</span>
-        </Link>
+            <ArrowLeft size={18} />
+            <span>{t.childDetail.back}</span>
+          </Link>
 
           <span className={styles.bcSep}>/</span>
           <span className={styles.bcStrong}>{child.fullName}</span>
@@ -514,12 +514,12 @@ export default async function ChildDetailPage({
               </div>
             </div>
 
-            {child.medical?.emergencyInstruction || child.medical?.notesShort ? (
+            {shortNote ? (
               <div className={styles.emergencyInstructionBox}>
                 <AlertTriangle size={16} />
                 <div>
-                  <strong>{t.childDetail.emergencyInstruction}</strong>
-                  <p>{child.medical?.emergencyInstruction || child.medical?.notesShort}</p>
+                  <strong>{t.childDetail.shortNote}</strong>
+                  <p>{shortNote}</p>
                 </div>
               </div>
             ) : null}
@@ -662,13 +662,8 @@ export default async function ChildDetailPage({
               </div>
 
               <div className={styles.kvRow}>
-                <div className={styles.kvK}>{t.childDetail.emergencyInstruction}</div>
-                <div className={styles.kvV}>{child.medical?.emergencyInstruction || '—'}</div>
-              </div>
-
-              <div className={styles.kvRow}>
                 <div className={styles.kvK}>{t.childDetail.shortNote}</div>
-                <div className={styles.kvV}>{child.medical?.notesShort || '—'}</div>
+                <div className={styles.kvV}>{shortNote || '—'}</div>
               </div>
 
               <div className={styles.hr} />

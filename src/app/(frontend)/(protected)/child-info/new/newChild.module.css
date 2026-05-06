@@ -146,7 +146,6 @@
   border: 2px solid #ffffff;
 }
 
-/* ===== Main content ===== */
 
 .content {
   grid-column: 2;
@@ -217,7 +216,7 @@
     0 2px 8px rgba(15, 23, 42, 0.025);
 }
 
-/* ===== Basic ===== */
+
 
 .basicGrid {
   display: grid;
@@ -307,7 +306,6 @@
   cursor: pointer;
 }
 
-/* ===== Grid helpers ===== */
 
 .grid2 {
   display: grid;
@@ -325,7 +323,7 @@
   grid-column: 2 / -1;
 }
 
-/* ===== Fields ===== */
+
 
 .field {
   display: grid;
@@ -398,7 +396,7 @@
   margin: 2px 0;
 }
 
-/* ===== Blood type ===== */
+
 
 .bloodRow {
   display: flex;
@@ -449,7 +447,7 @@
   font-weight: 800;
 }
 
-/* ===== Phone rows ===== */
+
 
 .phoneList {
   display: grid;
@@ -500,7 +498,7 @@
   cursor: pointer;
 }
 
-/* ===== Emergency ===== */
+
 
 .addContactBtn {
   height: 36px;
@@ -592,7 +590,6 @@
   cursor: pointer;
 }
 
-/* ===== Footer ===== */
 
 .bottomSpacer {
   display: none;
@@ -702,7 +699,6 @@
   cursor: not-allowed;
 }
 
-/* ===== Tablet + Mobile ===== */
 
 @media (max-width: 1180px) {
   .page {

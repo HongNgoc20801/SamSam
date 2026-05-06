@@ -1,9 +1,8 @@
-
 .section {
   padding-block: var(--section-y);
   padding-left: 0;
   padding-right: 0;
-  background:var(--section-soft);
+  background: var(--section-soft);
 }
 
 .container {
@@ -12,7 +11,6 @@
   padding-left: var(--px);
   padding-right: var(--px);
 }
-
 
 .layout {
   display: grid;
@@ -37,7 +35,6 @@
   margin-top: 40px;
 }
 
-
 .title {
   margin: 0;
   font-size: clamp(32px, 3.4vw, 44px);
@@ -59,15 +56,15 @@
   width: 74px;
   height: 6px;
   border-radius: 999px;
-  background: linear-gradient(90deg, #2c67f2, #7c3aed);
-  box-shadow: 0 10px 24px rgba(44, 103, 242, 0.22);
+  background: linear-gradient(90deg, #3a4a8a, #e5c76b);
+  box-shadow: 0 10px 24px rgba(229, 199, 107, 0.22);
 }
 
 .intro {
   margin: 0;
   font-size: 16px;
   line-height: 1.7;
-  color: #64748b;
+  color: rgba(15, 23, 42, 0.65);
   max-width: 62ch;
 }
 
@@ -82,31 +79,28 @@
   height: auto;
   display: block;
   border-radius: var(--radius-xl);
-  box-shadow: 0 18px 46px rgba(15, 23, 42, 0.12);
+  border: 1px solid rgba(229, 199, 107, 0.28);
+  box-shadow: 0 18px 46px rgba(58, 74, 138, 0.12);
 }
 
-/* closing line */
 .closing {
   margin: 10px 0 0;
   font-size: 18px;
   line-height: 1.6;
-  color: rgba(15, 23, 42, 0.92);
-  font-weight: 800;
+  color: #26356f;
+  font-weight: 850;
   max-width: 46ch;
 }
 
-/* =========================
-   Feature card
-   ========================= */
 .feature {
   display: flex;
   gap: 14px;
   align-items: flex-start;
 
-  padding: 14px 14px;
+  padding: 14px;
   border-radius: var(--radius-xl);
-  background: rgba(255, 255, 255, 0.82);
-  border: 1px solid rgba(15, 23, 42, 0.10);
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(58, 74, 138, 0.12);
 
   box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
   transition:
@@ -121,9 +115,9 @@
 
 .feature:hover {
   transform: translateY(-2px);
-  border-color: rgba(44, 103, 242, 0.28);
-  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.10);
-  background: rgba(255, 255, 255, 0.95);
+  border-color: rgba(229, 199, 107, 0.55);
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.1);
+  background: rgba(255, 255, 255, 0.96);
 }
 
 .icon {
@@ -134,9 +128,9 @@
   place-items: center;
   flex-shrink: 0;
 
-  color: #2c67f2;
-  background: rgba(44, 103, 242, 0.10);
-  border: 1px solid rgba(44, 103, 242, 0.22);
+  color: #3a4a8a;
+  background: rgba(58, 74, 138, 0.08);
+  border: 1px solid rgba(229, 199, 107, 0.5);
 }
 
 .featureBody {
@@ -156,11 +150,10 @@
   font-size: 15px;
   line-height: 1.65;
   margin: 0;
-  color: #475569;
+  color: rgba(15, 23, 42, 0.64);
   max-width: 60ch;
 }
 
-/* CTA */
 .linkBtn {
   margin-top: 12px;
   align-self: flex-start;
@@ -176,58 +169,56 @@
 
   font-weight: 850;
   font-size: 14px;
-  color: #330c59;
+  color: #3a4a8a;
 
-  background: rgba(255, 255, 255, 0.95);
-  border: 1px solid rgba(51, 12, 89, 0.70);
+  background: #ffffff;
+  border: 1.5px solid #e5c76b;
 
-  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.06);
+  box-shadow: 0 10px 22px rgba(58, 74, 138, 0.1);
   transition:
-    transform 0.15s ease,
-    background 0.15s ease,
-    border-color 0.15s ease,
-    box-shadow 0.15s ease;
+    transform 0.18s ease,
+    background 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    color 0.18s ease;
 }
 
 .linkBtn:hover {
-  transform: translateY(-1px);
-  background: #eaf205;
-  border-color: rgba(51, 12, 89, 0.95);
-  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.08);
+  transform: translateY(-2px);
+  background: rgba(229, 199, 107, 0.08);
+  color: #26356f;
+  border-color: #f2d98a;
+  box-shadow: 0 14px 28px rgba(58, 74, 138, 0.16);
 }
 
-/* =========================
-   TABLET: stack layout
-   LEFT ở trên, RIGHT bên dưới 2 cột
-   ========================= */
 @media (max-width: 1024px) {
   .layout {
-    grid-template-columns: 1fr;   /* LEFT trên, RIGHT dưới */
+    grid-template-columns: 1fr;
     gap: 22px;
+  }
+
+  .left {
+    margin-top: 0;
+  }
+
+  .right {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+    align-items: start;
+    margin-top: 0;
   }
 
   .imageWrap {
     max-width: 720px;
   }
 
-  /* ✅ Right thành grid 2 cột */
-  .right {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 14px;
-    align-items: start;
-  }
-
-  /* CTA xuống hàng cuối full width */
   .linkBtn {
     grid-column: 1 / -1;
     justify-self: start;
   }
 }
 
-/* =========================
-   MOBILE: everything 1 column
-   ========================= */
 @media (max-width: 640px) {
   .section {
     padding-block: 48px;
@@ -260,7 +251,6 @@
     line-height: 1.55;
   }
 
-  /* ✅ Right thành 1 cột */
   .right {
     grid-template-columns: 1fr;
     gap: 12px;
@@ -285,7 +275,6 @@
     line-height: 1.65;
   }
 
-  /* CTA full width */
   .linkBtn {
     width: 100%;
     justify-self: stretch;

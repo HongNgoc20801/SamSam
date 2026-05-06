@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 
-const AUTH_COLLECTION = 'customers' // đổi nếu slug khác
+const AUTH_COLLECTION = 'customers' 
 
 export default function LogoutButton() {
   const router = useRouter()
@@ -18,7 +18,7 @@ export default function LogoutButton() {
         credentials: 'include',
       })
     } finally {
-      // (tuỳ chọn) xóa dữ liệu nhớ login demo nếu bạn dùng
+     
       localStorage.removeItem('samsam_remember')
       localStorage.removeItem('samsam_email')
       localStorage.removeItem('samsam_password')

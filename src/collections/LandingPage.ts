@@ -1,4 +1,3 @@
-// collections/LandingPage.ts
 import type { CollectionConfig } from "payload";
 
 export const LandingPage: CollectionConfig = {

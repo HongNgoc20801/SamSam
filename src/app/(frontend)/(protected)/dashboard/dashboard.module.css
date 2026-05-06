@@ -134,7 +134,6 @@
   display: block;
 }
 
-/* Dropdowns */
 .joinPopover,
 .notifDropdown {
   position: absolute;
@@ -284,7 +283,6 @@
   font-size: 14px;
 }
 
-/* Empty child state */
 .childOnlyEmpty {
   min-height: calc(100vh - 150px);
   border: 1px solid var(--samsam-border);
@@ -360,7 +358,6 @@
   background: var(--samsam-primary-hover);
 }
 
-/* Layout */
 .dashboardLayout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 360px;
@@ -435,7 +432,6 @@
   font-size: 12px;
 }
 
-/* Decisions */
 .decisionList {
   display: grid;
   gap: 12px;
@@ -576,7 +572,6 @@
   background: var(--samsam-primary-hover);
 }
 
-/* Timeline */
 .timeline {
   position: relative;
   display: grid;
@@ -648,7 +643,6 @@
   align-self: center;
 }
 
-/* Quick actions */
 .quickGrid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -694,7 +688,6 @@
   background: var(--samsam-primary-hover);
 }
 
-/* Finance */
 .financeBalance {
   background: rgba(255, 255, 255, 0.09);
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -745,7 +738,6 @@
   font-weight: 850;
 }
 
-/* Events */
 .eventList {
   display: grid;
 }
@@ -814,7 +806,6 @@
   font-size: 14px;
 }
 
-/* Buttons */
 .primaryBtn,
 .secondaryBtn {
   min-height: 44px;
@@ -866,7 +857,6 @@
   background: #fee2e2;
 }
 
-/* Modal */
 .modalBackdrop {
   position: fixed;
   inset: 0;
@@ -954,7 +944,6 @@
   flex-wrap: wrap;
 }
 
-/* Forms */
 .custodyForm {
   display: grid;
   gap: 14px;
@@ -992,7 +981,6 @@
   box-shadow: 0 0 0 3px var(--samsam-primary-soft);
 }
 
-/* Custody card */
 .custodyCard {
   grid-column: 1 / -1;
   min-height: 410px;
@@ -1333,7 +1321,7 @@
   cursor: not-allowed;
 }
 
-/* Animations */
+
 .spin {
   animation: spin 0.9s linear infinite;
 }
@@ -1344,7 +1332,6 @@
   }
 }
 
-/* Responsive */
 @media (max-width: 1100px) {
   .dashboardLayout {
     grid-template-columns: 1fr;

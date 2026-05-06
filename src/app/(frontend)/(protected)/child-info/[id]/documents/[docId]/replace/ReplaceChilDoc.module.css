@@ -13,7 +13,7 @@
   margin: 0 auto;
 }
 
-/* ===== Header ===== */
+
 .header {
   display: grid;
   gap: 14px;
@@ -66,7 +66,6 @@
   line-height: 1.65;
 }
 
-/* ===== Card ===== */
 .card {
   overflow: hidden;
   border-radius: 26px;
@@ -111,7 +110,7 @@
   line-height: 1.5;
 }
 
-/* ===== Layout ===== */
+
 .contentGrid {
   display: grid;
   grid-template-columns: 360px minmax(0, 1fr);
@@ -148,7 +147,7 @@
   font-size: 13px;
 }
 
-/* ===== Current file ===== */
+
 .infoBox {
   padding: 14px;
   border-radius: 16px;
@@ -232,7 +231,7 @@
   font-weight: 750;
 }
 
-/* ===== Upload ===== */
+
 .uploadBox {
   min-height: 280px;
   border: 2px dashed #cbd5e1;
@@ -287,7 +286,7 @@
   line-height: 1.45;
 }
 
-/* ===== Error ===== */
+
 .error {
   padding: 13px 15px;
   border-radius: 16px;
@@ -298,7 +297,7 @@
   font-weight: 750;
 }
 
-/* ===== Actions ===== */
+
 .actions {
   display: flex;
   justify-content: flex-end;
@@ -350,7 +349,6 @@
   cursor: not-allowed;
 }
 
-/* ===== Responsive ===== */
 @media (max-width: 900px) {
   .contentGrid {
     grid-template-columns: 1fr;

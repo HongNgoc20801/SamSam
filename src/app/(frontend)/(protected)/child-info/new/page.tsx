@@ -89,6 +89,7 @@ export default function NewChildPage() {
   const [bloodType, setBloodType] = useState<(typeof BLOOD_ALL)[number]>('unknown')
   const [allergyText, setAllergyText] = useState('')
   const [conditionsText, setConditionsText] = useState('')
+  const [medicationsText, setMedicationsText] = useState('')
   const [medicalShort, setMedicalShort] = useState('')
 
   const [gpName, setGpName] = useState('')
@@ -116,6 +117,7 @@ export default function NewChildPage() {
         bloodType !== 'unknown' ||
         !!allergyText.trim() ||
         !!conditionsText.trim() ||
+        !!medicationsText.trim() ||
         !!medicalShort.trim() ||
         !!gpName.trim() ||
         !!gpClinic.trim() ||
@@ -133,6 +135,7 @@ export default function NewChildPage() {
       bloodType,
       allergyText,
       conditionsText,
+      medicationsText,
       medicalShort,
       gpName,
       gpClinic,
@@ -214,7 +217,7 @@ export default function NewChildPage() {
     const j = await res.json().catch(() => ({}))
     if (!res.ok) throw new Error(j?.message || t.newChild.uploadImageError)
 
-    return j
+    return j?.doc || j
   }
 
   function setPrimaryContact(index: number) {
@@ -357,6 +360,7 @@ export default function NewChildPage() {
 
       const allergies = parseTags(allergyText)
       const conditions = parseTags(conditionsText)
+      const medications = parseTags(medicationsText)
       const notesShort = medicalShort.trim()
 
       const gpPhoneClean = gpPhones
@@ -367,6 +371,7 @@ export default function NewChildPage() {
         bloodType !== 'unknown' ||
         allergies.length ||
         conditions.length ||
+        medications.length ||
         notesShort ||
         gpName.trim() ||
         gpClinic.trim() ||
@@ -378,6 +383,7 @@ export default function NewChildPage() {
         if (bloodType !== 'unknown') body.medical.bloodType = bloodType
         if (allergies.length) body.medical.allergies = allergies
         if (conditions.length) body.medical.conditions = conditions
+        if (medications.length) body.medical.medications = medications
         if (notesShort) body.medical.notesShort = notesShort.slice(0, 160)
 
         if (gpName.trim() || gpClinic.trim() || gpPhoneClean.length) {
@@ -681,6 +687,17 @@ export default function NewChildPage() {
                 />
                 <small>{t.newChild.tagsHelpShort}</small>
               </div>
+
+              <div className={styles.field}>
+                <label>{t.newChild.medications}</label>
+                <input
+                  value={medicationsText}
+                  onChange={(e) => setMedicationsText(e.target.value)}
+                  disabled={loading}
+                  placeholder={t.newChild.medicationsPlaceholder}
+                />
+                <small>{t.newChild.tagsHelpComma}</small>
+              </div>
             </div>
 
             <div className={styles.field}>
@@ -703,7 +720,11 @@ export default function NewChildPage() {
             <div className={styles.grid3}>
               <div className={styles.field}>
                 <label>{t.newChild.doctorName}</label>
-                <input value={gpName} onChange={(e) => setGpName(e.target.value)} disabled={loading} />
+                <input
+                  value={gpName}
+                  onChange={(e) => setGpName(e.target.value)}
+                  disabled={loading}
+                />
               </div>
 
               <div className={styles.field}>

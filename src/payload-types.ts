@@ -421,6 +421,15 @@ export interface Child {
           id?: string | null;
         }[]
       | null;
+    /**
+     * Example: inhaler, allergy medicine, EpiPen
+     */
+    medications?:
+      | {
+          value: string;
+          id?: string | null;
+        }[]
+      | null;
     notesShort?: string | null;
     gp?: {
       name?: string | null;
@@ -1297,6 +1306,12 @@ export interface ChildrenSelect<T extends boolean = true> {
               id?: T;
             };
         conditions?:
+          | T
+          | {
+              value?: T;
+              id?: T;
+            };
+        medications?:
           | T
           | {
               value?: T;

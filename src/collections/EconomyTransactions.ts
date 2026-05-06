@@ -239,7 +239,7 @@ async function upsertPaymentCalendarEvent(req: any, doc: any) {
     title: doc.title,
     notes: buildPaymentCalendarNotes(doc),
 
-    // đánh dấu đây là event sinh tự động từ economy
+    
     eventType: 'payment',
     source: 'economy-transaction',
     silentSync: true,

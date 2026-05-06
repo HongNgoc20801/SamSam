@@ -1,13 +1,8 @@
-/* AboutSection.module.css */
-
-/* =========================
-   SECTION + CONTAINER (sync with Hero tokens)
-   ========================= */
 .section {
   padding-block: var(--section-y);
   padding-left: 0;
   padding-right: 0;
-  background:  var(--section-base);
+  background: var(--section-base);
 }
 
 .container {
@@ -17,9 +12,6 @@
   padding-right: var(--px);
 }
 
-/* =========================
-   HEADER
-   ========================= */
 .header {
   text-align: center;
   margin-bottom: clamp(22px, 3.4vw, 44px);
@@ -33,9 +25,8 @@
   color: #0f172a;
   margin: 0 0 12px;
 
-  /* underline */
   padding-bottom: 16px;
-  background-image: linear-gradient(90deg, #2c67f2, #7c3aed);
+  background-image: linear-gradient(90deg, #3a4a8a, #e5c76b);
   background-repeat: no-repeat;
   background-position: 50% 100%;
   background-size: 78px 4px;
@@ -48,13 +39,10 @@
   margin: 0 auto;
   font-size: clamp(15.5px, 1.15vw, 18px);
   line-height: 1.75;
-  color: rgba(3, 3, 3, 0.65);
+  color: rgba(15, 23, 42, 0.65);
   text-wrap: balance;
 }
 
-/* =========================
-   LAYOUT
-   ========================= */
 .layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.85fr);
@@ -70,13 +58,10 @@
   min-width: 0;
 }
 
-/* =========================
-   LEFT: Challenges panel
-   ========================= */
 .panel {
   height: 100%;
-  background: rgba(255, 255, 255, 0.88);
-  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(58, 74, 138, 0.12);
   border-radius: var(--radius-xl);
   padding: clamp(16px, 1.6vw, 22px);
 
@@ -93,11 +78,10 @@
   font-weight: 850;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: rgba(59, 130, 246, 0.95);
+  color: #3a4a8a;
   margin-bottom: 16px;
 }
 
-/* Timeline */
 .timeline {
   display: grid;
   gap: 16px;
@@ -124,9 +108,9 @@
   display: grid;
   place-items: center;
 
-  background: rgba(59, 130, 246, 0.10);
-  border: 1px solid rgba(59, 130, 246, 0.16);
-  color: rgba(59, 130, 246, 0.95);
+  background: rgba(58, 74, 138, 0.08);
+  border: 1px solid rgba(229, 199, 107, 0.5);
+  color: #3a4a8a;
 }
 
 .tLine {
@@ -139,8 +123,8 @@
 
   background: linear-gradient(
     to bottom,
-    rgba(59, 130, 246, 0.26),
-    rgba(59, 130, 246, 0.06)
+    rgba(229, 199, 107, 0.65),
+    rgba(229, 199, 107, 0.08)
   );
   border-radius: 999px;
 }
@@ -163,15 +147,12 @@
   margin: 0;
 }
 
-/* =========================
-   RIGHT: Principles
-   ========================= */
 .rightLabel {
   font-size: 11px;
   font-weight: 850;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: rgba(59, 130, 246, 0.95);
+  color: #3a4a8a;
 
   margin: 6px 0 14px;
   padding-left: 6px;
@@ -185,16 +166,20 @@
 
 .pCard {
   position: relative;
-  background: rgba(255, 255, 255, 0.88);
+  background: rgba(255, 255, 255, 0.9);
   border-radius: var(--radius-xl);
   padding: 18px 18px 16px;
 
-  border: 1px solid rgba(15, 23, 42, 0.08);
+  border: 1px solid rgba(58, 74, 138, 0.12);
   box-shadow:
     0 14px 40px rgba(15, 23, 42, 0.06),
     0 2px 10px rgba(15, 23, 42, 0.04);
 
-  transition: transform 0.18s ease, box-shadow 0.18s ease;
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
+    border-color 0.18s ease;
+
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
 }
@@ -206,11 +191,13 @@
   width: 42px;
   border-radius: 999px;
   margin-bottom: 12px;
-  background: rgba(59, 130, 246, 0.55);
+  background: linear-gradient(90deg, #3a4a8a, #e5c76b);
 }
 
 .pCard:hover {
   transform: translateY(-2px);
+  border-color: rgba(229, 199, 107, 0.55);
+
   box-shadow:
     0 18px 50px rgba(15, 23, 42, 0.09),
     0 4px 14px rgba(15, 23, 42, 0.06);
@@ -230,9 +217,9 @@
   display: grid;
   place-items: center;
 
-  background: rgba(59, 130, 246, 0.10);
-  border: 1px solid rgba(59, 130, 246, 0.16);
-  color: rgba(59, 130, 246, 0.95);
+  background: rgba(58, 74, 138, 0.08);
+  border: 1px solid rgba(229, 199, 107, 0.5);
+  color: #3a4a8a;
   flex-shrink: 0;
 }
 
@@ -258,46 +245,42 @@
   color: rgba(15, 23, 42, 0.62);
 }
 
-/* Variants */
 .pVar1 {
   background: linear-gradient(
     180deg,
-    rgba(59, 130, 246, 0.06),
-    rgba(255, 255, 255, 0.88) 65%
+    rgba(58, 74, 138, 0.055),
+    rgba(255, 255, 255, 0.9) 65%
   );
-  border-color: rgba(59, 130, 246, 0.16);
+  border-color: rgba(58, 74, 138, 0.16);
 }
 
 .pVar2 {
   background: linear-gradient(
     180deg,
-    rgba(110, 64, 170, 0.06),
-    rgba(255, 255, 255, 0.88) 65%
+    rgba(229, 199, 107, 0.09),
+    rgba(255, 255, 255, 0.9) 65%
   );
-  border-color: rgba(110, 64, 170, 0.14);
+  border-color: rgba(229, 199, 107, 0.25);
 }
 
 .pVar3 {
   background: linear-gradient(
     180deg,
-    rgba(34, 197, 94, 0.05),
-    rgba(255, 255, 255, 0.88) 65%
+    rgba(58, 74, 138, 0.045),
+    rgba(255, 255, 255, 0.9) 65%
   );
-  border-color: rgba(34, 197, 94, 0.14);
+  border-color: rgba(58, 74, 138, 0.14);
 }
 
 .pVar4 {
   background: linear-gradient(
     180deg,
-    rgba(15, 23, 42, 0.03),
-    rgba(255, 255, 255, 0.88) 65%
+    rgba(229, 199, 107, 0.075),
+    rgba(255, 255, 255, 0.9) 65%
   );
-  border-color: rgba(15, 23, 42, 0.10);
+  border-color: rgba(229, 199, 107, 0.22);
 }
 
-/* =========================
-   CTA
-   ========================= */
 .sectionCTA {
   margin-top: 18px;
   padding-left: 6px;
@@ -309,35 +292,32 @@
   gap: 8px;
 
   font-weight: 850;
-  color: #330C59;
+  color: #3a4a8a;
   text-decoration: none;
 
-  padding: 10px 12px;
+  padding: 11px 16px;
   border-radius: var(--radius-lg);
 
-  background: rgba(255, 255, 255, 0.92);
-  border: 1px solid rgba(51, 12, 89, 0.70);
+  background: #ffffff;
+  border: 1.5px solid #e5c76b;
+  box-shadow: 0 10px 24px rgba(58, 74, 138, 0.1);
 
   transition:
-    transform 0.15s ease,
-    background 0.15s ease,
-    box-shadow 0.15s ease,
-    border-color 0.15s ease;
+    transform 0.18s ease,
+    background 0.18s ease,
+    box-shadow 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease;
 }
 
 .linkBtn:hover {
-  transform: translateY(-1px);
-  background: #ffffff;
-  border-color: rgba(51, 12, 89, 0.95);
-  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.10);
+  transform: translateY(-2px);
+  background: rgba(229, 199, 107, 0.08);
+  color: #26356f;
+  border-color: #f2d98a;
+  box-shadow: 0 14px 30px rgba(58, 74, 138, 0.16);
 }
 
-/* =========================
-   RESPONSIVE (sync with Hero)
-   Breakpoints: 1024 / 640 / 420
-   ========================= */
-
-/* Tablet */
 @media (max-width: 1024px) {
   .layout {
     grid-template-columns: 1fr;
@@ -349,13 +329,11 @@
     padding-left: 0;
   }
 
-  /* 2 cols vẫn OK nếu đủ chỗ */
   .grid {
     gap: 14px;
   }
 }
 
-/* Phone */
 @media (max-width: 640px) {
   .section {
     padding-block: 48px;
@@ -433,7 +411,6 @@
     line-height: 1.7;
   }
 
-  /* principles -> 1 col */
   .grid {
     grid-template-columns: 1fr;
     gap: 10px;
@@ -465,7 +442,6 @@
   }
 }
 
-/* Small phones */
 @media (max-width: 420px) {
   .title {
     font-size: 26px;

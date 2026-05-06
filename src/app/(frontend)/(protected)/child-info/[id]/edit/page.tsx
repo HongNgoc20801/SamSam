@@ -140,6 +140,7 @@ export default function EditChildPage() {
   const [bloodType, setBloodType] = useState<(typeof BLOOD_ALL)[number]>('unknown')
   const [allergyText, setAllergyText] = useState('')
   const [conditionsText, setConditionsText] = useState('')
+  const [medicationsText, setMedicationsText] = useState('')
   const [medicalShort, setMedicalShort] = useState('')
 
   const [gpName, setGpName] = useState('')
@@ -194,6 +195,7 @@ export default function EditChildPage() {
         setBloodType((j?.medical?.bloodType || 'unknown') as (typeof BLOOD_ALL)[number])
         setAllergyText(stringifyTags(j?.medical?.allergies))
         setConditionsText(stringifyTags(j?.medical?.conditions))
+        setMedicationsText(stringifyTags(j?.medical?.medications))
         setMedicalShort(j?.medical?.notesShort || '')
 
         setGpName(j?.medical?.gp?.name || '')
@@ -321,7 +323,10 @@ export default function EditChildPage() {
   function removeContact(index: number) {
     setEmergencyContacts((prev) => {
       const next = prev.filter((_, i) => i !== index)
-      if (next.length && !next.some((c) => c.isPrimary)) next[0].isPrimary = true
+
+      if (next.length && !next.some((c) => c.isPrimary)) {
+        next[0].isPrimary = true
+      }
 
       return next.length
         ? next
@@ -341,6 +346,7 @@ export default function EditChildPage() {
     setEmergencyContacts((prev) =>
       prev.map((c, i) => {
         if (i !== contactIndex) return c
+
         const phones = c.phones.filter((_, p) => p !== phoneIndex)
         return { ...c, phones: phones.length ? phones : [{ value: '' }] }
       }),
@@ -369,6 +375,7 @@ export default function EditChildPage() {
     })
 
     const hasAnyInput = normalized.filter((c) => c.name || c.phones.length)
+
     if (!hasAnyInput.length) return t.editChild.validationEmergencyRequired
 
     const allValid = hasAnyInput.every(
@@ -434,12 +441,14 @@ export default function EditChildPage() {
 
       const allergies = parseTags(allergyText)
       const conditions = parseTags(conditionsText)
+      const medications = parseTags(medicationsText)
       const notesShort = medicalShort.trim()
 
       body.medical = {
         bloodType,
         allergies,
         conditions,
+        medications,
         notesShort: notesShort ? notesShort.slice(0, 160) : undefined,
       }
 
@@ -501,29 +510,29 @@ export default function EditChildPage() {
     <div className={styles.screen}>
       <div className={styles.pageShell}>
         <aside className={styles.progressPanel}>
-      <div className={styles.breadcrumb}>
-  <button
-    type="button"
-    onClick={() => {
-      if (window.history.length > 1) {
-        router.back()
-      } else {
-        router.push(`/child-info/${id}`)
-      }
-    }}
-    className={styles.backBtn}
-  >
-    <ArrowLeft size={15} />
-    <span>{t.editChild.back ?? 'Back to Profile'}</span>
-  </button>
+          <div className={styles.breadcrumb}>
+            <button
+              type="button"
+              onClick={() => {
+                if (window.history.length > 1) {
+                  router.back()
+                } else {
+                  router.push(`/child-info/${id}`)
+                }
+              }}
+              className={styles.backBtn}
+            >
+              <ArrowLeft size={15} />
+              <span>{t.editChild.back ?? 'Back to Profile'}</span>
+            </button>
 
-  <span className={styles.breadcrumbSlash}>/</span>
-  <span className={styles.breadcrumbItem}>Children</span>
-  <span className={styles.breadcrumbSep}>›</span>
-  <span className={styles.breadcrumbItem}>{fullName || 'Child'}</span>
-  <span className={styles.breadcrumbSep}>›</span>
-  <strong className={styles.breadcrumbCurrent}>Edit Profile</strong>
-</div>
+            <span className={styles.breadcrumbSlash}>/</span>
+            <span className={styles.breadcrumbItem}>Children</span>
+            <span className={styles.breadcrumbSep}>›</span>
+            <span className={styles.breadcrumbItem}>{fullName || 'Child'}</span>
+            <span className={styles.breadcrumbSep}>›</span>
+            <strong className={styles.breadcrumbCurrent}>Edit Profile</strong>
+          </div>
 
           <div className={styles.progressOffset}>
             <div className={styles.progressCard}>
@@ -849,6 +858,17 @@ export default function EditChildPage() {
                   />
                   <div className={styles.helpText}>{t.editChild.tagsHelpShort}</div>
                 </div>
+
+                <div className={styles.field}>
+                  <label>{t.editChild.medications}</label>
+                  <input
+                    value={medicationsText}
+                    onChange={(e) => setMedicationsText(e.target.value)}
+                    disabled={loading}
+                    placeholder={t.editChild.medicationsPlaceholder}
+                  />
+                  <div className={styles.helpText}>{t.editChild.tagsHelpComma}</div>
+                </div>
               </div>
 
               <div className={styles.field}>
@@ -872,7 +892,11 @@ export default function EditChildPage() {
               <div className={styles.row2}>
                 <div className={styles.field}>
                   <label>{t.editChild.doctorName}</label>
-                  <input value={gpName} onChange={(e) => setGpName(e.target.value)} disabled={loading} />
+                  <input
+                    value={gpName}
+                    onChange={(e) => setGpName(e.target.value)}
+                    disabled={loading}
+                  />
                 </div>
 
                 <div className={styles.field}>
@@ -1028,9 +1052,11 @@ export default function EditChildPage() {
                                 setEmergencyContacts((prev) =>
                                   prev.map((x, i) => {
                                     if (i !== idx) return x
+
                                     const phones = x.phones.map((pp, j) =>
                                       j === pi ? { value: e.target.value } : pp,
                                     )
+
                                     return { ...x, phones }
                                   }),
                                 )
@@ -1053,7 +1079,12 @@ export default function EditChildPage() {
                   </div>
                 ))}
 
-                <button type="button" className={styles.smallBtnAdd} onClick={addContact} disabled={loading}>
+                <button
+                  type="button"
+                  className={styles.smallBtnAdd}
+                  onClick={addContact}
+                  disabled={loading}
+                >
                   {t.editChild.addEmergencyContact}
                 </button>
               </div>

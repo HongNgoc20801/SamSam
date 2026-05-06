@@ -683,7 +683,6 @@
   background: #ffe4e6;
 }
 
-/* Màn hình hẹp kiểu laptop chia đôi / có sidebar: bỏ cột progress để form rộng hơn */
 @media (max-width: 1250px) {
   .pageShell {
     width: calc(100% - 28px);
@@ -720,7 +719,6 @@
   }
 }
 
-/* Khi form vẫn còn rộng thì giữ row2 hai cột, chỉ xuống một cột khi thật sự hẹp */
 @media (max-width: 760px) {
   .row2 {
     grid-template-columns: 1fr;

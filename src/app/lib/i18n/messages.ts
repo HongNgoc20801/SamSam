@@ -545,26 +545,28 @@ reason: 'Årsak',
 
       addEmergencyContact: '+ Legg til kontakt',
 
-      /* ACTIONS */
+
       agreeText: 'Jeg forstår at denne informasjonen deles med familiegruppen.',
 
       cancel: 'Avbryt',
       saveProfile: 'Lagre profil',
       saving: 'Lagrer...',
 
-      /* ERRORS */
+
       uploadImageError: 'Kunne ikke laste opp bilde.',
       createError: 'Kunne ikke opprette profil.',
       unknownError: 'Noe gikk galt.',
       networkError: 'Nettverksfeil.',
 
-      /* VALIDATION */
+     
       validationNationalId: 'Fødselsnummer må inneholde 11 sifre.',
       validationEmergencyRequired: 'Legg til minst én nødkontakt.',
       validationEmergencyInvalid:
         'Hver nødkontakt må ha navn og gyldig telefonnummer.',
       validationPrimaryRequired: 'Velg én primærkontakt.',
       validationGpInvalid: 'Ugyldig telefonnummer for lege.',
+      medications: 'Medisiner',
+medicationsPlaceholder: 'f.eks. inhalator, allergimedisin',
     },
      childDetail: {
       back: ' Alle barn',
@@ -800,6 +802,8 @@ avatarAlt: 'Barn avatar', // en: 'Child avatar'
     'Hver nødkontakt må ha navn og minst ett gyldig telefonnummer.',
   validationPrimaryRequired: 'Velg én primær nødkontakt.',
   validationGpInvalid: 'Telefonnummer for fastlege er ugyldig.',
+  medications: 'Medisiner',
+medicationsPlaceholder: 'f.eks. inhalator, allergimedisin',
 },
 documentsPage: {
   children: 'Barn',
@@ -2261,6 +2265,8 @@ reason: 'Reason',
         'Each emergency contact needs a name and valid phone number.',
       validationPrimaryRequired: 'Select one primary contact.',
       validationGpInvalid: 'Doctor phone number is invalid.',
+      medications: 'Medications',
+medicationsPlaceholder: 'e.g. inhaler, allergy medicine',
     },
 
     childDetail: {
@@ -2497,6 +2503,8 @@ avatarAlt: 'Child avatar',
     'Each emergency contact must have a name and at least one valid phone number.',
   validationPrimaryRequired: 'Please select one primary emergency contact.',
   validationGpInvalid: 'Primary doctor phone number is invalid.',
+  medications: 'Medications',
+medicationsPlaceholder: 'e.g. inhaler, allergy medicine',
 },
 documentsPage: {
   children: 'Children',

@@ -28,22 +28,21 @@ export default function AboutSection({ data }: Props) {
 
   const prinsipper = data.prinsipper ?? [];
 
-  // Icon map (fallback theo index)
+
   const challengeIcons = [Baby, AlertTriangle, MessageCircleOff, Layers];
   const principleIcons = [ShieldCheck, FileClock, CalendarDays, Heart];
 
   return (
     <section className={styles.section} id="about">
       <div className={styles.container}>
-        {/* Header */}
+       
         <header className={styles.header}>
           <h2 className={styles.title}>{data.title}</h2>
           <p className={styles.subtitle}>{data.content}</p>
         </header>
 
-        {/* Content */}
+       
         <div className={styles.layout}>
-          {/* Left: Challenges */}
           <div className={styles.left}>
             <div className={styles.panel}>
               <div className={styles.panelLabel}>UTFORDRINGER VI LØSER</div>
@@ -78,7 +77,6 @@ export default function AboutSection({ data }: Props) {
             </div>
           </div>
 
-          {/* Right: Principles */}
           <div className={styles.right}>
             <div className={styles.rightLabel}>VÅRE STRUKTURELLE PRINSIPPER</div>
 
@@ -107,7 +105,6 @@ export default function AboutSection({ data }: Props) {
               })}
             </div>
 
-            {/* CTA nhỏ dẫn qua features/how-it-works */}
             <div className={styles.sectionCTA}>
               <a href="#how-it-works" className={styles.linkBtn}>
                 Se hvordan strukturen fungerer <ArrowRight size={16} />

@@ -26,9 +26,6 @@
   overflow: hidden;
 }
 
-/* =========================
-   HERO
-========================= */
 
 .hero {
   position: relative;
@@ -125,9 +122,6 @@
   color: #ffffff;
 }
 
-/* =========================
-   PANEL
-========================= */
 
 .panel {
   height: 100vh;
@@ -165,9 +159,7 @@
   line-height: 1.65;
 }
 
-/* =========================
-   FORM
-========================= */
+
 
 .form {
   width: 100%;
@@ -258,9 +250,6 @@
   background: rgba(148, 163, 184, 0.12);
 }
 
-/* =========================
-   PASSWORD
-========================= */
 
 .passwordSection {
   margin-top: 14px;
@@ -336,9 +325,6 @@
   color: var(--strongBlue);
 }
 
-/* =========================
-   CONFIRM PASSWORD
-========================= */
 
 .confirmState {
   margin-top: 14px;
@@ -366,9 +352,6 @@
   background: var(--dangerBg);
 }
 
-/* =========================
-   BUTTONS
-========================= */
 
 .primaryBtn,
 .secondaryBtn {
@@ -428,9 +411,7 @@
   text-align: center;
 }
 
-/* =========================
-   SCROLLBAR
-========================= */
+
 
 .panel::-webkit-scrollbar {
   width: 10px;
@@ -445,9 +426,7 @@
   border-radius: 999px;
 }
 
-/* =========================
-   DESKTOP LARGE
-========================= */
+
 
 @media (min-width: 1281px) {
   .page {
@@ -459,9 +438,7 @@
   }
 }
 
-/* =========================
-   TABLET / IPAD
-========================= */
+
 
 @media (min-width: 768px) and (max-width: 1024px) {
   .page {
@@ -503,10 +480,7 @@
   }
 }
 
-/* =========================
-   MOBILE / IPHONE
-   ẨN HERO
-========================= */
+
 
 @media (max-width: 767px) {
   .page {
@@ -581,9 +555,7 @@
   }
 }
 
-/* =========================
-   SMALL MOBILE
-========================= */
+
 
 @media (max-width: 480px) {
   .panelInner {

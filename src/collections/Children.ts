@@ -690,6 +690,15 @@ export const Children: CollectionConfig = {
           type: 'array',
           fields: [{ name: 'value', type: 'text', required: true }],
         },
+           {
+      name: 'medications',
+      label: 'Medications',
+      type: 'array',
+      admin: {
+        description: 'Example: inhaler, allergy medicine, EpiPen',
+      },
+      fields: [{ name: 'value', type: 'text', required: true }],
+    },
         {
           name: 'notesShort',
           label: 'Medical note (short)',
